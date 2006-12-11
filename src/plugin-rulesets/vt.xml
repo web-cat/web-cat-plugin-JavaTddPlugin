@@ -1,0 +1,130 @@
+<?xml version="1.0"?>
+<ruleset name="Virginia Tech Rules"
+    xmlns="http://pmd.sf.net/ruleset/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+    xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+  <description>
+    Contains custom PMD rules written at Virginia Tech, mostly
+    regarding JUnit tests.
+  </description>
+
+<!--
+    <rule name="JUnitTestsHaveAssertions"
+          message="A test case method should use one or more 'assert...()' methods to check that the desired behavior is actually occurring."
+          class="net.sourceforge.pmd.rules.XPathRule"
+	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitTestsHaveAssertions">
+      <description>
+      All JUnit test methods should contain at least one assertion.
+      </description>
+        <properties>
+        <property name="xpath">
+            <value>
+                <![CDATA[
+  //MethodDeclaration
+[starts-with(MethodDeclarator/@Image, 'test')]
+[not(descendant::StatementExpression/PrimaryExpression/PrimaryPrefix/Name
+        [starts-with(@Image, 'assert') or contains(@Image,'.assert')
+          or @Image = 'fail' or contains(@Image,'.fail')] )]
+[ancestor::ClassOrInterfaceDeclaration[
+    count( ExtendsList[
+        ClassOrInterfaceType/@Image='TestCase'
+        or ClassOrInterfaceType/@Image='junit.framework.TestCase']
+    ) = 1
+    ]]
+                ]]>
+            </value>
+        </property>
+        </properties>
+        <priority>2</priority>
+
+      <example>
+  <![CDATA[
+  import junit.framework.*;
+  public class Foo extends TestCase {
+   public void test1() {} // oops, no assertion!
+  }
+  ]]>
+      </example>
+      </rule>
+
+    <rule name="JUnitConstantAssertion"
+          message="This assertion uses only values known at compile time, so it cannot test any useful behavior exhibited by your code at run-time."
+          class="net.sourceforge.pmd.rules.XPathRule"
+	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
+      <description>
+      All assertEquals() or assertTrue() assertions in JUnit test methods
+      should contain one or more non-literal parameters.
+      </description>
+        <properties>
+        <property name="xpath">
+            <value>
+                <![CDATA[
+//StatementExpression/PrimaryExpression[
+  PrimaryPrefix/Name/@Image='assertTrue' or
+  PrimaryPrefix/Name/@Image='assertEquals']
+  [not(PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryPrefix/Name)]
+  [ancestor::ClassOrInterfaceDeclaration[
+    count( ExtendsList[
+        ClassOrInterfaceType/@Image='TestCase'
+        or ClassOrInterfaceType/@Image='junit.framework.TestCase']
+    ) = 1
+    ]]
+                ]]>
+            </value>
+        </property>
+        </properties>
+        <priority>2</priority>
+
+      <example>
+  <![CDATA[
+  import junit.framework.*;
+  public class Foo extends TestCase {
+   public void test1() {
+       assertTrue( true );    // oops, does not test anything useful!
+       assertEquals( 0, 0 );  // oops, does not test anything useful!
+   }
+  }
+  ]]>
+      </example>
+      </rule>
+
+    <rule name="JUnitTestClassNeedsTestCase"
+          message="This JUnit test class does not contain any actual tests."
+          class="net.sourceforge.pmd.rules.XPathRule"
+	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitTestClassNeedsTestCase">
+      <description>
+      All JUnit test classes should contain a test method.
+      </description>
+        <properties>
+        <property name="xpath">
+            <value>
+                <![CDATA[
+//ClassOrInterfaceDeclaration[
+    count( ExtendsList[
+        ClassOrInterfaceType/@Image='TestCase'
+        or ClassOrInterfaceType/@Image='junit.framework.TestCase']
+    ) = 1
+    ][
+  not(descendant::MethodDeclaration[
+    starts-with(MethodDeclarator/@Image, 'test')])]
+                ]]>
+            </value>
+        </property>
+        </properties>
+        <priority>2</priority>
+
+      <example>
+  <![CDATA[
+  import junit.framework.*;
+  public class Foo extends TestCase {
+           // oops, no test cases!
+   }
+  }
+  ]]>
+      </example>
+      </rule>
+-->
+
+</ruleset>

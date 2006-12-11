@@ -1,0 +1,135 @@
+<?xml version="1.0"?>
+<ruleset name="Basic Rules (JavaTddPlugin version)"
+    xmlns="http://pmd.sf.net/ruleset/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+    xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+  <description>
+    The Basic Ruleset contains a collection of good practices which
+    everyone should follow.  This version of the ruleset
+    includes alternate messages from the main PMD
+    rulesets/basic.xml ruleset.
+  </description>
+
+  <rule ref="rulesets/basic.xml/EmptyCatchBlock"
+    message="The body of this catch block is empty, so the caught
+    exception will be thrown away with no action.  If this is what
+    you intend, please provide an appropriate comment inside the
+    braces.">
+    <properties>
+        <property name="allowCommentedBlocks" value="true"/>
+    </properties>
+  </rule>
+
+  <rule ref="rulesets/basic.xml/EmptyIfStmt"
+    message="The body of this if statement is empty. Make sure you do
+    not have a ; following the if by mistake.  Otherwise, there is
+    probably a more efficient way to write the code."/>
+
+  <rule ref="rulesets/basic.xml/EmptyWhileStmt"
+    message="The body of this while loop is empty. Make sure you do
+    not have a semicolon (;) after the while by mistake.  If you do
+    not need to do anything in the body of the loop you can probably
+    omit the loop entirely."/>
+
+  <rule ref="rulesets/basic.xml/EmptyTryBlock"
+    message="The body of this try block is empty, so the entire
+    try/catch does nothing.  Add statements to the block or remove it
+    entirely."/>
+
+  <rule ref="rulesets/basic.xml/EmptyFinallyBlock"
+    message="The body of this finally block is empty.  Add statements
+    to the block or remove it entirely."/>
+
+  <rule ref="rulesets/basic.xml/EmptySwitchStatements"
+    message="This switch statement is empty.  Add cases with statements
+    or remove the switch entirely."/>
+
+  <rule ref="rulesets/basic.xml/JumbledIncrementer"
+    message="Check the update part of your inner for loop. It appears
+    that you are incrementing the wrong loop variable. It is either a
+    mistake, or it will be confusing to others."/>
+
+  <rule ref="rulesets/basic.xml/ForLoopShouldBeWhileLoop"
+    message="If a for loop does not have an initialization expression
+    or an update expression, you should use a while loop instead."/>
+
+  <rule ref="rulesets/basic.xml/UnnecessaryConversionTemporary"
+    message="Do not allocate a new object to convert a primitive
+    value to a string.  For example, use Integer.toString(x) instead
+    of new Integer(x).toString()."/>
+
+  <!-- OverrideBothEqualsAndHashcode: omitted, since students often
+    learn how to override equals() before they know anything about
+    the hashCode() method. -->
+
+  <rule ref="rulesets/basic.xml/DoubleCheckedLocking"/>
+
+  <rule ref="rulesets/basic.xml/ReturnFromFinallyBlock"
+    message="Do not place return statements in finally blocks, since
+    that may silently discard meaningful exceptions."/>
+
+  <rule ref="rulesets/basic.xml/EmptySynchronizedBlock"
+    message="This synchronized block is empty.  Add statements to the
+    block or remove it entirely."/>
+
+  <rule ref="rulesets/basic.xml/UnnecessaryReturn"
+    message="Including a return statement at the end of a method with
+    a void return type is unnecessary."/>
+
+  <rule ref="rulesets/basic.xml/EmptyStaticInitializer"
+    message="This static initializer block is empty.  Add statements
+    to the block or remove it entirely."/>
+
+  <rule ref="rulesets/basic.xml/UnconditionalIfStatement"
+    message="The condition of this if statement is always true or
+    always false, so you do not need the if statement at all."/>
+
+  <rule ref="rulesets/basic.xml/EmptyStatementNotInLoop"
+    message="A semicolon (;) on its own line or extra semicolons at
+    the end of a line represent empty statements. Empty statements are
+    unnecessary and should be removed."/>
+
+  <rule ref="rulesets/basic.xml/BooleanInstantiation"
+    message="Avoid use new to create Boolean objects.  Instead, use
+    the predefined objects Boolean.TRUE or Boolean.FALSE, or call
+    Boolean.valueOf() instead."/>
+
+  <rule ref="rulesets/basic.xml/UnnecessaryFinalModifier"
+    message="When a class has the final modifier, all the methods are
+    automatically final, so the final modifier on this method is
+    redundant."/>
+
+  <rule ref="rulesets/basic.xml/CollapsibleIfStatements"
+    message="These two if statements should be combined into one using
+     &amp;&amp;."/>
+
+  <rule ref="rulesets/basic.xml/UselessOverridingMethod"
+    message="The body of this overriding method does not add any
+    behavior--it only calls the inherited version.  If you want the
+    method to behave differently than in the parent class, change the
+    body.  Otherwise, remove it from the subclass."/>
+
+  <rule ref="rulesets/basic.xml/ClassCastExceptionWithToArray"/>
+  <rule ref="rulesets/basic.xml/AvoidDecimalLiteralsInBigDecimalConstructor"/>
+  <rule ref="rulesets/basic.xml/UselessOperationOnImmutable"/>
+
+  <rule ref="rulesets/basic.xml/MisplacedNullCheck"
+    message="The null check in this condition is in the wrong place;
+    if the variable is null, there will be a NullPointerException.
+    Consider re-ordering the expressions in your condition."/> 
+
+  <rule ref="rulesets/basic.xml/UnusedNullCheckInEquals"
+    message="After checking an object reference for null, you should
+    invoke equals() on that object rather than passing it to another
+    object's equals() method."/>
+
+  <!-- AvoidThreadGroup: omitted for simplicity ... -->
+
+  <rule ref="rulesets/basic.xml/BrokenNullCheck"
+    message="This conditional expression will produce a
+    NullPointerException.  You may have used || instead of &amp;&amp;
+    or vice versa."/>
+
+</ruleset>

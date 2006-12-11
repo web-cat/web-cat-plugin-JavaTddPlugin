@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<ruleset name="Unused Code Rules (JavaTddPlugin version)"
+    xmlns="http://pmd.sf.net/ruleset/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+    xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+  <description>
+    Detects when a private field is declared and/or assigned a value,
+    but not used.  This version of the ruleset includes alternate
+    messages from the main PMD rulesets/unusedcode.xml ruleset.
+  </description>
+
+  <rule ref="rulesets/unusedcode.xml/UnusedPrivateField"
+    message="Your private field ''{0}'' is never used, so it appears
+     to be unnecessary."/>
+  <rule ref="rulesets/unusedcode.xml/UnusedLocalVariable"
+    message="Your local variable ''{0}'' is never used, so it appears
+     to be unnecessary."/>
+  <rule ref="rulesets/unusedcode.xml/UnusedPrivateMethod"
+    message="Your private method ''{0}'' is never used, so it appears
+     to be unnecessary."/>
+  <!--rule ref="rulesets/unusedcode.xml/UnusedFormalParameter"
+    message="Your formal parameter ''{0}'' is never used, so it appears
+     to be unnecessary."/-->
+
+</ruleset>

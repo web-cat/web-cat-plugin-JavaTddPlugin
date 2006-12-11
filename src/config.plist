@@ -1,0 +1,325 @@
+{
+    name             = "JavaTDD";
+    displayableName  = "TDD Java all-in-one grader";
+    version.major    = 2;
+    version.minor    = 4;
+    version.revision = 4;
+    version.date     = 20061017;
+    autoPublish      = true;
+    requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
+                         PMDForPlugins, CheckstyleForPlugins );
+    provider         = "Virginia Tech Computer Science";
+    provider.url     = "http://web-cat.cs.vt.edu/updates";
+    license          = "GNU General Public License v.2";
+    license.url      = "http://www.gnu.org/copyleft/gpl.html";
+    copyright        = "(c) 2006 Virginia Tech Department of Computer Science";
+    info.url         = "http://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin";
+    history.url      = "http://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin/ChangeHistory";
+    executable = execute.pl;
+    interpreter.prefix = "${PerlForPlugins.perl.exe}";
+    author     = "Stephen Edwards (edwards@cs.vt.edu)";
+    authorUid  = edwards;
+    languages  = ( { name = Java; version = 1.4.2; },
+                   { name = Java; version = 1.5.0; } );
+    description = "This \"all-in-one\" plug-in is designed to provide full
+        processing and feedback generation for Java assignments where
+        students write their own JUnit test cases.
+        It includes ANT-based compilation, JUnit processing of student-written
+        tests, support for instructor-written reference tests, PMD and
+        Checkstyle analysis, and Clover-based tracking of code coverage
+        during student testing.";
+    timeoutMultiplier = 2;
+    timeoutInternalPadding = 400;
+    assignmentOptions = (
+        {
+            property    = testCases;
+            type        = fileOrDir;
+            fileTypes   = ( java );
+            name        = "JUnit Reference Test Class(es)";
+            description =
+  "A Java source file (or directory of source files) containing JUnit tests
+  to run against student code to assess completeness of problem coverage.
+  If you select a single Java file, it must contain a JUnit test class
+  declared in the default package.  If you select a directory, it should
+  contain JUnit test classes arranged in subdirectories according to their
+  Java package declarations.  If you make no selection, an empty set of
+  instructor reference tests will be used instead.";
+        },
+        {
+            property    = assignmentJar;
+            type        = fileOrDir;
+            fileTypes   = ( jar );
+            name        = "Supplemental Classes for Assignment";
+            description =
+  "A jar file (or a directory of class files in subdirs reflecting their
+  package structure, or a directory of multiple jar files) containing
+  precompiled classes to add to the classpath when compiling and running
+  submissions <b>for this assignment</b>.  If you want to apply the same
+  jar settings to many assignments, use the \"Supplemental Classes\" setting
+  in the \"Reusable Configuration Options\" section instead.  If you have
+  multiple jars to provide, place them all in the same directory in your
+  Web-CAT file space and then select the whole directory.";
+        },
+        {
+            property    = localFiles;
+            type        = fileOrDir;
+            name        = "Data Files for Student";
+            description =
+  "A file (or a directory of files) to place in the student's current working
+  directory when running his/her tests and when running reference tests.  The
+  file you select (or the entire contents of the directory you select) will be
+  copied into the current working directory during grading so that
+  student-written and instructor-written test cases can read and/or write to
+  the file(s).  The default is to copy no files.";
+        }
+    );
+    optionCategories = (
+        "Java Settings",
+        "Scoring Settings",
+        "Static Analysis",
+	"Feedback Settings",
+        "Script Developer"
+    );
+    options = (
+        {
+            property    = usingBlueJ;
+            type        = boolean;
+            default     = false;
+            name        = "Using BlueJ";
+            disable     = true;
+ 	    category    = "Java Settings";
+            description =
+  "Set to true if submissions use a BlueJ project structure instead of a
+  traditional Java, Eclipse, or ANT project structure.  BlueJ submissions
+  include an extra subdirectory level, so that the root of the Java package
+  hierarchy within a student's jar file is not the root of the jar file
+  itself.";
+        },
+        {
+            property    = javaSourceVersion;
+            type        = listChoice;
+            choices     = ( { value = 1.3; },
+			    { value = 1.4; },
+			    { value = 1.5; } );
+            default     = 1.5;
+            name        = "Java Source Compatibility";
+ 	    category    = "Java Settings";
+            description =
+  "The Java source compatibility version to use when compiling student code
+  (used with <code>javac's -source</code> command line argument).";
+        },
+        {
+            property    = useAssertions;
+            type        = boolean;
+            default     = true; 
+            name        = "Use Java Assertions";
+ 	    category    = "Java Settings";
+            description =
+  "Enable Java assertions during execution.  When set to false, assertions
+  in student or instructor-provided code will be treated as non-executable
+  (no-op's).";
+        },
+        {
+            property    = useDefaultJar;
+            type        = boolean;
+            default     = true;
+            name        = "Use Built-in Jar";
+ 	    category    = "Java Settings";
+            description =
+  "Set to true to have a set of built-in jars containing Virginia Tech
+  cs1705/cs1706 classes placed on the classpath for assignments.  Set to
+  false to omit these jars from the classpath.";
+        },
+        {
+            property    = classpathJar;
+            type        = fileOrDir;
+            fileTypes   = ( jar );
+            name        = "Predefined Classes";
+ 	    category    = "Java Settings";
+            description =
+  "A jar file (or a directory of class files in subdirs reflecting their
+  package structure, or a directory of multiple jar files) containing
+  precompiled classes to add to the classpath when compiling and running
+  submissions.  Use this setting if you'd like to share the same jar(s)
+  across several assignments.  If you have multiple jars to provide,
+  place them all in the same directory in your Web-CAT file space and
+  then select the whole directory.";
+        },
+        {
+            property    = policyFile;
+            advanced    = true;
+            type        = file;
+            fileTypes   = ( policy );
+            name        = "Java Security Policy";
+ 	    category    = "Java Settings";
+            description = "A Java security policy file used to limit
+                           actions on student programs at run-time.  Leave
+                           unset to use the built-in default, which plugs
+                           most security holes and prevents any file system
+                           access outside the subtree rooted at the program's
+                           working directory.";
+        },
+        {
+            property    = allStudentTestsMustPass;
+            type        = boolean;
+            default     = false;
+            name        = "All Student Tests Must Pass";
+ 	    category    = "Scoring Settings";
+            description =
+  "If you are truly following test-driven development practices, then no code
+  is ever released until all of its unit tests pass.  If this option is set to
+  true, students will not receive a non-zero score or receive further
+  assessment feedback unless all student tests pass.  If this option is not
+  set, then students may continue to proceed even if some student-written
+  tests fail  The student's correctness/testing score is multiplied by the
+  proportion of their tests that pass.";
+        },
+        {
+            property    = studentsMustSubmitTests;
+            type        = boolean;
+            default     = true;
+            name        = "Students Must Submit Tests";
+ 	    category    = "Scoring Settings";
+            description =
+  "When set, this option requires all students to submit test cases for their
+  own code.  Submissions without test cases will received feedback to that
+  effect (and no more), as well as a zero score.  If you unset this option,
+  then student submissions will <b>not</b> be required to include
+  student-written test cases, and <b>only</b> the reference test pass rate
+  will be used for scoring (i.e., student code coverage and student test pass
+  rate will not be included in scoring).";
+        },
+        {
+            property    = coverageMetric;
+            advanced    = true;
+            type        = radioChoice;
+            name        = "Test Coverage Metric";
+ 	    category    = "Scoring Settings";
+            default     = 0;
+            description = "Choose the criterion used to measure how thoroughly
+                           a student's tests cover the corresponding code.";
+            choices     = ( { label = "Methods executed"; value = 0; },
+                            { label = "Statements executed"; value = 1; },
+                            { label = "Methods + decisions executed";
+                              value = 2; },
+                            { label = "Statements + decisions executed";
+                              value = 3; },
+                         { label = "Methods + statements + decisions executed";
+                              value = 4; }
+                          );
+        },
+        {
+            property    = checkstyleConfig;
+            advanced    = true;
+            type        = file;
+            fileTypes   = ( xml );
+            name        = "Checkstyle Configuration";
+ 	    category    = "Static Analysis";
+            description =
+  "An XML file containing a Checkstyle rule configuration (see the
+  <a href=\"http://checkstyle.sourceforge.net/\" target=\"_new\">Checksyle
+  documentation</a>).";
+        },
+        {
+            property    = pmdConfig;
+            advanced    = true;
+            type        = file;
+            fileTypes   = ( xml );
+            name        = "PMD Configuration";
+ 	    category    = "Static Analysis";
+            description =
+  "An XML file containing a set of PMD rules (see the
+  <a href=\"http://pmd.sourceforge.net/\" target=\"_new\">PMD
+  documentation</a>).";
+        },
+        {
+            property    = markupProperties;
+            advanced    = true;
+            type        = file;
+            fileTypes   = ( properties );
+            name        = "Static Analysis Scoring Scheme";
+ 	    category    = "Static Analysis";
+            description =
+  "A Java properties file containing the point deductions and limits to
+  use for messages generated by Checkstyle or PMD.  The point deductions
+  are specified in a fairly generic way so they can be used for many
+  assignments.  Deductions in the default scheme are typically 1, 2, or 5
+  'points', which are really simply relative weights.  Specify a scaling
+  factor below to adjust how these weights are translated into point
+  deductions for a student.";
+        },
+        {
+            property    = toolDeductionScaleFactor;
+            advanced    = true;
+            type        = double;
+            name        = "Static Analysis Deduction Scaling Factor";
+ 	    category    = "Static Analysis";
+            description =
+  "The <b>Static Analysis Scoring Scheme</b> above defines the point deductions
+  and limits to use for messages generated by Checkstyle or PMD in a generic
+  way, with most deductions in the default scheme being 1, 2, or 5 points.
+  Deductions in the static analysis scoring scheme are multiplied by this
+  factor to translate them into actual 'point deductions' shown to the
+  student.";
+        },
+        {
+            property    = hintsLimit;
+            type        = integer;
+            default     = 3;
+            name        = "Hints Limit";
+ 	    category    = "Feedback Settings";
+            description = "Maximum number of hints the
+                           student will receive from failed reference tests.";
+        },
+        {
+            property    = hideHintsWithin;
+            advanced    = true;
+            disable     = true;
+            type        = integer;
+            default     = 0;
+            name        = "Hide Hints";
+ 	    category    = "Feedback Settings";
+            description = "Suppress all hints from failed
+                           reference tests for submissions within this many
+                           days of the deadline (set to zero for hints to
+                           always be visible).";
+        },
+        {
+            property    = showHintsWithin;
+            advanced    = true;
+            disable     = true;
+            type        = integer;
+            default     = 0;
+            name        = "Show Hints";
+ 	    category    = "Feedback Settings";
+            description = "Show hints (up to the <i>Hints Limit</i>) from
+                           failed reference tests for submissions within this
+                           many days of the deadline (only useful when
+                           <i>Hide Hints</i> is non-zero, to restore hints
+                           as the deadline approaches).";
+        },
+	{
+            property    = wantPDF;
+            type        = boolean;
+            default     = false;
+            name        = "Generate PDF Printouts";
+ 	    category    = "Feedback Settings";
+            description =
+  "Set to true if you wish for a single PDF file containing a pretty-printed
+  source code printout to be generated from the student's code.  The printout
+  will be downloadable by students, and accessible by TAs during grading.";
+        },
+        {
+            property    = debug;
+            type        = integer;
+            advanced    = true;
+            default     = 0;
+            name        = "Debug Level";
+ 	    category    = "Script Developer";
+            description =
+  "Set to a non-zero value for the script to produce debugging output (the
+  larger the number, the greater the detail, up to about 5).  Debugging output
+  on each grading script run will be e-mailed to the instructor.";
+        }
+    );
+}

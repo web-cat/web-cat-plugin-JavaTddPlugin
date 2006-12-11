@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<ruleset name="Design Rules (JavaTddPlugin version)"
+    xmlns="http://pmd.sf.net/ruleset/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+    xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+  <description>
+    The Design Ruleset contains a collection of rules that find
+    questionable designs.  This version of the ruleset includes
+    alternate messages from the main PMD rulesets/design.xml ruleset.
+  </description>
+
+     <!--
+     SimplifyBooleanReturns
+     -->
+
+  <rule ref="rulesets/design.xml/SimplifyBooleanExpressions"
+    message="This boolean expression can be rewritten more simply.
+    Hint: x == true is the same as x.  Also, x == false is the same as
+    !x."/>
+
+     <!--
+     SwitchStmtsShouldHaveDefault
+     -->
+
+  <rule ref="rulesets/design.xml/AvoidReassigningParameters"
+    message="It is a bad idea to assign a new value to a formal
+    parameter within a method. Consider using a local variable
+    instead."/>
+
+     <!--
+     SwitchDensity
+     -->
+
+     <!--
+     ConstructorCallsOverridableMethod
+     -->
+
+     <!--
+     AccessorClassGeneration
+     -->
+
+     <!--
+     FinalFieldCouldBeStatic
+     -->
+
+     <!--
+     NonStaticInitializer
+     -->
+
+     <!--
+     DefaultLabelNotLastInSwitchStmt
+     -->
+
+     <!--
+     NonCaseLabelInSwitchStatement
+     -->
+
+     <!--
+     BadComparison
+     -->
+
+  <rule ref="rulesets/design.xml/EqualsNull"
+    message="When comparing an object reference to the value null you
+    want to use ==, not the .equals method."/>
+
+     <!--
+     ConfusingTernary
+     -->
+
+     <!--
+     InstantiationToGetClass
+     -->
+
+     <!--
+     IdempotentOperations
+     -->
+
+     <!--
+     AvoidProtectedFieldInFinalClass
+     -->
+
+     <!--
+     AvoidCallingFinalize
+     -->
+
+     <!--
+     AvoidInstanceofChecksInCatchClause
+     -->
+
+     <!--
+     AbstractClassWithoutAbstractMethod
+     -->
+
+     <!--
+     SimplifyConditional
+     -->
+
+  <rule ref="rulesets/design.xml/CompareObjectsWithEquals"
+    message="When comparing two objects you probably want to use the
+    .equals method, not the equality operator (==)."/>
+
+  <rule ref="rulesets/design.xml/UncommentedEmptyMethod"
+    message="This method does not contain any code. Should it be doing
+    something? Or can it be removed?"/>
+
+  <rule ref="rulesets/design.xml/UncommentedEmptyConstructor"
+    message="This constructor does not contain any code. Should it be
+    doing something? Or can it be removed?"/>
+
+</ruleset>

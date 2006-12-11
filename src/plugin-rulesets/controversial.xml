@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<ruleset name="Controversial Rules (JavaTddPlugin version)"
+    xmlns="http://pmd.sf.net/ruleset/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+    xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+  <description>
+    The Controversial Ruleset contains rules that, for whatever
+    reason, are considered controversial.  This version of the ruleset
+    includes only some of the controversial rules from the main PMD
+    rulesets/controversial.xml ruleset, and provides alternate messages.
+  </description>
+
+  <rule ref="rulesets/controversial.xml/AtLeastOneConstructor"
+    message="This class is missing a constructor definition. Every
+    class should define at least one constructor."/>
+
+  <rule ref="rulesets/controversial.xml/UnnecessaryParentheses"
+    message="The parentheses around your return value are not
+    necessary. You should probably remove them to avoid confusion."/>
+
+  <rule ref="rulesets/controversial.xml/SuspiciousOctalEscape"/>
+
+</ruleset>

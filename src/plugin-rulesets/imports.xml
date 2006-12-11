@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<ruleset name="Import Statement Rules (JavaTddPlugin version)"
+    xmlns="http://pmd.sf.net/ruleset/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+    xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+  <description>
+    These rules deal with different problems that can occur with a
+    class' import statements. This version of the ruleset includes
+    alternate messages from the main PMD rulesets/imports.xml ruleset.
+  </description>
+
+  <rule ref="rulesets/imports.xml/DuplicateImports"
+    message="This import statement duplicates the import performed by
+    an earlier statement. It is best to avoid importing the same
+    library class more than once."/>
+
+  <rule ref="rulesets/imports.xml/DontImportJavaLang"
+    message="The entire java.lang package is automatically imported
+    into every program. It is unnecessary to import it explicitly. You
+    should remove this import statement."/>
+
+  <rule ref="rulesets/imports.xml/UnusedImports"
+    message="The package or class imported by this statement is never
+    used. If you are not going to use the package or class you should
+    remove the import statement."/>
+
+</ruleset>
