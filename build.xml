@@ -1,0 +1,25 @@
+<project name="JavaTddPlugin" default="export.jar" basedir=".">
+
+  <target name="init"
+    description="Set the build date in the Properties file">
+    <tstamp/>
+    <exec executable="perl" failonerror="true">
+        <arg file="../DevTools/PlistToProperties.pl"/>
+        <arg value="src/config.plist"/>
+        <arg value="Properties"/>
+    </exec>
+    <propertyfile file="Properties"
+      comment="This file is automatically rewritten by ANT, so all formatting will be trashed.">
+      <entry key="version.date" value="${DSTAMP}"/>
+    </propertyfile>
+  </target>
+
+  <target name="export.jar"
+    depends="init"
+    description="Build a distributable jar file for this plug-in">
+    <property file="Properties"/>
+    <jar destfile="../../${ant.project.name}_${version.major}.${version.minor}.${version.revision}.jar"
+            basedir="src"/>
+  </target>
+
+</project>

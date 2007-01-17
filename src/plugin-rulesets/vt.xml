@@ -10,11 +10,10 @@
     regarding JUnit tests.
   </description>
 
-<!--
-    <rule name="JUnitTestsHaveAssertions"
+    <rule name="JUnit3TestsHaveAssertions"
           message="A test case method should use one or more 'assert...()' methods to check that the desired behavior is actually occurring."
           class="net.sourceforge.pmd.rules.XPathRule"
-	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitTestsHaveAssertions">
+	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnit3TestsHaveAssertions">
       <description>
       All JUnit test methods should contain at least one assertion.
       </description>
@@ -49,7 +48,42 @@
       </example>
       </rule>
 
-    <rule name="JUnitConstantAssertion"
+    <rule name="JUnit4TestsHaveAssertions"
+          message="A test case method should use one or more 'assert...()' methods to check that the desired behavior is actually occurring."
+          class="net.sourceforge.pmd.rules.XPathRule"
+	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnit4TestsHaveAssertions">
+      <description>
+      All JUnit 4.x test methods should contain at least one assertion.
+      </description>
+        <properties>
+        <property name="xpath">
+            <value>
+                <![CDATA[
+  //MethodDeclaration
+[parent::ClassOrInterfaceBodyDeclaration[
+    child::Annotation[descendant::Name/@Image = "Test"]
+]]
+[not(descendant::StatementExpression/PrimaryExpression/PrimaryPrefix/Name
+        [starts-with(@Image, 'assert') or contains(@Image,'.assert')
+          or @Image = 'fail' or contains(@Image,'.fail')] )]
+                ]]>
+            </value>
+        </property>
+        </properties>
+        <priority>2</priority>
+
+      <example>
+  <![CDATA[
+  import org.junit.*;
+  public class Foo {
+   @Test
+   public void test1() {} // oops, no assertion!
+  }
+  ]]>
+      </example>
+      </rule>
+
+    <rule name="JUnit3ConstantAssertion"
           message="This assertion uses only values known at compile time, so it cannot test any useful behavior exhibited by your code at run-time."
           class="net.sourceforge.pmd.rules.XPathRule"
 	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
@@ -63,6 +97,11 @@
                 <![CDATA[
 //StatementExpression/PrimaryExpression[
   PrimaryPrefix/Name/@Image='assertTrue' or
+  PrimaryPrefix/Name/@Image='assertFalse' or
+  PrimaryPrefix/Name/@Image='assertNotNull' or
+  PrimaryPrefix/Name/@Image='assertNull' or
+  PrimaryPrefix/Name/@Image='assertNotSame' or
+  PrimaryPrefix/Name/@Image='assertSame' or
   PrimaryPrefix/Name/@Image='assertEquals']
   [not(PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryPrefix/Name)]
   [ancestor::ClassOrInterfaceDeclaration[
@@ -81,6 +120,51 @@
   <![CDATA[
   import junit.framework.*;
   public class Foo extends TestCase {
+   public void test1() {
+       assertTrue( true );    // oops, does not test anything useful!
+       assertEquals( 0, 0 );  // oops, does not test anything useful!
+   }
+  }
+  ]]>
+      </example>
+      </rule>
+
+    <rule name="JUnit4ConstantAssertion"
+          message="This assertion uses only values known at compile time, so it cannot test any useful behavior exhibited by your code at run-time."
+          class="net.sourceforge.pmd.rules.XPathRule"
+	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
+      <description>
+      All assertEquals() or assertTrue() assertions in JUnit 4.x test methods
+      should contain one or more non-literal parameters.
+      </description>
+        <properties>
+        <property name="xpath">
+            <value>
+                <![CDATA[
+//StatementExpression/PrimaryExpression[
+  PrimaryPrefix/Name/@Image='assertTrue' or
+  PrimaryPrefix/Name/@Image='assertFalse' or
+  PrimaryPrefix/Name/@Image='assertNotNull' or
+  PrimaryPrefix/Name/@Image='assertNull' or
+  PrimaryPrefix/Name/@Image='assertNotSame' or
+  PrimaryPrefix/Name/@Image='assertSame' or
+  PrimaryPrefix/Name/@Image='assertEquals']
+  [not(PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryPrefix/Name)]
+  [ancestor::MethodDeclaration
+    [parent::ClassOrInterfaceBodyDeclaration[
+      child::Annotation[descendant::Name/@Image = "Test"]
+    ]]]
+                ]]>
+            </value>
+        </property>
+        </properties>
+        <priority>2</priority>
+
+      <example>
+  <![CDATA[
+  import org.junit.*;
+  public class Foo {
+   @Test
    public void test1() {
        assertTrue( true );    // oops, does not test anything useful!
        assertEquals( 0, 0 );  // oops, does not test anything useful!
@@ -125,6 +209,5 @@
   ]]>
       </example>
       </rule>
--->
 
 </ruleset>
