@@ -103,7 +103,7 @@
 
   <rule ref="rulesets/basic.xml/CollapsibleIfStatements"
     message="These two if statements should be combined into one using
-     &amp;&amp;."/>
+     &amp;amp;&amp;amp;."/>
 
   <rule ref="rulesets/basic.xml/UselessOverridingMethod"
     message="The body of this overriding method does not add any
@@ -129,7 +129,7 @@
 
   <rule ref="rulesets/basic.xml/BrokenNullCheck"
     message="This conditional expression will produce a
-    NullPointerException.  You may have used || instead of &amp;&amp;
+    NullPointerException.  You may have used || instead of &amp;amp;&amp;amp;
     or vice versa."/>
 
 </ruleset>
