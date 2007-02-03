@@ -12,9 +12,11 @@
     rulesets/controversial.xml ruleset, and provides alternate messages.
   </description>
 
+  <!-- Omitted, due to objectdraw conventions
   <rule ref="rulesets/controversial.xml/AtLeastOneConstructor"
     message="This class is missing a constructor definition. Every
     class should define at least one constructor."/>
+   -->
 
   <rule ref="rulesets/controversial.xml/UnnecessaryParentheses"
     message="The parentheses around your return value are not

@@ -103,10 +103,11 @@
 
   <rule ref="rulesets/design.xml/UncommentedEmptyMethod"
     message="This method does not contain any code. Should it be doing
-    something? Or can it be removed?"/>
+    something? Or can it be removed?  If you need to keep it, add a
+    comment to the body explaining why it is empty."/>
 
   <rule ref="rulesets/design.xml/UncommentedEmptyConstructor"
     message="This constructor does not contain any code. Should it be
-    doing something? Or can it be removed?"/>
+    doing something?  Add a comment to the body explaining why it is empty."/>
 
 </ruleset>

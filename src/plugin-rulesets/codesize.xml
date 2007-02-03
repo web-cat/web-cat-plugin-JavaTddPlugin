@@ -36,6 +36,10 @@
     this class is trying to represent more than one object. Could it
     be broken into several more cohesive classes? Alternatively, might
     it be better to replace a collection of fields with an ArrayList
-    or another collection class?"/>
+    or another collection class?">
+    <properties>
+        <property name="maxfields" value="30"/>
+    </properties>
+  </rule>
 
 </ruleset>
