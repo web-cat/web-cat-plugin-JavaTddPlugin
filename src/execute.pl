@@ -1910,7 +1910,7 @@ EOF
             $status{'instrFeedback'}->print( "\n");
         }
 
-        my @lines = linesFromFile( "$log_dir/instr-results.txt", 1000, 20 );
+        my @lines = linesFromFile( "$log_dir/instr-results.txt" );
         if ( defined @lines && $#lines >= 0 )
         {
             $status{'instrFeedback'}->print( "<pre>\n" );
@@ -1918,7 +1918,7 @@ EOF
             $status{'instrFeedback'}->print( "</pre>\n" );
         }
 
-        @lines = linesFromFile( "$log_dir/instr-out.txt", 1000, 20 );
+        @lines = linesFromFile( "$log_dir/instr-out.txt" );
         if ( defined @lines  && $#lines >= 0 )
         {
             $status{'instrFeedback'}->startFeedbackSection(
