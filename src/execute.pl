@@ -1168,6 +1168,7 @@ my %classToMarkupNoMap = ();
 sub translateHTMLFile
 {
     my $file = shift;
+    my $stripEmptyCoverage = shift;
     # print "translating $file\n";
 
     # Record class name
@@ -1216,7 +1217,7 @@ sub translateHTMLFile
     my @html = <HTML>;  # Slurp in the whole file
     close( HTML );
     my $reformatter = new Web_CAT::Clover::Reformatter(
-        \@comments, join( "", @html ) );
+        \@comments, $stripEmptyCoverage, join( "", @html ) );
     $reformatter->save( $file );
 }
 
@@ -1226,14 +1227,15 @@ sub translateHTMLFile
 sub processCloverDir
 {
     my $path = shift;
+    my $stripEmptyCoverage = shift;
 
-    # print "processing $path\n";
+    # print "processing $path, strip = $stripEmptyCoverage\n";
 
     if ( -d $path )
     {
         for my $file ( <$path/*> )
         {
-            processCloverDir( $file );
+            processCloverDir( $file, $stripEmptyCoverage );
         }
 
         # is the dir empty now?
@@ -1259,7 +1261,7 @@ sub processCloverDir
     else
     {
         # An HTML file to keep!
-        translateHTMLFile( $path );
+        translateHTMLFile( $path, $stripEmptyCoverage );
     }
 }
 
@@ -1527,51 +1529,6 @@ if ( $debug )
     print "\n", ( $time6 - $time5 ), " seconds\n";
 }
 
-if ( !$buildFailed ) # $can_proceed )
-{
-
-    # Delete unneeded files from the clover/ html dir
-    if ( -d "$log_dir/clover" )
-    {
-        processCloverDir( "$log_dir/clover" );
-    }
-
-    # If any classes in the default package, move them to correct place
-    my $defPkgDir = "$log_dir/clover/default-pkg";
-    if ( -d $defPkgDir )
-    {
-        for my $file ( <$defPkgDir/*> )
-        {
-            my $newLoc = $file;
-            if ( $newLoc =~ s,/default-pkg/,/,o )
-            {
-                rename( $file, $newLoc );
-            }
-        }
-        if ( !rmdir( $defPkgDir ) )
-        {
-            adminLog( "cannot delete empty directory '$defPkgDir': $!" );
-        }
-    }
-
-    if ( $debug > 1 )
-    {
-        print "Clover'ed classes (from HTML):\n";
-        foreach my $class ( keys %cloveredClasses )
-        {
-            print "\t$class\n";
-        }
-        print "\n";
-    }
-}
-
-my $time7 = time;
-if ( $debug )
-{
-    print "\n", ( $time7 - $time6 ), " seconds\n";
-}
-
-
 
 #=============================================================================
 # generate HTML version of student testing results
@@ -1689,6 +1646,57 @@ tested--hover your mouse over them to find out why.
 EOF
         $status{'feedback'}->endFeedbackSection;
     }
+}
+
+
+#=============================================================================
+# post-process generated HTML files
+#=============================================================================
+if ( !$buildFailed ) # $can_proceed )
+{
+
+    # Delete unneeded files from the clover/ html dir
+    if ( -d "$log_dir/clover" )
+    {
+        processCloverDir( "$log_dir/clover",
+            !defined( $status{'studentTestResults'} )
+            || !$status{'studentTestResults'}->hasResults
+            || !$status{'studentTestResults'}->testsExecuted );
+    }
+
+    # If any classes in the default package, move them to correct place
+    my $defPkgDir = "$log_dir/clover/default-pkg";
+    if ( -d $defPkgDir )
+    {
+        for my $file ( <$defPkgDir/*> )
+        {
+            my $newLoc = $file;
+            if ( $newLoc =~ s,/default-pkg/,/,o )
+            {
+                rename( $file, $newLoc );
+            }
+        }
+        if ( !rmdir( $defPkgDir ) )
+        {
+            adminLog( "cannot delete empty directory '$defPkgDir': $!" );
+        }
+    }
+
+    if ( $debug > 1 )
+    {
+        print "Clover'ed classes (from HTML):\n";
+        foreach my $class ( keys %cloveredClasses )
+        {
+            print "\t$class\n";
+        }
+        print "\n";
+    }
+}
+
+my $time7 = time;
+if ( $debug )
+{
+    print "\n", ( $time7 - $time6 ), " seconds\n";
 }
 
 

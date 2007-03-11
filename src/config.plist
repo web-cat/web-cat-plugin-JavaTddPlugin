@@ -3,8 +3,8 @@
     displayableName  = "TDD Java all-in-one grader";
     version.major    = 3;
     version.minor    = 0;
-    version.revision = 3;
-    version.date     = 20070301;
+    version.revision = 4;
+    version.date     = 20070308;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
