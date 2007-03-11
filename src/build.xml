@@ -325,7 +325,7 @@
     <taskdef name="pmd"
          classname="net.sourceforge.pmd.ant.PMDTask"
          classpathref="pmd.classpath"/>
-        <pmd rulesetfiles="${pmdConfigFile}"
+      <pmd rulesetfiles="${pmdConfigFile}"
          failonerror="false"
          failOnRuleViolation="false"
          targetjdk="${javaSourceVersion}">
@@ -334,7 +334,7 @@
         <fileset dir="${basedir}">
         <include name="**/*.java"/>
         </fileset>
-    </pmd>
+      </pmd>
     </target>
 
 
@@ -342,10 +342,11 @@
             unless="doNotDelete"
         description="removes unnecessary derived files">
     <delete includeEmptyDirs="true">
-        <fileset dir="${resultDir}" casesensitive="false">
+      <fileset dir="${resultDir}" casesensitive="false">
         <include name="studentbin/"/>
         <include name="instructorbin/"/>
-        </fileset>
+        <include name="coverage.db*"/> 
+      </fileset>
     </delete>
     </target>
 
