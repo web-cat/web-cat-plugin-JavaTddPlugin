@@ -1564,7 +1564,7 @@ if ( $status{'studentHasSrcs'}
         $status{'studentTestResults'}->allTestsPass );
 
     if ( $allStudentTestsMustPass
-         && $status{'studentTestResulst'}->testsFailed > 0 )
+         && $status{'studentTestResults'}->testsFailed > 0 )
     {
         $status{'feedback'}->print(
             "<p><b class=\"warn\">All of your tests "
