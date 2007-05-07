@@ -28,12 +28,13 @@ use XML::Smart;
 
 my @beautifierIgnoreFiles = ( '.java' );
 
-die "JAVA_HOME environment variable is not set"
-    if !defined( $ENV{JAVA_HOME} );
-# Make sure selected Java is at the head of the path ...
-$ENV{PATH} = "$ENV{JAVA_HOME}\\bin;" . $ENV{PATH};
+if ( defined( $ENV{JAVA_HOME} ) )
+{
+    # Make sure selected Java is at the head of the path ...
+    $ENV{PATH} = "$ENV{JAVA_HOME}\\bin;" . $ENV{PATH};
+}
 
-die "ANT_HOME environment variable is not set"
+die "ANT_HOME environment variable is not set! (Should come from ANTForPlugins)"
     if !defined( $ENV{ANT_HOME} );
 my $ANT = "ant";
 
