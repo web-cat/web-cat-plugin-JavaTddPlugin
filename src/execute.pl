@@ -174,7 +174,7 @@ my $testCasePathPattern;
         $cfg->setProperty( 'assignmentClassFiles', $path );
         if ( -d $path )
         {
-            $cfg->setProperty( 'assignmentClassDir', $path );       
+            $cfg->setProperty( 'assignmentClassDir', $path );
         }
     }
 }
@@ -188,7 +188,7 @@ my $testCasePathPattern;
         $cfg->setProperty( 'instructorClassFiles', $path );
         if ( -d $path )
         {
-            $cfg->setProperty( 'instructorClassDir', $path );       
+            $cfg->setProperty( 'instructorClassDir', $path );
         }
     }
 }
@@ -1331,21 +1331,21 @@ if ( !$buildFailed ) # $can_proceed )
         my $topLevelGradedElements = 1;
         if ( $coverageMetric == 1 )
         {
-            $topLevelGradedElements = 
+            $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{statements};
             $cfg->setProperty( "statElementsLabel", "Statements Executed" );
         }
         elsif ( $coverageMetric == 2 )
         {
-            $topLevelGradedElements = 
+            $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{methods}
                 + $clover->{coverage}{project}{metrics}{conditionals};
             $cfg->setProperty( "statElementsLabel",
                                "Methods and Conditionals Executed" );
         }
-        elsif ( $coverageMetric == 3 )  
+        elsif ( $coverageMetric == 3 )
         {
-            $topLevelGradedElements = 
+            $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{statements}
                 + $clover->{coverage}{project}{metrics}{conditionals};
             $cfg->setProperty( "statElementsLabel",
@@ -1353,14 +1353,14 @@ if ( !$buildFailed ) # $can_proceed )
         }
         elsif ( $coverageMetric == 4 )
         {
-            $topLevelGradedElements = 
+            $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{elements};
             $cfg->setProperty( "statElementsLabel",
                                "Methods/Statements/Conditionals Executed" );
         }
         else
         {
-            $topLevelGradedElements = 
+            $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{methods};
             $cfg->setProperty( "statElementsLabel", "Methods Executed" );
         }
@@ -1459,7 +1459,7 @@ if ( !$buildFailed ) # $can_proceed )
             }
             $gradedElements += $myElements;
             $gradedElementsCovered += $myElementsCovered;
-            
+
             $cfg->setProperty( "codeMarkup${numCodeMarkups}.elements",
                                $myElements );
             $cfg->setProperty( "codeMarkup${numCodeMarkups}.elementsCovered",
@@ -1558,7 +1558,7 @@ if ( $status{'studentHasSrcs'}
         $sectionTitle .=
             "<b class=\"warn\">($studentCasesPercent%)</b>";
     }
-    
+
     $status{'feedback'}->startFeedbackSection(
         $sectionTitle,
         ++$expSectionId,
@@ -1594,7 +1594,7 @@ if ( $status{'studentHasSrcs'}
 
     if ( $gradedElements > 0 ||
          ( defined $status{'studentTestResults'}
-           && $status{'studentTestResults'}->testsExecuted > 0 ) ) 
+           && $status{'studentTestResults'}->testsExecuted > 0 ) )
     {
         $codeCoveragePercent = ( $gradedElements == 0 ) ? 0
           : int( ( $gradedElementsCovered / $gradedElements ) * 100.0 + 0.5 );
@@ -1615,11 +1615,11 @@ if ( $status{'studentHasSrcs'}
             $sectionTitle .= "(100%)";
         }
         else
-        {        
+        {
             $sectionTitle .=
                 "<b class=\"warn\">($codeCoveragePercent%)</b>";
         }
-    
+
         $status{'feedback'}->startFeedbackSection(
             $sectionTitle, ++$expSectionId, 1 );
 
