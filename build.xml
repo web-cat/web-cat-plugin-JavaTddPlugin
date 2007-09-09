@@ -12,14 +12,88 @@
       comment="This file is automatically rewritten by ANT, so all formatting will be trashed.">
       <entry key="version.date" value="${DSTAMP}"/>
     </propertyfile>
+    <property file="Properties"/>
   </target>
 
   <target name="export.jar"
+    depends="init,build.java.jars"
+    description="Build a distributable jar file for this plug-in">
+    <jar destfile="../../${ant.project.name}_${version.major}.${version.minor}.${version.revision}.jar">
+      <manifest>
+        <attribute name="Specification-Title"
+          value="Web-CAT/JavaTddPlugin"/>
+        <attribute name="Specification-Version"
+          value="${version.major}.${version.minor}.${version.revision}"/>
+        <attribute name="Specification-Vendor"
+          value="http://web-cat.sourceforge.net/"/>
+      </manifest>
+      <fileset dir="src"/>
+      <fileset dir="." includes="${ant.project.name}Support.jar"/>
+    </jar>
+  </target>
+
+  <target name="build.java.jars"
     depends="init"
     description="Build a distributable jar file for this plug-in">
-    <property file="Properties"/>
-    <jar destfile="../../${ant.project.name}_${version.major}.${version.minor}.${version.revision}.jar"
-            basedir="src"/>
+    <jar destfile="${ant.project.name}Support.jar" basedir="bin">
+      <manifest>
+        <attribute name="Specification-Title"
+          value="Web-CAT/JavaTddPlugin/Support/Internal"/>
+        <attribute name="Specification-Version"
+          value="${version.major}.${version.minor}.${version.revision}"/>
+        <attribute name="Specification-Vendor"
+          value="http://web-cat.sourceforge.net/"/>
+      </manifest>
+    </jar>
+    <jar destfile="webcat-support-${version.major}.${version.minor}.jar">
+      <manifest>
+        <attribute name="Specification-Title"
+          value="Web-CAT/JavaTddPlugin/Support"/>
+        <attribute name="Specification-Version"
+          value="${version.major}.${version.minor}"/>
+        <attribute name="Specification-Vendor"
+          value="http://web-cat.sourceforge.net/"/>
+      </manifest>
+      <fileset dir="bin">
+         <include name="**/*.class"/>
+         <exclude name="net/sf/webcat/plugins/"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <target name="javadoc">
+    <tstamp>
+      <format property="updated.date" pattern="EEE, MMM d, yyyy"/>
+      <format property="updated.time" pattern="hh:mm aa z"/>
+    </tstamp>
+    <mkdir dir="api"/>
+    <javadoc
+        packagenames="net.sf.webcat,net.sf.webcat.annotations"
+        destdir="api"
+        author="true"
+        version="true"
+        use="true"
+        verbose="false"
+        useexternalfile="true"
+        source="1.5"
+        stylesheetfile="../../Web-CAT/javadoc.css"
+        windowtitle="JavaTddPlugin Documentation">
+      <classpath>
+        <fileset dir="c:/eclipse/plugins/org.junit4_4.1.0.1">
+          <include name="*.jar"/>
+        </fileset>
+      </classpath>
+      <sourcepath>
+        <dirset dir="." includes="java-src/"/>
+      </sourcepath>
+      <doctitle><![CDATA[<h2>JavaTddPlugin Documentation</h2>]]></doctitle>
+      <header><![CDATA[<em>Web-CAT Library: JavaTddPlugin Support</em>]]></header>
+      <bottom><![CDATA[Copyright &#169; 2007  Virginia Tech.]]></bottom>
+      <footer><![CDATA[Last updated: ${updated.date} &#149; ${updated.time}]]></footer>
+      <link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
+      <link href="http://www.junit.org/junit/javadoc/3.8.1/"/>
+    </javadoc>
+    <zip destfile="webcat-support-api.zip" basedir="api"/>
   </target>
 
 </project>
