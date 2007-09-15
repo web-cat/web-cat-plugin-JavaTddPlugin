@@ -249,6 +249,11 @@ public class HintingJUnitResultFormatter
                         hint = regex.matcher( hint ).replaceFirst( "" );
                     }
                 }
+
+                if ("null".equals(hint) || "".equals(hint))
+                {
+                    hint = null;
+                }
 //                output.write(
 //                     "explicit hint, after trimming: " + hint + "\n" );
 
