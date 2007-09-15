@@ -299,7 +299,7 @@
             size        = 40;
             default     = "*";
             name        = "Classes to Analyze";
-            category    = "Test Case Settings";
+            category    = "Static Analysis";
             description =
   "Specify the Java class names that should be included in Checkstyle and
   PMD analysis.  Only student classes with names that match the patterns you
@@ -313,7 +313,7 @@
             size        = 40;
             default     = "none";
             name        = "Classes to Exclude from Analysis";
-            category    = "Test Case Settings";
+            category    = "Static Analysis";
             description =
   "Specify Java class names that should <b>not</b> be processed by
   Checkstyle or PMD.  Any classes that match the \"Classes to Analyze\"
