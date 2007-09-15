@@ -1,4 +1,4 @@
-#!c:\perl\bin\perl.exe
+#!/usr/bin/perl
 #=============================================================================
 #   @(#)$Id$
 #-----------------------------------------------------------------------------
@@ -105,8 +105,6 @@ my $postProcessingTime = 20;
 # In the future, these could be set via parameters set in Web-CAT's
 # interface
 #-------------------------------------------------------
-#my $usingBlueJ        = $cfg->getProperty( 'usingBlueJ', 1 );
-#$usingBlueJ = ( $usingBlueJ =~ m/^(true|on|yes|y)$/i || $usingBlueJ > 0 );
 my $debug             = $cfg->getProperty( 'debug',      0 );
 my $hintsLimit        = $cfg->getProperty( 'hintsLimit', 3 );
 my $maxRuleDeduction  = $cfg->getProperty( 'maxRuleDeduction', $maxToolScore );
@@ -127,13 +125,75 @@ if ( !$studentsMustSubmitTests ) { $allStudentTestsMustPass = 0; }
 
 
 #=============================================================================
+# Transform simple java file patterns to
+#=============================================================================
+sub setClassPatternIfNeeded
+{
+    my $inProperty = shift || carp "incoming property name required";
+    my $outProperty = shift || carp "outgoing property name required";
+    my $useJavaExtension = shift;
+
+    if (!defined $useJavaExtension)
+    {
+        $useJavaExtension = 0;
+    }
+
+    my $inExtension  = $useJavaExtension ? ".class" : ".java";
+    my $outExtension = $useJavaExtension ? ".java"  : ".class";
+
+    my $value = $cfg->getProperty($inProperty);
+    if ( defined $value && $value ne "" )
+    {
+        my $wantAllDirs = ($value !~ m,/,);
+        my $pattern = undef;
+        foreach my $include (split(/[,\s]+/, $value))
+        {
+            if (defined($include) && $include ne "")
+            {
+                if ($include !~ m/^none$/io)
+                {
+                    if ($include =~ /\./)
+                    {
+                        $include =~ s/\Q$inExtension\E$/$outExtension/i;
+                    }
+                    else
+                    {
+                        $include .= $outExtension;
+                    }
+                    if ($wantAllDirs)
+                    {
+                        $include = "**/$include";
+                    }
+                }
+
+                if (defined $pattern)
+                {
+                    $pattern .= " $include";
+                }
+                else
+                {
+                    $pattern = $include;
+                }
+            }
+        }
+        if (defined $pattern)
+        {
+            $cfg->setProperty( $outProperty, $pattern );
+        }
+    }
+}
+
+
+#=============================================================================
 # Generate derived properties for ANT
 #=============================================================================
 # testCases
 my $scriptData = $cfg->getProperty( 'scriptData', '.' );
 $scriptData =~ s,/$,,;
 
-# testCases
+# testCases (reference test location and/or file name).
+# This first var needs to be visible for later pattern matching to remove
+# internal path names from student messages.
 my $testCasePathPattern;
 {
     my $testCasePath = "${script_home}/tests";
@@ -155,6 +215,17 @@ my $testCasePathPattern;
     }
     $testCasePathPattern = filePattern( $testCasePath );
 }
+
+# Set up other test case filtering patterns
+setClassPatternIfNeeded('refTestInclude', 'refTestClassPattern');
+setClassPatternIfNeeded('refTestExclude', 'refTestClassExclusionPattern');
+setClassPatternIfNeeded('studentTestInclude', 'studentTestClassPattern');
+setClassPatternIfNeeded('studentTestExclude',
+    'studentTestClassExclusionPattern');
+setClassPatternIfNeeded('staticAnalysisInclude', 'staticAnalysisSrcPattern', 1);
+setClassPatternIfNeeded('staticAnalysisExclude',
+    'staticAnalysisSrcExclusionPattern', 1);
+
 
 # useDefaultJar
 {
@@ -232,6 +303,16 @@ my $testCasePathPattern;
     }
 }
 
+# security.manager
+{
+    if ($debug >= 5)
+    {
+        $cfg->setProperty(
+            'security.manager',
+            'java.security.manager=net.sf.webcat.plugins.javatddplugin.'
+            . 'ProfilingSecurityManager' );
+    }
+}
 
 # markupProperties
 {
@@ -305,7 +386,13 @@ chdir( $working_dir );
 }
 
 
-print "working dir set to $working_dir\n" if $debug;
+if ($debug)
+{
+    print "working dir set to $working_dir\n";
+    print "JAVA_HOME = ", $ENV{JAVA_HOME}, "\n";
+    print "ANT_HOME  = ", $ENV{ANT_HOME}, "\n";
+    print "PATH      = ", $ENV{PATH}, "\n\n";
+}
 
 # localFiles
 {
@@ -343,7 +430,7 @@ my $time1        = time;
 
 if ( $callAnt )
 {
-    if ( $debug > 2 ) { $ANT .= " -v"; }
+    if ( $debug > 2 ) { $ANT .= " -d -v"; }
     my $cmdline = $shell . "$ANT -f \"$script_home/build.xml\" -l \"$antLog\" "
         . "-propertyfile \"$propfile\" \"-Dbasedir=$working_dir\" "
         . "2>&1 > " . File::Spec->devnull;
@@ -1097,8 +1184,11 @@ if ( !$buildFailed ) # $can_proceed )
 
     if ( $debug > 1 )
     {
-        print $messageStats->data( noheader  => 1,
-                                   nometagen => 1 );
+        my $msg = $messageStats->data( noheader  => 1, nometagen => 1 );
+        if (defined $msg)
+        {
+            print $msg;
+        }
     }
     foreach my $f ( keys %messages )
     {
@@ -1201,7 +1291,7 @@ sub translateHTMLFile
     }
     else
     {
-        print( STERR "Cannot locate code markup number for $className "
+        print( STDERR "Cannot locate code markup number for $className "
                . "in $sourceName\n" );
     }
     if ( $debug > 1 )
@@ -1573,7 +1663,7 @@ if ( $status{'studentHasSrcs'}
     }
 
     my @lines = linesFromFile( "$log_dir/student-results.txt" );
-    if ( defined @lines && $#lines >= 0 )
+    if ( $#lines >= 0 )
     {
         $status{'feedback'}->print( "<pre>\n" );
         $status{'feedback'}->print( @lines );
@@ -1581,7 +1671,7 @@ if ( $status{'studentHasSrcs'}
     }
 
     @lines = linesFromFile( "$log_dir/student-out.txt" );
-    if ( defined @lines && $#lines >= 0 )
+    if ( $#lines >= 0 )
     {
         $status{'feedback'}->startFeedbackSection(
             "Output from Your Tests", ++$expSectionId, 1, 2,
@@ -1920,7 +2010,7 @@ EOF
         }
 
         my @lines = linesFromFile( "$log_dir/instr-results.txt" );
-        if ( defined @lines && $#lines >= 0 )
+        if ( $#lines >= 0 )
         {
             $status{'instrFeedback'}->print( "<pre>\n" );
             $status{'instrFeedback'}->print( @lines );
@@ -1928,7 +2018,7 @@ EOF
         }
 
         @lines = linesFromFile( "$log_dir/instr-out.txt" );
-        if ( defined @lines  && $#lines >= 0 )
+        if ( $#lines >= 0 )
         {
             $status{'instrFeedback'}->startFeedbackSection(
                 "Output from Reference Tests", ++$expSectionId, 1, 2,

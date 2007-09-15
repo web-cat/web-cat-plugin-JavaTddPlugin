@@ -1,136 +1,183 @@
 <project name="web-cat" default="run">
 
-    <!-- ============================================================
-         Property Definitions
-         ============================================================ -->
+  <!-- ============================================================
+       Property Definitions
+       ============================================================ -->
 
-    <property environment="env"/>
-    <property name="studentBuild"         value="${resultDir}/studentbin"/>
-    <property name="instructorBuild"      value="${resultDir}/instructorbin"/>
-    <property name="javaSourceVersion"    value="1.5"/>
-    <property name="clover.initstring"    value="${resultDir}/coverage.db"/>
-    <property name="assignmentClassFiles" value="${scriptHome}/empty"/>
-    <property name="instructorClassFiles" value="${scriptHome}/empty"/>
-    <property name="assignmentClassDir"   value="${scriptHome}/empty"/>
-    <property name="instructorClassDir"   value="${scriptHome}/empty"/>
-    <property name="defaultJars"          value="${scriptHome}/defaultJars"/>
-    <property name="testCasePath"         value="${scriptHome}/tests"/>
-    <property name="testCasePattern"     value="**/*test.java **/*tests.java"/>
-    <property name="psfile"               value="${resultDir}/${userName}.ps"/>
-    <property name="PDF.dest"            value="${resultDir}/${userName}.pdf"/>
-    <property name="checkstyleConfigFile"
-              value="${scriptHome}/checkstyle.xml"/>
+  <property environment="env"/>
 
-    <path id="build.classpath">
-        <fileset dir="${scriptHome}" casesensitive="false">
-            <include name="*.jar"/>
-        </fileset>
-        <pathelement location="${instructorBuild}"/>
-        <pathelement location="${studentBuild}"/>
-        <pathelement location="${assignmentClassFiles}"/>
-        <fileset dir="${assignmentClassDir}" casesensitive="false">
-            <include name="**/*.jar"/>
-        </fileset>
-        <pathelement location="${instructorClassFiles}"/>
-        <fileset dir="${instructorClassDir}" casesensitive="false">
-            <include name="**/*.jar"/>
-        </fileset>
-        <fileset dir="${defaultJars}" casesensitive="false">
-            <include name="**/*.jar"/>
-        </fileset>
-        <pathelement location="${clover.dir}"/>
-        <fileset dir="${clover.dir}" casesensitive="false">
-            <include name="**/*.jar"/>
-        </fileset>
-    </path>
+  <property name="assignmentClassDir"   value="${scriptHome}/empty"/>
+  <property name="assignmentClassFiles" value="${scriptHome}/empty"/>
+  <property name="checkstyleConfigFile"
+            value="${scriptHome}/checkstyle.xml"/>
+  <property name="clover.initstring"    value="${resultDir}/coverage.db"/>
+  <property name="defaultJars"          value="${scriptHome}/defaultJars"/>
+  <property name="enableAssertions"     value="-ea"/>
+  <property name="enscriptStyle"        value="msvc"/>
+  <property name="instr.results.dir"    value="${resultDir}/instr.results"/>
+  <property name="instructorBuild"      value="${resultDir}/instructorbin"/>
+  <property name="instructorClassDir"   value="${scriptHome}/empty"/>
+  <property name="instructorClassFiles" value="${scriptHome}/empty"/>
+  <property name="javaPolicyFile"       value="${scriptHome}/java.policy"/>
+  <property name="javaSourceVersion"    value="1.5"/>
+  <property name="PDF.dest"             value="${resultDir}/${userName}.pdf"/>
+  <property name="pmdConfigFile"        value="${scriptHome}/pmd.xml"/>
+  <property name="psfile"               value="${resultDir}/${userName}.ps"/>
+  <property name="security.manager"     value="java.security.manager"/>
+  <property name="studentBuild"         value="${resultDir}/studentbin"/>
+  <property name="student.results.dir"  value="${resultDir}/student.results"/>
 
-    <path id="checkstyle.classpath">
+  <!-- These are for reference tests -->
+  <property name="testCasePath"                 value="${scriptHome}/tests"/>
+  <property name="testCasePattern"              value="**/*.java"/>
+  <property name="refTestClassPattern"          value="**/*.class"/>
+  <property name="refTestClassExclusionPattern" value="none"/>
+
+  <!-- These are for student-written tests -->
+  <property name="studentTestClassPattern"
+            value="**/*test.class **/*tests.class"/>
+  <property name="studentTestClassExclusionPattern"
+            value="**/abstract*.class"/>
+
+  <!-- These are for static analysis filtering -->
+  <property name="staticAnalysisSrcPattern"          value="**/*.java"/>
+  <property name="staticAnalysisSrcExclusionPattern" value="none"/>
+
+  <condition property="isDebugging">
+    <matches string="${debug}" pattern="[3-9]"/>
+  </condition>
+
+  <path id="build.classpath">
+    <fileset dir="${scriptHome}" casesensitive="false">
+      <include name="*.jar"/>
+    </fileset>
+    <pathelement location="${instructorBuild}"/>
+    <pathelement location="${studentBuild}"/>
+    <pathelement location="${assignmentClassFiles}"/>
+    <fileset dir="${assignmentClassDir}" casesensitive="false">
+      <include name="**/*.jar"/>
+    </fileset>
+    <pathelement location="${instructorClassFiles}"/>
+    <fileset dir="${instructorClassDir}" casesensitive="false">
+      <include name="**/*.jar"/>
+    </fileset>
+    <fileset dir="${defaultJars}" casesensitive="false">
+      <include name="**/*.jar"/>
+    </fileset>
+    <pathelement location="${clover.dir}"/>
+    <fileset dir="${clover.dir}" casesensitive="false">
+      <include name="**/*.jar"/>
+    </fileset>
+  </path>
+
+  <path id="checkstyle.classpath">
     <pathelement location="${checkstyle.jar}"/>
     <path refid="build.classpath"/>
-    </path>
+  </path>
+
+  <path id="pmd.classpath">
+    <pathelement location="${scriptHome}"/>
+    <fileset dir="${pmd.lib}" casesensitive="false">
+      <include name="**/*.jar"/>
+    </fileset>
+  </path>
 
 
-    <!-- ============================================================
-         Individual targets
-         ============================================================ -->
+  <!-- ============================================================
+       Individual targets
+       ============================================================ -->
 
-    <target name="clean"
-        description="removes compiled classes">
-    <echo message="basedir = ${basedir}"/>
-    <echo
-        message="timeout = ${exec.timeout} (for each of two test runs)"/>
-    <echo message="assignmentClassFiles = ${assignmentClassFiles}"/>
-    <echo message="assignmentClassDir   = ${assignmentClassDir}"/>
-    <echo message="instructorClassFiles = ${instructorClassFiles}"/>
-    <echo message="instructorClassDir   = ${instructorClassDir}"/>
-    <echo message="testCasePath         = ${testCasePath}"/>
-    <echo message="testCasePattern      = ${testCasePattern}"/>
+  <target name="debug.output" if="isDebugging">
+    <condition property="printable.path" value="${env.Path}" else="${env.PATH}">
+         <isset property="env.Path"/>
+    </condition>
+    <echo>
+basedir              = ${basedir}
+ANT_HOME             = ${env.ANT_HOME}
+JAVA_HOME            = ${env.JAVA_HOME}
+PATH                 = ${printable.path}
+timeout              = ${exec.timeout} (for each of two test runs)
+assignmentClassFiles = ${assignmentClassFiles}
+assignmentClassDir   = ${assignmentClassDir}
+instructorClassFiles = ${instructorClassFiles}
+instructorClassDir   = ${instructorClassDir}
+testCasePath                      = ${testCasePath}
+testCasePattern                   = ${testCasePattern}
+refTestClassPattern               = ${refTestClassPattern}
+refTestClassExclusionPattern      = ${refTestClassExclusionPattern}
+studentTestClassPattern           = ${studentTestClassPattern}
+studentTestClassExclusionPattern  = ${studentTestClassExclusionPattern}
+staticAnalysisSrcPattern          = ${staticAnalysisSrcPattern}
+staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
+    </echo>
+  </target>
+
+  <target name="clean"
+          depends="debug.output"
+          description="removes compiled classes">
     <delete includeEmptyDirs="true">
-        <fileset dir="${resultDir}" casesensitive="false">
+      <fileset dir="${resultDir}" casesensitive="false">
         <include name="bin/"/>
-        <include name="clover_report/"/>
+         <include name="clover_report/"/>
         <include name="coverage.db*"/>
         <include name="pmd*"/>
         <include name="checkstyle*"/>
-        </fileset>
+      </fileset>
     </delete>
     <delete>
-        <fileset dir="${basedir}">
+      <fileset dir="${basedir}" casesensitive="false">
         <include name="**/*.class"/>
-        </fileset>
+      </fileset>
     </delete>
-    </target>
+  </target>
 
-    <target name="syntax-check"
-        description="compiles all the student code using javac">
+  <target name="syntax-check"
+          description="compiles all the student code using javac">
     <mkdir dir="${instructorBuild}"/>
     <mkdir dir="${studentBuild}"/>
     <javac srcdir="${basedir}"
            destdir="${studentBuild}"
            verbose="off"
            deprecation="on"
-           source="${javaSourceVersion}"
-           >
-            <classpath refid="build.classpath"/>
+           source="${javaSourceVersion}">
+      <classpath refid="build.classpath"/>
     </javac>
-    </target>
+  </target>
 
-    <target name="generate-pdf"
-            description="generates a pdf printout of student's source code"
-        if="generatePDF"
-        >
+  <target name="generate-pdf"
+          description="generates a pdf printout of student's source code"
+          if="generatePDF">
     <apply executable="enscript"
            failonerror="false"
            parallel="true"
            skipemptyfilesets="true"
-           forwardslash="true"
-           >
-        <arg value="--fancy-header=enscript2"/>
-        <arg value="-C"/>
-        <arg value="--pretty-print"/>
-        <arg value="--style=cs3304"/>
-        <arg value="--color"/>
-        <arg value="-H3"/>
-        <arg value="--mark-wrapped-lines=arrow"/>
-        <arg value="--continuous-page-numbers"/>
-        <arg value="--media=Letter"/>
-        <arg value="--header=user: ${userName}"/>
-        <arg value="-p${psfile}"/>
-        <fileset dir="." casesensitive="no">
-            <include name="**/*.java"/>
-        </fileset>
+           forwardslash="true">
+      <arg value="--fancy-header=enscript2"/>
+      <arg value="-C"/>
+      <arg value="--pretty-print"/>
+      <arg value="--style=${enscriptStyle}"/>
+      <arg value="--color"/>
+      <arg value="-H3"/>
+      <arg value="--mark-wrapped-lines=arrow"/>
+      <arg value="--continuous-page-numbers"/>
+      <arg value="--media=Letter"/>
+      <arg value="--header=user: ${userName}"/>
+      <arg value="-p${psfile}"/>
+      <fileset dir="." casesensitive="false">
+        <include name="**/*.java"/>
+      </fileset>
     </apply>
     <exec executable="bash" failonerror="false">
-        <arg value="ps2pdf"/>
-        <arg value="${psfile}"/>
-        <arg value="${PDF.dest}"/>
+      <arg value="ps2pdf"/>
+      <arg value="${psfile}"/>
+      <arg value="${PDF.dest}"/>
     </exec>
     <delete file="${psfile}"/>
-    </target>
+  </target>
 
-    <target name="compile-instructor-tests"
-        depends="syntax-check"
-            description="compile all of the instructor-provided unit tests">
+  <target name="compile-instructor-tests"
+          depends="syntax-check"
+          description="compile all of the instructor-provided unit tests">
     <javac srcdir="${testCasePath}"
            destdir="${instructorBuild}"
            verbose="off"
@@ -138,210 +185,205 @@
            debug="on"
            source="${javaSourceVersion}"
            casesensitive="no"
-           includes="${testCasePattern}"
-           >
-            <classpath refid="build.classpath"/>
+           includes="${testCasePattern}">
+      <classpath refid="build.classpath"/>
     </javac>
-    </target>
+  </target>
 
-    <property name="enableAssertions" value="-ea"/>
-    <property name="javaPolicyFile"   value="${scriptHome}/java.policy"/>
-
-    <target name="instructor-test"
+  <target name="instructor-test"
             depends="compile-instructor-tests"
         description="runs all instructor-provided tests">
-    <property name="instr.results.dir" value="${resultDir}/instr.results"/>
     <mkdir dir="${instr.results.dir}"/>
     <junit printsummary="off"
            haltonerror="no"
            haltonfailure="no"
            fork="yes"
-           timeout="${exec.timeout}"
-           >
-        <classpath refid="build.classpath"/>
-        <jvmarg value="${enableAssertions}"/>
-        <jvmarg value="-Djava.security.manager"/>
-        <jvmarg value="-Dabbot.robot.verify=false"/>
-        <jvmarg
-         value="-Djava.security.policy==file:${javaPolicyFile}"/>
-        <jvmarg value="-Dant.home=${ant.home}"/>
-        <jvmarg value="-DresultDir=${resultDir}"/>
-        <jvmarg value="-DscriptHome=${scriptHome}"/>
-        <jvmarg value="-DworkingDir=${workingDir}"/>
-        <formatter
-            classname="net.sf.webcat.plugins.javatddplugin.HintingJUnitResultFormatter"
-            extension=".inc"/>
-        <formatter
-            classname="net.sf.webcat.plugins.javatddplugin.BasicJUnitResultFormatter"
-            extension="-results.txt"/>
-        <formatter
-            classname="net.sf.webcat.plugins.javatddplugin.OutputCaptureJUnitResultFormatter"
-            extension="-out.txt"/>
-        <batchtest todir="${instr.results.dir}">
-          <fileset dir="${instructorBuild}" casesensitive="no">
-            <include name="**/*test.class"/>
-            <include name="**/*tests.class"/>
-            <exclude name="**/abstract*.class"/>
-          </fileset>
-        </batchtest>
+           forkmode="once"
+           timeout="${exec.timeout}">
+      <classpath refid="build.classpath"/>
+      <jvmarg value="${enableAssertions}"/>
+      <jvmarg value="-D${security.manager}"/>
+      <jvmarg value="-Dabbot.robot.verify=false"/>
+      <jvmarg value="-Djava.security.policy==file:${javaPolicyFile}"/>
+      <jvmarg value="-DProfilingSecurityManager.output=${resultDir}/instr-permissions.txt"/>
+      <jvmarg value="-Dant.home=${ant.home}"/>
+      <jvmarg value="-DresultDir=${resultDir}"/>
+      <jvmarg value="-DscriptHome=${scriptHome}"/>
+      <jvmarg value="-DworkingDir=${workingDir}"/>
+      <jvmarg value="-DassignmentClassDir=${assignmentClassDir}"/>
+      <jvmarg value="-DinstructorClassDir=${instructorClassDir}"/>
+      <formatter
+        classname="net.sf.webcat.plugins.javatddplugin.HintingJUnitResultFormatter"
+        extension=".inc"/>
+      <formatter
+        classname="net.sf.webcat.plugins.javatddplugin.BasicJUnitResultFormatter"
+        extension="-results.txt"/>
+      <formatter
+        classname="net.sf.webcat.plugins.javatddplugin.OutputCaptureJUnitResultFormatter"
+        extension="-out.txt"/>
+      <batchtest todir="${instr.results.dir}">
+        <fileset dir="${instructorBuild}"
+                 casesensitive="false"
+                 includes="${refTestClassPattern}"
+                 excludes="${refTestClassExclusionPattern}"/>
+      </batchtest>
     </junit>
     <concat destfile="${resultDir}/instr.inc">
-        <fileset dir="${instr.results.dir}" includes="*.inc"/>
+      <fileset dir="${instr.results.dir}"
+               includes="*.inc"
+               casesensitive="false"/>
     </concat>
     <concat destfile="${resultDir}/instr-results.txt">
-        <fileset dir="${instr.results.dir}" includes="*-results.txt"/>
+      <fileset dir="${instr.results.dir}"
+               includes="*-results.txt"
+               casesensitive="false"/>
     </concat>
     <concat destfile="${resultDir}/instr-out.txt">
-        <fileset dir="${instr.results.dir}" includes="*-out.txt"/>
+      <fileset dir="${instr.results.dir}"
+               includes="*-out.txt"
+               casesensitive="false"/>
     </concat>
     <delete dir="${instr.results.dir}"/>
-    </target>
+  </target>
 
-    <target name="test"
-        description="runs all student tests">
-        <property name="student.results.dir"
-            value="${resultDir}/student.results"/>
-        <mkdir dir="${student.results.dir}"/>
+  <target name="test"
+          description="runs all student tests">
+    <mkdir dir="${student.results.dir}"/>
     <junit printsummary="off"
            haltonerror="no"
            haltonfailure="no"
            fork="yes"
-           timeout="${exec.timeout}"
-           >
-        <classpath refid="checkstyle.classpath"/>
-        <jvmarg value="${enableAssertions}"/>
-        <jvmarg value="-Djava.security.manager"/>
-        <jvmarg value="-Dabbot.robot.verify=false"/>
-        <jvmarg
-         value="-Djava.security.policy==file:${javaPolicyFile}"/>
-        <jvmarg value="-Dant.home=${ant.home}"/>
-        <jvmarg value="-DresultDir=${resultDir}"/>
-        <jvmarg value="-DscriptHome=${scriptHome}"/>
-        <jvmarg value="-DworkingDir=${workingDir}"/>
-        <formatter
-            classname="net.sf.webcat.plugins.javatddplugin.PerlScoringJUnitResultFormatter"
-            extension=".inc"/>
-        <formatter
-            classname="net.sf.webcat.plugins.javatddplugin.BasicJUnitResultFormatter"
-            extension="-results.txt"/>
-        <formatter
-            classname="net.sf.webcat.plugins.javatddplugin.OutputCaptureJUnitResultFormatter"
-            extension="-out.txt"/>
-        <batchtest todir="${student.results.dir}">
-        <fileset dir="${studentBuild}" casesensitive="no">
-            <include name="**/*test.class"/>
-            <include name="**/*tests.class"/>
-            <exclude name="**/abstract*.class"/>
-        </fileset>
-        </batchtest>
+           forkmode="once"
+           timeout="${exec.timeout}">
+      <classpath refid="checkstyle.classpath"/>
+      <jvmarg value="${enableAssertions}"/>
+      <jvmarg value="-D${security.manager}"/>
+      <jvmarg value="-Dabbot.robot.verify=false"/>
+      <jvmarg value="-Djava.security.policy==file:${javaPolicyFile}"/>
+      <jvmarg value="-DProfilingSecurityManager.output=${resultDir}/student-permissions.txt"/>
+      <jvmarg value="-Dant.home=${ant.home}"/>
+      <jvmarg value="-DresultDir=${resultDir}"/>
+      <jvmarg value="-DscriptHome=${scriptHome}"/>
+      <jvmarg value="-DworkingDir=${workingDir}"/>
+      <jvmarg value="-DassignmentClassDir=${assignmentClassDir}"/>
+      <jvmarg value="-DinstructorClassDir=${instructorClassDir}"/>
+      <formatter
+        classname="net.sf.webcat.plugins.javatddplugin.PerlScoringJUnitResultFormatter"
+        extension=".inc"/>
+      <formatter
+        classname="net.sf.webcat.plugins.javatddplugin.BasicJUnitResultFormatter"
+        extension="-results.txt"/>
+      <formatter
+        classname="net.sf.webcat.plugins.javatddplugin.OutputCaptureJUnitResultFormatter"
+        extension="-out.txt"/>
+      <batchtest todir="${student.results.dir}">
+        <fileset dir="${studentBuild}"
+                 casesensitive="false"
+                 includes="${studentTestClassPattern}"
+                 excludes="${studentTestClassExclusionPattern}"/>
+      </batchtest>
     </junit>
     <concat destfile="${resultDir}/student.inc">
-        <fileset dir="${student.results.dir}" includes="*.inc"/>
+      <fileset dir="${student.results.dir}"
+               includes="*.inc"
+               casesensitive="false"/>
     </concat>
     <concat destfile="${resultDir}/student-results.txt">
-        <fileset dir="${student.results.dir}" includes="*-results.txt"/>
+      <fileset dir="${student.results.dir}"
+               includes="*-results.txt"
+               casesensitive="false"/>
     </concat>
-        <concat destfile="${resultDir}/student-out.txt">
-            <fileset dir="${student.results.dir}" includes="*-out.txt"/>
-        </concat>
+    <concat destfile="${resultDir}/student-out.txt">
+      <fileset dir="${student.results.dir}"
+               includes="*-out.txt"
+               casesensitive="false"/>
+    </concat>
     <delete dir="${student.results.dir}"/>
-    </target>
+  </target>
 
-    <!--taskdef resource="clovertasks"/-->
-    <taskdef resource="com/cenqua/ant/antlib.xml"
-        classpath="${clover.dir}/etc/cenquatasks.jar"/>
-    <extendclasspath path="${clover.dir}/lib/clover.jar"/>
-    <extendclasspath path="${clover.dir}"/>
-    <taskdef resource="clovertasks" classpath="${clover.dir}/lib/clover.jar"/>
-    <target name="with.clover">
+  <taskdef resource="com/cenqua/ant/antlib.xml"
+           classpath="${clover.dir}/etc/cenquatasks.jar"/>
+  <extendclasspath path="${clover.dir}/lib/clover.jar"/>
+  <extendclasspath path="${clover.dir}"/>
+  <taskdef resource="clovertasks" classpath="${clover.dir}/lib/clover.jar"/>
+  <target name="with.clover">
     <clover-setup initString="${clover.initstring}"/>
-    </target>
+  </target>
 
-    <target name="instrument-code"
-        depends="with.clover"
-        description="recompile code with clover instrumentation">
+  <target name="instrument-code"
+          depends="with.clover"
+          description="recompile code with clover instrumentation">
     <mkdir dir="${studentBuild}"/>
     <mkdir dir="${instructorBuild}"/>
     <delete>
-        <fileset dir="${studentBuild}" casesensitive="false">
-            <include name="**/*"/>
-        </fileset>
-        <fileset dir="${instructorBuild}" casesensitive="false">
-            <include name="**/*"/>
-        </fileset>
+      <fileset dir="${studentBuild}" includes="**/*"/>
+      <fileset dir="${instructorBuild}" includes="**/*"/>
     </delete>
     <javac srcdir="${basedir}"
            destdir="${studentBuild}"
            verbose="off"
            debug="on"
-           source="${javaSourceVersion}"
-           >
-            <classpath refid="build.classpath"/>
+           source="${javaSourceVersion}">
+      <classpath refid="build.classpath"/>
     </javac>
-    </target>
+  </target>
 
-    <target name="clover-report"
-        depends="instrument-code, test"
-        description="generate clover coverage report">
+  <target name="clover-report"
+          depends="instrument-code, test"
+          description="generate clover coverage report">
     <clover-report>
-        <current outfile="${resultDir}/clover"
-                 title="clover report"
-             alwaysReport="true">
+      <current outfile="${resultDir}/clover"
+               title="clover report"
+               alwaysReport="true">
         <format type="html"/>
-        </current>
+      </current>
     </clover-report>
     <clover-report>
-        <current outfile="${resultDir}/clover.xml"
-                 title="clover report"
-             alwaysReport="true"/>
+      <current outfile="${resultDir}/clover.xml"
+               title="clover report"
+               alwaysReport="true"/>
     </clover-report>
-    </target>
+  </target>
 
-    <target name="checkstyle"
-        depends="syntax-check">
+  <target name="checkstyle"
+          depends="syntax-check">
     <taskdef resource="checkstyletask.properties"
          classpathref="checkstyle.classpath"/>
     <checkstyle config="${checkstyleConfigFile}"
-            failOnViolation="false">
-        <classpath refid="checkstyle.classpath"/>
-        <formatter type="xml" toFile="${resultDir}/checkstyle_report.xml"/>
-        <fileset dir="${basedir}">
-        <include name="**/*.java"/>
-        </fileset>
+                failOnViolation="false">
+      <classpath refid="checkstyle.classpath"/>
+      <formatter type="xml" toFile="${resultDir}/checkstyle_report.xml"/>
+      <fileset dir="${basedir}"
+               casesensitive="false"
+               includes="${staticAnalysisSrcPattern}"
+               excludes="${staticAnalysisSrcExclusionPattern}"/>
     </checkstyle>
     <!-- style in="checkstyle_report.xml"
            out="checkstyle_report.xml"
            style="checkstyle.xsl"/ -->
-    </target>
+  </target>
 
-    <property name="pmdConfigFile"
-              value="${scriptHome}/pmd.xml"/>
-    <path id="pmd.classpath">
-    <pathelement location="${scriptHome}"/>
-    <fileset dir="${pmd.lib}">
-        <include name="**/*.jar"/>
-    </fileset>
-    </path>
-    <target name="pmd" depends="syntax-check">
+  <target name="pmd" depends="syntax-check">
     <taskdef name="pmd"
-         classname="net.sourceforge.pmd.ant.PMDTask"
-         classpathref="pmd.classpath"/>
-      <pmd rulesetfiles="${pmdConfigFile}"
+             classname="net.sourceforge.pmd.ant.PMDTask"
+             classpathref="pmd.classpath"/>
+    <pmd rulesetfiles="${pmdConfigFile}"
          failonerror="false"
          failOnRuleViolation="false"
          targetjdk="${javaSourceVersion}">
-        <classpath refid="pmd.classpath"/>
-        <formatter type="xml" toFile="${resultDir}/pmd_report.xml"/>
-        <fileset dir="${basedir}">
-        <include name="**/*.java"/>
-        </fileset>
-      </pmd>
-    </target>
+      <classpath refid="pmd.classpath"/>
+      <formatter type="xml" toFile="${resultDir}/pmd_report.xml"/>
+      <fileset dir="${basedir}"
+               casesensitive="false"
+               includes="${staticAnalysisSrcPattern}"
+               excludes="${staticAnalysisSrcExclusionPattern}"/>
+    </pmd>
+  </target>
 
 
-    <target name="final-clean"
-            unless="doNotDelete"
-        description="removes unnecessary derived files">
+  <target name="final-clean"
+          unless="doNotDelete"
+          description="removes unnecessary derived files">
     <delete includeEmptyDirs="true">
       <fileset dir="${resultDir}" casesensitive="false">
         <include name="studentbin/"/>
@@ -349,26 +391,15 @@
         <include name="coverage.db*"/>
       </fileset>
     </delete>
-    </target>
+  </target>
 
 
-    <!-- ============================================================
-         The main target
-         ============================================================ -->
+  <!-- ============================================================
+       The main target
+       ============================================================ -->
 
-    <target name="run"
-            depends="clean, instructor-test, clover-report, checkstyle,
-                 pmd, generate-pdf, final-clean"/>
-
-
-    <!-- ============================================================
-         Help text for this build file
-         ============================================================ -->
-
-    <target name="help">
-    <echo>
-        This help text needs to be written.
-    </echo>
-    </target>
+  <target name="run"
+          depends="clean, instructor-test, clover-report, checkstyle,
+                   pmd, generate-pdf, final-clean"/>
 
 </project>

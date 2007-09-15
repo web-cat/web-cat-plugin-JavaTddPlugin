@@ -1,9 +1,9 @@
 {
     name             = "JavaTddPlugin";
     version.major    = 3;
-    version.minor    = 0;
-    version.revision = 7;
-    version.date     = 20070506;
+    version.minor    = 1;
+    version.revision = 0;
+    version.date     = 20070914;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -18,8 +18,9 @@
     interpreter.prefix = "${PerlForPlugins.perl.exe}";
     author     = "Stephen Edwards (edwards@cs.vt.edu)";
     authorUid  = edwards;
-    languages  = ( { name = Java; version = 1.4.2; },
-                   { name = Java; version = 1.5.0; } );
+    languages  = ( { name = Java; version = 1.4; },
+                   { name = Java; version = 1.5; },
+                   { name = Java; version = 1.6; } );
     description = "This \"all-in-one\" plug-in is designed to provide full
         processing and feedback generation for Java assignments where
         students write their own JUnit test cases.
@@ -74,7 +75,7 @@
     );
     optionCategories = (
         "Java Settings",
-        "Scoring Settings",
+        "Test Case Settings",
         "Static Analysis",
         "Feedback Settings",
         "Script Developer"
@@ -99,7 +100,8 @@
             type        = listChoice;
             choices     = ( { value = 1.3; },
                             { value = 1.4; },
-                            { value = 1.5; } );
+                            { value = 1.5; },
+                            { value = 1.6; } );
             default     = 1.5;
             name        = "Java Source Compatibility";
  	    category    = "Java Settings";
@@ -110,7 +112,7 @@
         {
             property    = useAssertions;
             type        = boolean;
-            default     = true; 
+            default     = true;
             name        = "Use Java Assertions";
             category    = "Java Settings";
             description =
@@ -162,7 +164,7 @@
             type        = boolean;
             default     = false;
             name        = "All Student Tests Must Pass";
-            category    = "Scoring Settings";
+            category    = "Test Case Settings";
             description =
   "If you are truly following test-driven development practices, then no code
   is ever released until all of its unit tests pass.  If this option is set to
@@ -177,7 +179,7 @@
             type        = boolean;
             default     = true;
             name        = "Students Must Submit Tests";
-            category    = "Scoring Settings";
+            category    = "Test Case Settings";
             description =
   "When set, this option requires all students to submit test cases for their
   own code.  Submissions without test cases will received feedback to that
@@ -192,7 +194,7 @@
             advanced    = true;
             type        = radioChoice;
             name        = "Test Coverage Metric";
-            category    = "Scoring Settings";
+            category    = "Test Case Settings";
             default     = 0;
             description = "Choose the criterion used to measure how thoroughly
                            a student's tests cover the corresponding code.";
@@ -205,6 +207,67 @@
                          { label = "Methods + statements + decisions executed";
                               value = 4; }
                           );
+        },
+        {
+            property    = studentTestInclude;
+            type        = shortText;
+            size        = 40;
+            default     = "*test *tests";
+            name        = "Students Test Class Patterns";
+            category    = "Test Case Settings";
+            description =
+  "Specify the Java class names that should be treated as JUnit-style
+  test cases.  Only student classes with names that match the patterns you
+  list here will be executed as test cases.  Patterns are case-insensitive.
+  Use * as a wildcard character (ANT-style pattern matching is used).";
+        },
+        {
+            property    = studentTestExclude;
+            type        = shortText;
+            size        = 40;
+            default     = "abstract*";
+            name        = "Students Test Class Exclusion Patterns";
+            category    = "Test Case Settings";
+            description =
+  "Specify Java class names that should <b>not</b> be treated as JUnit-style
+  test cases.  Any classes that match the \"Student Test Class Patterns\"
+  above and <em>also</em> match the patterns you list here
+  will not be treated as executable test cases.    Patterns are
+  case-insensitive.  Use * as a wildcard character (ANT-style pattern matching
+  is used).  Use \"none\" if you do not wish to use any exclusion patterns.";
+        },
+        {
+            property    = refTestInclude;
+            type        = shortText;
+            size        = 40;
+            default     = "*";
+            name        = "Reference Test Class Patterns";
+            category    = "Test Case Settings";
+            description =
+  "Specify the Java class names that should be treated as JUnit-style
+  test cases when selected as reference tests by an instructor.  This
+  setting is only relevant when an instructor selects an entire directory
+  or folder of Java classes.  In that case, only instructor reference classes
+  with names that match the patterns you list here will be executed as test
+  cases.  Patterns are case-insensitive.  Use * as a wildcard character
+  (ANT-style pattern matching is used).";
+        },
+        {
+            property    = refTestExclude;
+            type        = shortText;
+            size        = 40;
+            default     = "none";
+            name        = "Reference Test Class Exclusion Patterns";
+            category    = "Test Case Settings";
+            description =
+  "Specify Java class names that should <b>not</b> be treated as JUnit-style
+  test cases when selected as reference tests by an instructor.  This
+  setting is only relevant when an instructor selects an entire directory or
+  folder of Java classes.  In that case, any classes that match the
+  \"Reference Test Class Patterns\" above and <em>also</em> match the
+  patterns you list here will not be treated as executable test cases.
+  Patterns are case-insensitive.  Use * as a wildcard character (ANT-style
+  pattern matching is used).";
         },
         {
             property    = checkstyleConfig;
@@ -229,6 +292,36 @@
   "An XML file containing a set of PMD rules (see the
   <a href=\"http://pmd.sourceforge.net/\" target=\"_new\">PMD
   documentation</a>).";
+        },
+        {
+            property    = staticAnalysisInclude;
+            type        = shortText;
+            size        = 40;
+            default     = "*";
+            name        = "Classes to Analyze";
+            category    = "Test Case Settings";
+            description =
+  "Specify the Java class names that should be included in Checkstyle and
+  PMD analysis.  Only student classes with names that match the patterns you
+  list here will be processed by Checkstyle and PMD.  Patterns are
+  case-insensitive.  Use * as a wildcard character (ANT-style pattern
+  matching is used).";
+        },
+        {
+            property    = staticAnalysisExclude;
+            type        = shortText;
+            size        = 40;
+            default     = "none";
+            name        = "Classes to Exclude from Analysis";
+            category    = "Test Case Settings";
+            description =
+  "Specify Java class names that should <b>not</b> be processed by
+  Checkstyle or PMD.  Any classes that match the \"Classes to Analyze\"
+  above and <em>also</em> match the patterns you list here
+  will not be processed by Checkstyle or PMD.    Patterns are
+  case-insensitive.  Use * as a wildcard character (ANT-style pattern
+  matching is used).  Use \"none\" if you do not wish to use any
+  exclusion patterns.";
         },
         {
             property    = markupProperties;
@@ -304,7 +397,28 @@
             description =
   "Set to true if you wish for a single PDF file containing a pretty-printed
   source code printout to be generated from the student's code.  The printout
-  will be downloadable by students, and accessible by TAs during grading.";
+  will be downloadable by students, and accessible by TAs during grading.
+  <b>Note:</b>  This option uses both <code>enscript</code> and
+  <code>ps2pdf</code> as external commands, and requires these programs to
+  be correctly installed and configured.";
+        },
+	{
+            property    = enscriptStyle;
+            type        = shortText;
+            size        = 15;
+            default     = "msvc";
+            name        = "PDF Formatting Style (for Enscript)";
+            category    = "Feedback Settings";
+            description =
+  "If you are generating PDF printouts, you can specify the formatting style
+  used by <code>enscript</code>.  This name will be passed to
+  <code>enscript</code> using its <code>--style=</code> parameter.  See your
+  enscript documentation for more information about the styles that are
+  supported.  Many enscript installations support the following styles:
+  <code>a2ps</code>, <code>emacs</code>, <code>emacs-verbose</code>,
+  <code>ifh</code>, and <code>msvc</code>.  It is possible to add your
+  own custom formatting definitions to your enscript installation and then
+  use your own style name here as well.";
         },
         {
             property    = debug;
