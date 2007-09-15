@@ -1,3 +1,28 @@
+/*==========================================================================*\
+ |  $Id$
+ |*-------------------------------------------------------------------------*|
+ |  Copyright (C) 2007 Virginia Tech
+ |
+ |  This file is part of Web-CAT.
+ |
+ |  Web-CAT is free software; you can redistribute it and/or modify
+ |  it under the terms of the GNU General Public License as published by
+ |  the Free Software Foundation; either version 2 of the License, or
+ |  (at your option) any later version.
+ |
+ |  Web-CAT is distributed in the hope that it will be useful,
+ |  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ |  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ |  GNU General Public License for more details.
+ |
+ |  You should have received a copy of the GNU General Public License
+ |  along with Web-CAT; if not, write to the Free Software
+ |  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ |
+ |  Project manager: Stephen Edwards <edwards@cs.vt.edu>
+ |  Virginia Tech CS Dept, 660 McBryde Hall (0106), Blacksburg, VA 24061 USA
+\*==========================================================================*/
+
 package net.sf.webcat;
 
 import java.io.*;
@@ -13,15 +38,15 @@ import java.io.*;
  *  create an instance.  As a result, it provides no public constructors.</p>
  *
  *  @author  Stephen Edwards
- *  @version 2007.08.15
+ *  @version $Id$
  */
 public class SystemIOUtilities
 {
     //~ Instance/static variables .............................................
 
-    private static PrintStream originalOut = System.out;
-    private static PrintStream originalErr = System.err;
-    private static InputStream originalIn  = System.in;
+    private static PrintStream originalOut;
+    private static PrintStream originalErr;
+    private static InputStream originalIn;
 
     private static PrintStreamWithHistory  wrappedOut;
     private static PrintStreamWithHistory  wrappedErr;
@@ -51,16 +76,19 @@ public class SystemIOUtilities
     public static PrintStreamWithHistory out()
     {
         assertNotOnServer();
-        if (wrappedOut != null && wrappedOut != System.out)
-        {
-            throw new IllegalStateException("Previously wrapped System.out "
-                + "was replaced by user code");
-        }
         if (wrappedOut == null)
         {
-            // Using System.out here just in case it's been replaced!
-            wrappedOut = new PrintStreamWithHistory(System.out);
-            System.setOut(wrappedOut);
+            if (System.out instanceof PrintStreamWithHistory)
+            {
+                wrappedOut = (PrintStreamWithHistory)System.out;
+                originalOut = null;
+            }
+            else
+            {
+                originalOut = System.out;
+                wrappedOut = new PrintStreamWithHistory(System.out);
+                System.setOut(wrappedOut);
+            }
         }
         return wrappedOut;
     }
@@ -74,16 +102,12 @@ public class SystemIOUtilities
     public static void restoreSystemOut()
     {
         assertNotOnServer();
-        if (System.out != originalOut)
+        if (originalOut != null)
         {
-            if (wrappedOut == null || wrappedOut != System.out)
-            {
-                throw new IllegalStateException("Previously wrapped "
-                    + "System.out was replaced by user code");
-            }
             System.setOut(originalOut);
-            wrappedOut = null;
+            originalOut = null;
         }
+        wrappedOut = null;
     }
 
 
@@ -96,16 +120,19 @@ public class SystemIOUtilities
     public static PrintStreamWithHistory err()
     {
         assertNotOnServer();
-        if (wrappedErr != null && wrappedErr != System.err)
-        {
-            throw new IllegalStateException("Previously wrapped System.err "
-                + "was replaced by user code");
-        }
         if (wrappedErr == null)
         {
-            // Using System.out here just in case it's been replaced!
-            wrappedErr = new PrintStreamWithHistory(System.err);
-            System.setErr(wrappedErr);
+            if (System.err instanceof PrintStreamWithHistory)
+            {
+                wrappedErr = (PrintStreamWithHistory)System.err;
+                originalErr = null;
+            }
+            else
+            {
+                originalErr = System.err;
+                wrappedErr = new PrintStreamWithHistory(System.err);
+                System.setErr(wrappedErr);
+            }
         }
         return wrappedErr;
     }
@@ -119,16 +146,12 @@ public class SystemIOUtilities
     public static void restoreSystemErr()
     {
         assertNotOnServer();
-        if (System.err != originalErr)
+        if (originalErr != null)
         {
-            if (wrappedErr == null || wrappedErr != System.err)
-            {
-                throw new IllegalStateException("Previously wrapped "
-                    + "System.err was replaced by user code");
-            }
             System.setErr(originalErr);
-            wrappedErr = null;
+            originalErr = null;
         }
+        wrappedErr = null;
     }
 
 
@@ -141,6 +164,7 @@ public class SystemIOUtilities
     public static void replaceSystemInContents(String contents)
     {
         assertNotOnServer();
+        originalIn = System.in;
         System.setIn(new StringBufferInputStream(contents));
     }
 
@@ -152,7 +176,11 @@ public class SystemIOUtilities
     public static void restoreSystemIn()
     {
         assertNotOnServer();
-        System.setIn(originalIn);
+        if (originalIn != null)
+        {
+            System.setIn(originalIn);
+            originalIn = null;
+        }
     }
 
 

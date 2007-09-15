@@ -1,3 +1,28 @@
+/*==========================================================================*\
+ |  $Id$
+ |*-------------------------------------------------------------------------*|
+ |  Copyright (C) 2007 Virginia Tech
+ |
+ |  This file is part of Web-CAT.
+ |
+ |  Web-CAT is free software; you can redistribute it and/or modify
+ |  it under the terms of the GNU General Public License as published by
+ |  the Free Software Foundation; either version 2 of the License, or
+ |  (at your option) any later version.
+ |
+ |  Web-CAT is distributed in the hope that it will be useful,
+ |  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ |  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ |  GNU General Public License for more details.
+ |
+ |  You should have received a copy of the GNU General Public License
+ |  along with Web-CAT; if not, write to the Free Software
+ |  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ |
+ |  Project manager: Stephen Edwards <edwards@cs.vt.edu>
+ |  Virginia Tech CS Dept, 660 McBryde Hall (0106), Blacksburg, VA 24061 USA
+\*==========================================================================*/
+
 package net.sf.webcat;
 
 import java.io.BufferedReader;
@@ -19,8 +44,8 @@ import java.io.StringReader;
  *  set your own comparison options, however.
  *  </p>
  *
- *  @author  Stephen Edwards (based on Petr Skoda's original)
- *  @version 2007.08.12
+ *  @author  Stephen Edwards
+ *  @version $Id$
  */
 public class TestCase
     extends junit.framework.TestCase
@@ -30,11 +55,9 @@ public class TestCase
     // These don't use the names "in" or "out" to provide better error
     // messages if students type those method names and accidentally leave
     // off the parens.
-    private PrintWriterWithHistory tcOut;
-    private BufferedReader         tcIn;
+    private PrintWriterWithHistory tcOut = null;
+    private BufferedReader         tcIn  = null;
     private StringNormalizer       sn = new StringNormalizer(true);
-    private PrintWriterWithHistory tcSystemOut;
-    private PrintWriterWithHistory tcSystemErr;
 
 
     //~ Constructor ...........................................................
@@ -46,6 +69,7 @@ public class TestCase
     public TestCase()
     {
         super();
+        resetIO();
     }
 
 
@@ -57,6 +81,7 @@ public class TestCase
     public TestCase(String name)
     {
         super(name);
+        resetIO();
     }
 
 
@@ -84,13 +109,26 @@ public class TestCase
     protected void tearDown()
         throws Exception
     {
-        // Clear out all the stream history stuff
-        tcOut = null;
-        tcIn = null;
-        SystemIOUtilities.restoreSystemIn();
-        SystemIOUtilities.restoreSystemOut();
-        SystemIOUtilities.restoreSystemErr();
         super.tearDown();
+        resetIO();
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * An internal helper that resets all of the input/output buffering
+     * between test cases.
+     */
+    protected void resetIO()
+    {
+        // Clear out all the stream history stuff
+        tcIn = null;
+        tcOut = null;
+
+        // Make sure these are history-wrapped
+        SystemIOUtilities.out().clearHistory();
+        SystemIOUtilities.err().clearHistory();
+        SystemIOUtilities.restoreSystemIn();
     }
 
 
@@ -118,16 +156,12 @@ public class TestCase
      * Get a version of {@link System#out} that records its history
      * so you can compare against it later.  The history of this
      * stream gets cleared for every test case.
-     * @return a {@link java.io.PrintWriter} connected to System.out that
+     * @return a {@link java.io.PrintStream} connected to System.out that
      * is suitable for use in test cases
      */
-    public PrintWriterWithHistory systemOut()
+    public PrintStreamWithHistory systemOut()
     {
-        if (tcSystemOut == null)
-        {
-            tcSystemOut = new PrintWriterWithHistory(System.out);
-        }
-        return tcSystemOut;
+        return SystemIOUtilities.out();
     }
 
 
@@ -136,16 +170,12 @@ public class TestCase
      * Get a version of {@link System#err} that records its history
      * so you can compare against it later.  The history of this
      * stream gets cleared for every test case.
-     * @return a {@link java.io.PrintWriter} connected to System.err that
+     * @return a {@link java.io.PrintStream} connected to System.err that
      * is suitable for use in test cases
      */
-    public PrintWriterWithHistory systemErr()
+    public PrintStreamWithHistory systemErr()
     {
-        if (tcSystemErr == null)
-        {
-            tcSystemErr = new PrintWriterWithHistory(System.err);
-        }
-        return tcSystemErr;
+        return SystemIOUtilities.err();
     }
 
 
@@ -189,6 +219,19 @@ public class TestCase
     public void setIn(BufferedReader contents)
     {
         tcIn = contents;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Set the contents of this test case's input stream, which can then
+     * be retrieved using {@link #in()}.
+     * @param contents The contents to use for the stream, which replace
+     * any that were there before.
+     */
+    public void setSystemIn(String contents)
+    {
+        SystemIOUtilities.replaceSystemInContents(contents);
     }
 
 
