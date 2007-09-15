@@ -1,3 +1,28 @@
+/*==========================================================================*\
+ |  $Id$
+ |*-------------------------------------------------------------------------*|
+ |  Copyright (C) 2007 Virginia Tech
+ |
+ |  This file is part of Web-CAT.
+ |
+ |  Web-CAT is free software; you can redistribute it and/or modify
+ |  it under the terms of the GNU General Public License as published by
+ |  the Free Software Foundation; either version 2 of the License, or
+ |  (at your option) any later version.
+ |
+ |  Web-CAT is distributed in the hope that it will be useful,
+ |  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ |  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ |  GNU General Public License for more details.
+ |
+ |  You should have received a copy of the GNU General Public License
+ |  along with Web-CAT; if not, write to the Free Software
+ |  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ |
+ |  Project manager: Stephen Edwards <edwards@cs.vt.edu>
+ |  Virginia Tech CS Dept, 660 McBryde Hall (0106), Blacksburg, VA 24061 USA
+\*==========================================================================*/
+
 package net.sf.webcat;
 
 import java.io.*;
@@ -10,7 +35,7 @@ import java.io.*;
  *  more thorough details on what methods are provided.
  *
  *  @author  Stephen Edwards
- *  @version 2007.08.15
+ *  @version $Id$
  */
 public class PrintStreamWithHistory
     extends PrintStream
@@ -234,6 +259,45 @@ public class PrintStreamWithHistory
 
 
     //~ Methods ...............................................................
+
+    // ----------------------------------------------------------
+    /**
+     * Retrieve the text history of what has been sent to this PrintStream.
+     * This will include all text printed through this object.  The
+     * {@link #clearHistory()} method resets the history to be empty, just
+     * as when the object was first created.  Note that newline characters
+     * in the history are always represented by '\n', regardless of what
+     * value the system <code>line.separator</code> property has.
+     * @return all the text sent to this PrintStream
+     */
+    public String getHistory()
+    {
+        return history.toString();
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Reset this object's history to be empty, just as when the object was
+     * first created.  You can access the history using {@link #getHistory()}.
+     */
+    public void clearHistory()
+    {
+        getHistoryBuffer().setLength(0);
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Retrieve the StringBuffer object used to store this object's text
+     * history.
+     * @return The history as a string buffer
+     */
+    public StringBuffer getHistoryBuffer()
+    {
+        return history.getBuffer();
+    }
+
 
     // ----------------------------------------------------------
     /**
