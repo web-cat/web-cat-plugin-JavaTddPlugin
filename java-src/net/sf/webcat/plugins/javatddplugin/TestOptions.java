@@ -155,18 +155,32 @@ public class TestOptions
             {
                 result = result.substring( 4 );
             }
-            
+
             // Remove any trailing digits not preceded by an underscore
             result = result.replaceFirst( "(?<!_)[0-9]+$", "" );
 
             // Now split into phrases using underscores
             StringBuffer sb = new StringBuffer();
-            for ( String phrase : result.split( "_" ) )
+            for ( String phrase : result.replace("__", "_._").split( "_" ) )
             {
                 if ( phrase != null && !phrase.equals( "" ) )
                 {
-                    sb.append( translateWordPhrase( phrase ) );
-                    sb.append( ' ' );
+                    String thisPhrase = translateWordPhrase( phrase );
+                    if (".".equals(thisPhrase))
+                    {
+                        // Don't put spaces around it
+                        int lastPos = sb.length() - 1;
+                        if ( lastPos >= 0 && sb.charAt( lastPos ) == ' ' )
+                        {
+                            sb.deleteCharAt( lastPos );
+                        }
+                        sb.append( translateWordPhrase( phrase ) );
+                    }
+                    else
+                    {
+                        sb.append( translateWordPhrase( phrase ) );
+                        sb.append( ' ' );
+                    }
                 }
             }
             if ( sb.length() > 0 )
@@ -185,6 +199,14 @@ public class TestOptions
         String result = word;
         // First, look for method
         if ( result.length() > 1
+             && result.charAt( 0 ) == 'c'
+             && Character.isUpperCase( result.charAt( 1 ) ) )
+        {
+            result = result.substring( 1 );
+        }
+
+        // Second, look for method
+        else if ( result.length() > 1
              && result.charAt( 0 ) == 'm'
              && Character.isUpperCase( result.charAt( 1 ) ) )
         {
@@ -247,9 +269,9 @@ public class TestOptions
     //~ Instance/static variables .............................................
 
     private Test test;
-    
+
     private String methodName;
-    
+
     private static final String WORD_BOUNDARY_REGEX =
         "((?<=[^\\p{javaUpperCase}])(?=\\p{javaUpperCase}))"
         + "|((?<=\\p{javaUpperCase})(?=\\p{javaUpperCase}[^\\p{Upper}]))";
