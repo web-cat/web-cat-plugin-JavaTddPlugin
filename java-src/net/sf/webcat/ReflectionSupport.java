@@ -241,6 +241,38 @@ public class ReflectionSupport
 
     // ----------------------------------------------------------
     /**
+     * Determine whether an actual argument type matches a formal argument
+     * type.  This uses {@link Class#isAssignableFrom(Class)}, but gives
+     * the correct results for primitive types vs. wrapper types.
+     * @param actual The type of the actual parameter
+     * @param formal The type of the formal parameter
+     * @return True if the actual value can be passed into a parameter
+     *    declared using the formal type
+     */
+    public static boolean actualMatchesFormal(Class<?> actual, Class<?> formal)
+    {
+        boolean result = formal.isAssignableFrom(actual);
+        if (!result)
+        {
+            result =
+                ( (    formal.equals(byte.class)
+                    || formal.equals(short.class)
+                    || formal.equals(int.class)
+                    || formal.equals(long.class)
+                    || formal.equals(float.class)
+                    || formal.equals(double.class) )
+                  && Number.class.isAssignableFrom(actual) )
+                || ( formal.equals(boolean.class)
+                     && actual.equals(Boolean.class) )
+                || ( formal.equals(char.class)
+                     && actual.equals(Character.class) );
+        }
+        return false;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
      * Look up a method by name and parameter profile, turning any
      * errors into test case failures with appropriate hint messages.
      * Only looks up methods that are declared in the specified class,
@@ -318,7 +350,7 @@ public class ReflectionSupport
                         {
                             // If the actual is non-null, check to see if
                             // it can be assigned to the formal correctly.
-                            if (!paramTypes[i].isAssignableFrom(params[i]))
+                            if (actualMatchesFormal(params[i], paramTypes[i]))
                             {
                                 result = null;
                                 break;
@@ -504,6 +536,182 @@ public class ReflectionSupport
             throw new RuntimeException(e);
         }
         return result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Look up a constructor by parameter profile, finding the
+     * constructor that will accept the given list of parameters (not requiring
+     * an exact match on parameter types).  It turns any
+     * errors into test case failures with appropriate hint messages.
+     * Assumes the intended constructor should be public, and fails with an
+     * appropriate hint if it is not.
+     * Note that this method <b>does not handle variable argument lists</b>
+     * in the target constructor for which it is searching.
+     * @param c The type of object to create
+     * @param params The constructor's parameter profile
+     * @return The corresponding Constructor object
+     */
+    public static Constructor getMatchingConstructor(
+        Class<?> c, Class ... params)
+    {
+        Constructor result = null;
+        Constructor ctorWithSameParamCount = null;
+        if (params == null) { params = new Class[0]; }
+        for (Constructor m : c.getConstructors())
+        {
+            Class<?>[] paramTypes = m.getParameterTypes();
+            if (params.length == paramTypes.length)
+            {
+                ctorWithSameParamCount = m;
+                result = m; // maybe ... we'll clear it if wrong
+                for (int i = 0; i < params.length; i++)
+                {
+                    if (params[i] != null)
+                    {
+                        // If the actual is non-null, check to see if
+                        // it can be assigned to the formal correctly.
+                        if (actualMatchesFormal(params[i], paramTypes[i]))
+                        {
+                            result = null;
+                            break;
+                        }
+                    }
+                    else if (paramTypes[i].isPrimitive())
+                    {
+                        // If actual is null, then the formal can't
+                        // be a primitive
+                        result = null;
+                        break;
+                    }
+                }
+                if (result != null)
+                {
+                    // If we found a match that can accept all the
+                    // parameters  ...
+                    break;
+                }
+            }
+        }
+        if (result == null)
+        {
+            String message = null;
+            if (ctorWithSameParamCount != null)
+            {
+                message = "constructor cannot be called with argument"
+                    + ((params.length == 1) ? "" : "s")
+                    + " of type "
+                    + simpleArgumentList(params)
+                    + ": incorrect parameter type(s)";
+            }
+            else
+            {
+                message = "" + c + " is missing public constructor "
+                    + simpleMethodName(simpleClassName(c), params);
+            }
+            fail(message);
+        }
+        else if (!Modifier.isPublic(result.getModifiers()))
+        {
+            fail("constructor " + simpleMethodName(simpleClassName(c), params)
+                + " should be public");
+        }
+        return result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Just like {@link Constructor#newInstance(Object...)}, but converts
+     * any thrown exceptions into RuntimeExceptions.
+     * @param constructor The constructor to invoke
+     * @param params The parameters to pass to the constructor
+     * @return The newly created object
+     */
+    public static Object create(Constructor constructor, Object ... params)
+    {
+        Object result = null;
+        try
+        {
+            result = constructor.newInstance(params);
+        }
+        catch (InvocationTargetException e)
+        {
+            Throwable cause = e;
+            while (cause.getCause() != null)
+            {
+                cause = cause.getCause();
+            }
+            throw new RuntimeException(cause);
+        }
+        catch (InstantiationException e)
+        {
+            Throwable cause = e;
+            while (cause.getCause() != null)
+            {
+                cause = cause.getCause();
+            }
+            throw new RuntimeException(cause);
+        }
+        catch (IllegalAccessException e)
+        {
+            // This should never happen, since getMethod() has already
+            // done the appropriate checks.
+            throw new RuntimeException(e);
+        }
+        return result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Dynamically look up and invoke a class constructor for the target
+     * class, with appropriate hints if any failures happen along the way.
+     * @param returnType The type of object to create.
+     * @param params The parameters to pass to the constructor
+     * @param <T> The generic parameter T is deduced from the returnType
+     * @return The newly created object
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T create(
+        Class<T> returnType,
+        Object ... params)
+    {
+        Object result = null;
+        Class[] paramProfile = null;
+        if (params != null)
+        {
+            paramProfile = new Class[params.length];
+            for (int i = 0; i < params.length; i++)
+            {
+                if ( params[i] == null)
+                {
+                    // A null indicates we'll try to pass null as an
+                    // actual in the getMatchingMethod() search
+                    paramProfile[i] = null;
+                }
+                else
+                {
+                    paramProfile[i] = params[i].getClass();
+                }
+            }
+        }
+        Constructor c = getMatchingConstructor(returnType, paramProfile);
+
+        result = create(c, params);
+
+        if (result != null)
+        {
+            assertTrue("constructor "
+                + simpleMethodName(simpleClassName(returnType), paramProfile)
+                + " did not produce result of type "
+                + simpleClassName(returnType),
+                returnType.isAssignableFrom(result.getClass()));
+        }
+        // The cast below is technically unsafe, according to the compiler,
+        // but will never be violated, due to the assertion above.
+        return (T)result;
     }
 
 }
