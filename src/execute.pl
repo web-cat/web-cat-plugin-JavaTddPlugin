@@ -269,7 +269,7 @@ setClassPatternIfNeeded('staticAnalysisExclude',
     my $useAssertions = $cfg->getProperty( 'useAssertions' );
     if ( defined $useAssertions && $useAssertions !~ m/^(true|yes|1|on)$/i )
     {
-        $cfg->setProperty( 'enableAssertions', '' );
+        $cfg->setProperty( 'enableAssertions', '-da' );
     }
 }
 
