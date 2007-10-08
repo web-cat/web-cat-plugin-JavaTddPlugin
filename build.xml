@@ -13,6 +13,8 @@
       <entry key="version.date" value="${DSTAMP}"/>
     </propertyfile>
     <property file="Properties"/>
+    <property name="full.version"
+      value="${version.major}.${version.minor}.${version.revision}"/>
   </target>
 
   <target name="build.java.jars"
@@ -29,7 +31,7 @@
       </manifest>
     </jar>
     <copy file="${ant.project.name}Support.jar" todir="src"/>
-    <jar destfile="webcat-support-${version.major}.${version.minor}.jar">
+    <jar destfile="webcat-support-${full.version}.jar">
       <manifest>
         <attribute name="Specification-Title"
           value="Web-CAT/JavaTddPlugin/Support"/>
@@ -46,9 +48,9 @@
   </target>
 
   <target name="export.jar"
-    depends="init,build.java.jars"
+    depends="init,build.java.jars,javadoc"
     description="Build a distributable jar file for this plug-in">
-    <jar destfile="../../${ant.project.name}_${version.major}.${version.minor}.${version.revision}.jar">
+    <jar destfile="../../${ant.project.name}_${full.version}.jar">
       <manifest>
         <attribute name="Specification-Title"
           value="Web-CAT/JavaTddPlugin"/>
