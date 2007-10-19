@@ -541,6 +541,151 @@ public class ReflectionSupport
 
     // ----------------------------------------------------------
     /**
+     * Just like {@link #invoke(Object, Class<T>, Object...)}, but unwraps
+     * any InvocationTargetExceptions and throws the true cause.  This
+     * version is provided when you want to write test cases where you
+     * are intending to check for Exceptions as expected results.
+     * @param receiver The object to invoke the method on
+     * @param returnType The expected type of the method's return value.
+     *     Use null (or <code>void.class</code>) if the method that is
+     *     looked up is a void method.
+     * @param methodName The name of the method to invoke
+     * @param params The parameters to pass to the method
+     * @param <T> The generic parameter T is deduced from the returnType
+     * @return The results from invoking the given method
+     * @throws Exception if the underlying method throws one
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T invokeEx(
+        Object receiver,
+        Class<T> returnType,
+        String methodName,
+        Object ... params)
+        throws Exception
+    {
+        Object result = null;
+        Class targetClass = receiver.getClass();
+        Class[] paramProfile = null;
+        if (params != null)
+        {
+            paramProfile = new Class[params.length];
+            for (int i = 0; i < params.length; i++)
+            {
+                if ( params[i] == null)
+                {
+                    // A null indicates we'll try to pass null as an
+                    // actual in the getMatchingMethod() search
+                    paramProfile[i] = null;
+                }
+                else
+                {
+                    paramProfile[i] = params[i].getClass();
+                }
+            }
+        }
+        Method m = getMatchingMethod(targetClass, methodName, paramProfile);
+
+        result = invokeEx(receiver, m, params);
+
+        if (result != null)
+        {
+            if (returnType != null)
+            {
+                assertTrue("method" + simpleMethodName(m)
+                    + " should be a void method",
+                    returnType != void.class);
+                assertTrue("method " + simpleMethodName(m)
+                    + " did not produce result of type "
+                    + simpleClassName(returnType),
+                    returnType.isAssignableFrom(result.getClass()));
+            }
+            else
+            {
+                fail("method " + simpleMethodName(m)
+                    + " should be a void method");
+            }
+        }
+        // The cast below is technically unsafe, according to the compiler,
+        // but will never be violated, due to the assertion above.
+        return (T)result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Just like {@link #invoke(Object, String, Object...)}, but unwraps
+     * any InvocationTargetExceptions and throws the true cause.  This
+     * version is provided when you want to write test cases where you
+     * are intending to check for Exceptions as expected results.
+     * @param receiver The object to invoke the method on
+     * @param methodName The name of the method to invoke
+     * @param params The parameters to pass to the method
+     * @throws Exception if the underlying method throws one
+     */
+    public static void invokeEx(
+        Object receiver,
+        String methodName,
+        Object ... params)
+        throws Exception
+    {
+        invokeEx(receiver, void.class, methodName, params);
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Just like {@link Method#invoke(Object, Object...)}, but unwraps
+     * any InvocationTargetExceptions and throws the true cause.  This
+     * version is provided when you want to write test cases where you
+     * are intending to check for Exceptions as expected results.
+     * @param receiver The object to invoke the method on
+     * @param method The method to invoke
+     * @param params The parameters to pass to the method
+     * @return The result from the method
+     * @throws Exception if the underlying method throws one
+     */
+    public static Object invokeEx(
+        Object receiver, Method method, Object ... params)
+        throws Exception
+    {
+        Object result = null;
+        try
+        {
+            result = method.invoke(receiver, params);
+        }
+        catch (InvocationTargetException e)
+        {
+            Throwable cause = e;
+            Exception ex = null;
+            if (cause instanceof Exception)
+            {
+                ex = (Exception)cause;
+            }
+            while (cause.getCause() != null)
+            {
+                cause = cause.getCause();
+                if (cause instanceof Exception)
+                {
+                    ex = (Exception)cause;
+                }
+            }
+            if (ex != null)
+            {
+                throw ex;
+            }
+            else
+            {
+                // the cause is a raw Throwable of some kind, rather than
+                // an Exception, so it needs to be wrapped anyway
+                throw new RuntimeException(cause);
+            }
+        }
+        return result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
      * Look up a constructor by parameter profile, finding the
      * constructor that will accept the given list of parameters (not requiring
      * an exact match on parameter types).  It turns any
@@ -712,6 +857,177 @@ public class ReflectionSupport
         // The cast below is technically unsafe, according to the compiler,
         // but will never be violated, due to the assertion above.
         return (T)result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Dynamically look up and invoke a class constructor for the target
+     * class, with appropriate hints if any failures happen along the way.
+     * @param className The type of object to create
+     * @param params The parameters to pass to the constructor
+     * @return The newly created object
+     */
+    public static Object create(String className, Object ... params)
+    {
+        return create(getClassForName(className), params);
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Just like {@link #create(Constructor, Object...)}, but unwraps
+     * any InvocationTargetExceptions and throws the true cause.  This
+     * version is provided when you want to write test cases where you
+     * are intending to check for Exceptions as expected results.
+     * @param constructor The constructor to invoke
+     * @param params The parameters to pass to the constructor
+     * @return The newly created object
+     * @throws Exception if the underlying method throws one
+     */
+    public static Object createEx(Constructor constructor, Object ... params)
+        throws Exception
+    {
+        Object result = null;
+        try
+        {
+            result = constructor.newInstance(params);
+        }
+        catch (InvocationTargetException e)
+        {
+            Throwable cause = e;
+            Exception ex = null;
+            if (cause instanceof Exception)
+            {
+                ex = (Exception)cause;
+            }
+            while (cause.getCause() != null)
+            {
+                cause = cause.getCause();
+                if (cause instanceof Exception)
+                {
+                    ex = (Exception)cause;
+                }
+            }
+            if (ex != null)
+            {
+                throw ex;
+            }
+            else
+            {
+                // the cause is a raw Throwable of some kind, rather than
+                // an Exception, so it needs to be wrapped anyway
+                throw new RuntimeException(cause);
+            }
+        }
+        return result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Just like {@link #create(Class<T>, Object...)}, but unwraps
+     * any InvocationTargetExceptions and throws the true cause.  This
+     * version is provided when you want to write test cases where you
+     * are intending to check for Exceptions as expected results.
+     * @param returnType The type of object to create.
+     * @param params The parameters to pass to the constructor
+     * @param <T> The generic parameter T is deduced from the returnType
+     * @return The newly created object
+     * @throws Exception if the underlying method throws one
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T createEx(
+        Class<T> returnType,
+        Object ... params)
+        throws Exception
+    {
+        Object result = null;
+        Class[] paramProfile = null;
+        if (params != null)
+        {
+            paramProfile = new Class[params.length];
+            for (int i = 0; i < params.length; i++)
+            {
+                if ( params[i] == null)
+                {
+                    // A null indicates we'll try to pass null as an
+                    // actual in the getMatchingMethod() search
+                    paramProfile[i] = null;
+                }
+                else
+                {
+                    paramProfile[i] = params[i].getClass();
+                }
+            }
+        }
+        Constructor c = getMatchingConstructor(returnType, paramProfile);
+
+        result = createEx(c, params);
+
+        if (result != null)
+        {
+            assertTrue("constructor "
+                + simpleMethodName(simpleClassName(returnType), paramProfile)
+                + " did not produce result of type "
+                + simpleClassName(returnType),
+                returnType.isAssignableFrom(result.getClass()));
+        }
+        // The cast below is technically unsafe, according to the compiler,
+        // but will never be violated, due to the assertion above.
+        return (T)result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Just like {@link #create(String, Object...)}, but unwraps
+     * any InvocationTargetExceptions and throws the true cause.  This
+     * version is provided when you want to write test cases where you
+     * are intending to check for Exceptions as expected results.
+     * @param className The type of object to create
+     * @param params The parameters to pass to the constructor
+     * @return The newly created object
+     * @throws Exception if the underlying method throws one
+     */
+    public static Object createEx(String className, Object ... params)
+        throws Exception
+    {
+        return createEx(getClassForName(className), params);
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Dynamically look up a class by name, with appropriate hints if the
+     * class cannot be found.
+     * @param className The type of object to create
+     * @return The corresponding Class object
+     */
+    public static Class<?> getClassForName(String className)
+    {
+        try
+        {
+            // First, look in this class' class loader
+            return Class.forName(className);
+        }
+        catch (ClassNotFoundException e)
+        {
+            try
+            {
+                // Otherwise, try the executing thread's context class
+                // loader, in case it is different
+                return Thread.currentThread().getContextClassLoader()
+                    .loadClass(className);
+            }
+            catch (ClassNotFoundException ee)
+            {
+                fail("cannot find class " + className);
+
+                // Just to make the compiler happy:
+                return null;
+            }
+        }
     }
 
 }
