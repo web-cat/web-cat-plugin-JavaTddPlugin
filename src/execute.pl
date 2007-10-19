@@ -491,7 +491,8 @@ if ( $can_proceed )
     $antLogOpen++;
 
     $_ = <ANTLOG>;
-    scanTo( qr/^syntax-check/ );
+    scanTo( qr/^(syntax-check|BUILD FAILED)/ );
+    $buildFailed++ if defined( $_ )  &&  m/^BUILD FAILED/;
     $_ = <ANTLOG>;
     scanThrough( qr/^\s*\[(?!javac\])/ );
     scanThrough( qr/^\s*($|\[javac\](?!\s+Compiling))/ );
@@ -553,6 +554,7 @@ EOF
                 $compileErrs++;
                 $collectingMsgs = 1;
                 $can_proceed = 0;
+                $buildFailed = 1;
             }
             if ( $collectingMsgs )
             {
@@ -586,7 +588,8 @@ EOF
 #=============================================================================
     if ( $can_proceed )
     {
-        scanTo( qr/^compile-instructor-tests:/ );
+        scanTo( qr/^(compile-instructor-tests:|BUILD FAILED)/ );
+        $buildFailed++ if defined( $_ )  &&  m/^BUILD FAILED/;
         $_ = <ANTLOG>;
         scanThrough( qr/^\s*($|\[javac\](?!\s+Compiling))/ );
         if ( !defined( $_ )  ||  $_ !~ m/^\s*\[javac\]\s+Compiling/ )
@@ -633,7 +636,8 @@ EOF
             $_ = <ANTLOG>;
         }
 
-        scanTo( qr/^(instructor-)?test(.?):/ );
+        scanTo( qr/^((instructor-)?test(.?):|BUILD FAILED)/ );
+        $buildFailed++ if defined( $_ )  &&  m/^BUILD FAILED/;
         if ( m/^instructor-/ )
         {
             # FIXME--anything to do here?
@@ -652,7 +656,8 @@ EOF
 #=============================================================================
     if ( $can_proceed )
     {
-        scanTo( qr/^test:/ );
+        scanTo( qr/^(test:|BUILD FAILED)/ );
+        $buildFailed++ if defined( $_ )  &&  m/^BUILD FAILED/;
         # FIXME--anything to do here?
     }
 
@@ -663,7 +668,7 @@ EOF
         {
             warn "ant BUILD FAILED unexpectedly.";
             $can_proceed = 0;
-            $buildFailed = 1;
+            $buildFailed++;
         }
     }
 
@@ -1370,7 +1375,7 @@ if ( $debug )
 my $gradedElements        = 0;
 my $gradedElementsCovered = 0;
 my $runtimeScoreWithoutCoverage = 0;
-if ( defined $status{'instrTestResults'} )
+if ( defined $status{'instrTestResults'} && $status{'studentHasSrcs'} )
 {
     $runtimeScoreWithoutCoverage = $maxCorrectnessScore
                    * $status{'instrTestResults'}->testPassRate;
