@@ -1459,8 +1459,12 @@ if ( !$buildFailed ) # $can_proceed )
                 $clover->{coverage}{project}{metrics}{methods};
             $cfg->setProperty( "statElementsLabel", "Methods Executed" );
         }
-        $ptsPerUncovered = -1.0 /
-            $topLevelGradedElements * $runtimeScoreWithoutCoverage;
+
+        if ( $studentsMustSubmitTests )
+        {
+            $ptsPerUncovered = -1.0 /
+                $topLevelGradedElements * $runtimeScoreWithoutCoverage;
+        }
     }
     my $Uprojdir = $working_dir . "/";
     #$NTprojdir =~ s,/,\\,go;
