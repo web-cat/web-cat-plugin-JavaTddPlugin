@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 3;
     version.minor    = 1;
-    version.revision = 3;
-    version.date     = 20071026;
+    version.revision = 4;
+    version.date     = 20071211;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -225,7 +225,7 @@
             property    = studentTestExclude;
             type        = shortText;
             size        = 40;
-            default     = "abstract*";
+            default     = "abstract* *$*";
             name        = "Students Test Class Exclusion Patterns";
             category    = "Test Case Settings";
             description =
@@ -256,7 +256,7 @@
             property    = refTestExclude;
             type        = shortText;
             size        = 40;
-            default     = "none";
+            default     = "abstract* *$*";
             name        = "Reference Test Class Exclusion Patterns";
             category    = "Test Case Settings";
             description =

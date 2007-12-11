@@ -28,16 +28,6 @@ use XML::Smart;
 
 my @beautifierIgnoreFiles = ( '.java' );
 
-if ( defined( $ENV{JAVA_HOME} ) )
-{
-    # Make sure selected Java is at the head of the path ...
-    $ENV{PATH} = "$ENV{JAVA_HOME}\\bin;" . $ENV{PATH};
-}
-
-die "ANT_HOME environment variable is not set! (Should come from ANTForPlugins)"
-    if !defined( $ENV{ANT_HOME} );
-my $ANT = "ant";
-
 
 #=============================================================================
 # Bring command line args into local variables for easy reference
@@ -79,15 +69,23 @@ my %status = (
 #-------------------------------------------------------
 # In addition, some local definitions within this script
 #-------------------------------------------------------
+Web_CAT::Utilities::initFromConfig($cfg);
+if ( defined( $ENV{JAVA_HOME} ) )
+{
+    # Make sure selected Java is at the head of the path ...
+    $ENV{PATH} =
+        "$ENV{JAVA_HOME}" . $Web_CAT::Utilities::FILE_SEPARATOR . "bin"
+        . $Web_CAT::Utilities::PATH_SEPARATOR . $ENV{PATH};
+}
+
+die "ANT_HOME environment variable is not set! (Should come from ANTForPlugins)"
+    if !defined( $ENV{ANT_HOME} );
+$ENV{PATH} =
+    "$ENV{ANT_HOME}" . $Web_CAT::Utilities::FILE_SEPARATOR . "bin"
+    . $Web_CAT::Utilities::PATH_SEPARATOR . $ENV{PATH};
+
+my $ANT = "ant";
 my $callAnt            = 1;
-my %shells = (
-    'MSWin32' => 'cmd.exe /c ',
-    'dos'     => 'cmd.exe /c ',
-    'NetWare' => 'cmd.exe /c '
-);
-my $shell = $shells{$^O} || '';
-
-
 my $antLogRelative     = "ant.log";
 my $antLog             = "$log_dir/$antLogRelative";
 my $scriptLogRelative  = "script.log";
@@ -431,7 +429,8 @@ my $time1        = time;
 if ( $callAnt )
 {
     if ( $debug > 2 ) { $ANT .= " -d -v"; }
-    my $cmdline = $shell . "$ANT -f \"$script_home/build.xml\" -l \"$antLog\" "
+    my $cmdline = $Web_CAT::Utilities::SHELL
+        . "$ANT -f \"$script_home/build.xml\" -l \"$antLog\" "
         . "-propertyfile \"$propfile\" \"-Dbasedir=$working_dir\" "
         . "2>&1 > " . File::Spec->devnull;
 
@@ -1831,7 +1830,7 @@ if ( defined $status{'instrTestResults'} )
     }
 
     $status{'feedback'}->startFeedbackSection(
-        $sectionTitle, ++$expSectionId, 1 );
+        $sectionTitle, ++$expSectionId, ($instructorCasesPercent >= 100) );
     $status{'feedback'}->print( "<p><b>Problem coverage: " );
     if ( $instructorCasesPercent == 100 )
     {
