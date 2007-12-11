@@ -370,31 +370,23 @@ public class PrintStreamWithHistory
 
     // ----------------------------------------------------------
     /**
-     * Another useless reimplemented helper, just like the one above.  Because
-     * the encapsulation in PrintStream is too tight to allow overriding.
+     * Send all strings through the superclass print method.
      *
      * @param s The string to write
      */
     private void write(String s)
     {
-        synchronized (history)
-        {
-            super.print(s);
-            history.write(s);
-        }
+        super.print(s);
     }
+
 
     // ----------------------------------------------------------
     /**
-     * Ditto.
+     * Send all newlines through the superclass println method.
      */
     private void newLine()
     {
-        synchronized (history)
-        {
-            super.println();
-            history.write('\n');
-        }
+        super.println();
     }
 
 
@@ -442,7 +434,7 @@ public class PrintStreamWithHistory
      */
     public void print(int i)
     {
-        write(String.valueOf(i));
+        print(String.valueOf(i));
     }
 
 
