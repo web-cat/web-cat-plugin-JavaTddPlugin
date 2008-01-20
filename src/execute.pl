@@ -1376,6 +1376,13 @@ my $gradedElementsCovered = 0;
 my $runtimeScoreWithoutCoverage = 0;
 if ( defined $status{'instrTestResults'} && $status{'studentHasSrcs'} )
 {
+    if ( $status{'compileErrs'} )
+    {
+        # If there was a compilation error, don't count any instructor
+        # tests as passed to force an "unknown" result
+        $status{'instrTestResults'}->addTestsExecuted(
+            -$status{'instrTestResults'}->testsExecuted );
+    }
     $runtimeScoreWithoutCoverage = $maxCorrectnessScore
                    * $status{'instrTestResults'}->testPassRate;
 }
