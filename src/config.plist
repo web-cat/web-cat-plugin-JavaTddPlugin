@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 3;
     version.minor    = 1;
-    version.revision = 6;
-    version.date     = 20080120;
+    version.revision = 7;
+    version.date     = 20080325;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -431,6 +431,19 @@
   "Set to a non-zero value for the script to produce debugging output (the
   larger the number, the greater the detail, up to about 5).  Debugging output
   on each grading script run will be e-mailed to the instructor.";
+        },
+        {
+            property    = doNotDelete;
+            type        = antBoolean;
+            advanced    = true;
+            name        = "Preserve Derived Files";
+            category    = "Script Developer";
+            description =
+  "Set to true to prevent the plug-in from deleting the derived files it
+  creates during the build/test process for each submission.  Normally, these
+  files are deleted when a given submission has been completely processed.
+  This setting is provided for debugging purposes, when one wishes to
+  inspect the intermediate test driver source code or other derived files.";
         }
     );
 }
