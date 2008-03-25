@@ -1,12 +1,12 @@
 // -------------------------------------------------------------------------
 /**
- *  Write a one-sentence summary of your test class here.
- *  Summarize what your test objectives are.
- * 
- *  @author  your-pid (and partner's, if in lab)
- *  @version (place the date here)
+ *  A simple, empty test class with a single test case method that
+ *  always passes.
+ *
+ *  @author  stedwar2
+ *  @version $Id$
  */
-public class $instructor$Empty$Tests
+public class EmptyReferenceTests
     extends junit.framework.TestCase
 {
     //~ Instance/static variables .............................................
@@ -16,10 +16,11 @@ public class $instructor$Empty$Tests
 
     // ----------------------------------------------------------
     /**
-     * Creates a new SolveMazeTest test object.
+     * Creates a new test object.
      */
-    public $instructor$Empty$Tests()
+    public EmptyReferenceTests()
     {
+        // Nothing to do
     }
 
 
@@ -32,23 +33,16 @@ public class $instructor$Empty$Tests
      */
     protected void setUp()
     {
-	System.out.println( "executing instructor empty test" );
+        System.out.println( "executing instructor empty test" );
     }
 
 
     // ----------------------------------------------------------
     /**
-     * Tears down the test fixture.
-     * Called after every test case method.
+     * A test that always passes.
      */
-    protected void tearDown()
-    {
-    }
-
-
-    /*# Insert your own test methods here */
-
     public void testBlank()
     {
+        // Always pass, no assertions
     }
 }
