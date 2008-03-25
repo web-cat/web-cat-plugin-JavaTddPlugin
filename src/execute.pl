@@ -39,7 +39,7 @@ my $pid         = $cfg->getProperty( 'userName' );
 my $working_dir = $cfg->getProperty( 'workingDir' );
 my $script_home = $cfg->getProperty( 'scriptHome' );
 my $log_dir     = $cfg->getProperty( 'resultDir' );
-my $timeout     = $cfg->getProperty( 'timeout' );
+my $timeout     = $cfg->getProperty( 'timeout', 45 );
 
 my $maxToolScore          = $cfg->getProperty( 'max.score.tools', 20 );
 my $maxCorrectnessScore   = $cfg->getProperty( 'max.score.correctness',
