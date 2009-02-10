@@ -2,10 +2,10 @@
 #=============================================================================
 #   @(#)$Id$
 #-----------------------------------------------------------------------------
-#   Web-CAT Curator: execute script for Java submissions
+#   Web-CAT: execute script for Java submissions
 #
 #   usage:
-#       newGbExecute.pl <properties-file>
+#       execute.pl <properties-file>
 #=============================================================================
 
 use strict;
@@ -1754,6 +1754,47 @@ EOF
     }
 }
 
+if ( defined $status{'studentTestResults'}
+     && $status{'studentTestResults'}->hasResults )
+{
+    $cfg->setProperty('student.test.results',
+                      $status{'studentTestResults'}->plist);
+    $cfg->setProperty('student.test.executed',
+                      $status{'studentTestResults'}->testsExecuted);
+    $cfg->setProperty('student.test.passed',
+                      $status{'studentTestResults'}->testsExecuted
+                      - $status{'studentTestResults'}->testsFailed);
+    $cfg->setProperty('student.test.failed',
+                      $status{'studentTestResults'}->testsFailed);
+    $cfg->setProperty('student.test.passRate',
+                      $status{'studentTestResults'}->testPassRate);
+    $cfg->setProperty('student.test.allPass',
+                      $status{'studentTestResults'}->allTestsPass);
+    $cfg->setProperty('student.test.allFail',
+                      $status{'studentTestResults'}->allTestsFail);
+}
+if ( defined $status{'instrTestResults'}
+     && $status{'instrTestResults'}->hasResults )
+{
+    $cfg->setProperty('instructor.test.results',
+                      $status{'instrTestResults'}->plist);
+    $cfg->setProperty('instructor.test.executed',
+                      $status{'instrTestResults'}->testsExecuted);
+    $cfg->setProperty('instructor.test.passed',
+                      $status{'instrTestResults'}->testsExecuted
+                      - $status{'instrTestResults'}->testsFailed);
+    $cfg->setProperty('instructor.test.failed',
+                      $status{'instrTestResults'}->testsFailed);
+    $cfg->setProperty('instructor.test.passRate',
+                      $status{'instrTestResults'}->testPassRate);
+    $cfg->setProperty('instructor.test.allPass',
+                      $status{'instrTestResults'}->allTestsPass);
+    $cfg->setProperty('instructor.test.allFail',
+                      $status{'instrTestResults'}->allTestsFail);
+}
+$cfg->setProperty('blobProperties',
+                  '("instructor.test.results", "student.test.results")');
+
 
 #=============================================================================
 # post-process generated HTML files
@@ -2102,11 +2143,11 @@ if ( $can_proceed && $studentsMustSubmitTests )
 <tr><td><b>Code coverage from your tests:</b></td>
 <td class="n">$codeCoveragePercent%</td></tr>
 <tr><td><b>Estimate of problem coverage:</b></td>
-<td class="n">$instructorCasesPercent</td></tr>
+<td class="n">$instructorCasesPercent%</td></tr>
 <tr><td colspan="2">score =
 $studentCasesPercent%
 * $codeCoveragePercent%
-* $instructorCasesPercent
+* $instructorCasesPercent%
 * $maxCorrectnessScore
 points possible = $scoreToTenths</p>
 </table>
