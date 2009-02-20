@@ -283,7 +283,7 @@ public class PlistJUnitResultFormatter
         {
             if (debugFormat) testResultsPlist.append( "\n\t" );
             testResultsPlist.append( "message=\"" );
-            testResultsPlist.append( result.message );
+            testResultsPlist.append( result.message.replace("\"", "\\\\\"") );
             testResultsPlist.append( "\";" );
         }
         if (debugFormat) testResultsPlist.append( "\n" );
