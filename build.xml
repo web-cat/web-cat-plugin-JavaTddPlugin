@@ -7,6 +7,7 @@
         <arg file="../DevTools/PlistToProperties.pl"/>
         <arg value="src/config.plist"/>
         <arg value="Properties"/>
+        <env key="PERLLIB" path="/Web-CAT/PerlForPlugins/Resources/lib"/>
     </exec>
     <propertyfile file="Properties"
       comment="This file is automatically rewritten by ANT, so all formatting will be trashed.">
@@ -50,6 +51,7 @@
   <target name="export.jar"
     depends="init,build.java.jars,javadoc"
     description="Build a distributable jar file for this plug-in">
+  	<delete file="../../${ant.project.name}_${full.version}.jar"/>
     <jar destfile="../../${ant.project.name}_${full.version}.jar">
       <manifest>
         <attribute name="Specification-Title"
@@ -82,7 +84,7 @@
         stylesheetfile="../../Web-CAT/javadoc.css"
         windowtitle="JavaTddPlugin Documentation">
       <classpath>
-        <fileset dir="c:/eclipse/plugins/org.junit4_4.1.0.1">
+        <fileset dir="/Users/edwards/eclipse/plugins/org.junit4_4.3.1">
           <include name="*.jar"/>
         </fileset>
       </classpath>
