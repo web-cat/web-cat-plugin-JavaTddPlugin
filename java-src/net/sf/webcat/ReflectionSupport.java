@@ -134,7 +134,7 @@ public class ReflectionSupport
      * @return The class' name, without the package part, e.g., "String"
      *     instead of "java.lang.String"
      */
-    public static String simpleClassName(Class aClass)
+    public static String simpleClassName(Class<?> aClass)
     {
         if (aClass == null) return "null";
         String result = aClass.getName();
@@ -142,7 +142,7 @@ public class ReflectionSupport
         // If it is an array, add appropriate number of brackets
         try
         {
-            Class cl = aClass;
+            Class<?> cl = aClass;
             while (cl.isArray())
             {
                 result += "[]";
@@ -173,7 +173,7 @@ public class ReflectionSupport
      * @return A printable version of the method name, like
      *     "myMethod()" or "yourMethod(String, int)"
      */
-    public static String simpleMethodName(String name, Class ... params)
+    public static String simpleMethodName(String name, Class<?> ... params)
     {
         return name + simpleArgumentList(params);
     }
@@ -187,11 +187,11 @@ public class ReflectionSupport
      * @return A printable version of the argument list built using
      *     {@link #simpleClassName(Class)}, like "(String, int)"
      */
-    public static String simpleArgumentList(Class ... params)
+    public static String simpleArgumentList(Class<?> ... params)
     {
         String result = "(";
         boolean needsComma = false;
-        for (Class c : params)
+        for (Class<?> c : params)
         {
             if (needsComma)
             {
@@ -267,7 +267,7 @@ public class ReflectionSupport
                 || ( formal.equals(char.class)
                      && actual.equals(Character.class) );
         }
-        return false;
+        return result;
     }
 
 
@@ -284,7 +284,7 @@ public class ReflectionSupport
      * @return The corresponding Method object
      */
     public static Method getMethod(
-        Class<?> c, String name, Class ... params)
+        Class<?> c, String name, Class<?> ... params)
     {
         Method m = null;
         try
@@ -328,7 +328,7 @@ public class ReflectionSupport
      * @return The corresponding Method object
      */
     public static Method getMatchingMethod(
-        Class<?> c, String name, Class ... params)
+        Class<?> c, String name, Class<?> ... params)
     {
         Method result = null;
         Method methodWithSameName = null;
@@ -350,7 +350,7 @@ public class ReflectionSupport
                         {
                             // If the actual is non-null, check to see if
                             // it can be assigned to the formal correctly.
-                            if (actualMatchesFormal(params[i], paramTypes[i]))
+                            if (!actualMatchesFormal(params[i], paramTypes[i]))
                             {
                                 result = null;
                                 break;
@@ -698,13 +698,13 @@ public class ReflectionSupport
      * @param params The constructor's parameter profile
      * @return The corresponding Constructor object
      */
-    public static Constructor getMatchingConstructor(
-        Class<?> c, Class ... params)
+    public static Constructor<?> getMatchingConstructor(
+        Class<?> c, Class<?> ... params)
     {
-        Constructor result = null;
-        Constructor ctorWithSameParamCount = null;
+        Constructor<?> result = null;
+        Constructor<?> ctorWithSameParamCount = null;
         if (params == null) { params = new Class[0]; }
-        for (Constructor m : c.getConstructors())
+        for (Constructor<?> m : c.getConstructors())
         {
             Class<?>[] paramTypes = m.getParameterTypes();
             if (params.length == paramTypes.length)
@@ -717,7 +717,7 @@ public class ReflectionSupport
                     {
                         // If the actual is non-null, check to see if
                         // it can be assigned to the formal correctly.
-                        if (actualMatchesFormal(params[i], paramTypes[i]))
+                        if (!actualMatchesFormal(params[i], paramTypes[i]))
                         {
                             result = null;
                             break;
@@ -774,7 +774,7 @@ public class ReflectionSupport
      * @param params The parameters to pass to the constructor
      * @return The newly created object
      */
-    public static Object create(Constructor constructor, Object ... params)
+    public static Object create(Constructor<?> constructor, Object ... params)
     {
         Object result = null;
         try
@@ -885,7 +885,7 @@ public class ReflectionSupport
      * @return The newly created object
      * @throws Exception if the underlying method throws one
      */
-    public static Object createEx(Constructor constructor, Object ... params)
+    public static Object createEx(Constructor<?> constructor, Object ... params)
         throws Exception
     {
         Object result = null;
