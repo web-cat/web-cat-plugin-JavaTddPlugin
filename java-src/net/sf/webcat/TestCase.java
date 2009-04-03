@@ -347,7 +347,14 @@ public class TestCase
         predicateReturnsTrueReason = null;
         if (!condition)
         {
-            System.out.println(falseReason);
+        	if (message == null)
+        	{
+        		message = falseReason;
+        	}
+        	else
+        	{
+        		message += " " + falseReason;
+        	}
         }
         junit.framework.TestCase.assertTrue(message, condition);
     }
@@ -387,7 +394,14 @@ public class TestCase
         predicateReturnsTrueReason = null;
         if (condition)
         {
-            System.out.println(trueReason);
+        	if (message == null)
+        	{
+        		message = trueReason;
+        	}
+        	else
+        	{
+        		message += " " + trueReason;
+        	}
         }
         junit.framework.TestCase.assertFalse(message, condition);
     }
@@ -689,7 +703,7 @@ public class TestCase
     public boolean contains(String largerString, String[] substrings)
     {
         int pos = (largerString == null) ? -1 : 0;
-        for (int i = 0; i < substrings.length  &&  pos >= 0; i++)
+        for (int i = 0; i < substrings.length  &&  largerString != null; i++)
         {
             pos = largerString.indexOf(substrings[i], pos);
             if (pos > 0)
