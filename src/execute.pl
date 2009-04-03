@@ -1792,8 +1792,49 @@ if ( defined $status{'instrTestResults'}
     $cfg->setProperty('instructor.test.allFail',
                       $status{'instrTestResults'}->allTestsFail);
 }
-$cfg->setProperty('blobProperties',
-                  '("instructor.test.results", "student.test.results")');
+if ( defined $messageStats)
+{
+	my $staticResults = '';
+	foreach my $grp (keys %{$messageStats})
+	{
+		if ($grp eq 'file'
+		    || $grp eq 'num'
+		    || $grp eq 'pts'
+		    || $grp eq 'collapse')
+		{
+		    next;
+		}
+
+		foreach my $rule (keys(%{$messageStats->{$grp}}))
+		{
+            if ($rule eq 'file'
+                || $rule eq 'num'
+                || $rule eq 'pts'
+                || $rule eq 'collapse')
+            {
+                next;
+            }
+            my $thisRule = '{'
+            	. '"name"="' . $rule . '";'
+                . '"group"="' . $grp . '";'
+                . '"count"="' . $messageStats->{$grp}->{$rule}->{num} . '";'
+                . '"pts"="' . $messageStats->{$grp}->{$rule}->{pts} . '";'
+            	. '}';
+            if ($staticResults eq '')
+            {
+                $staticResults = $thisRule;
+            }
+            else
+            {
+        	   $staticResults .= ',' . $thisRule;
+            }
+        }
+	}
+    $cfg->setProperty('static.analysis.results', '(' . $staticResults . ')');
+}
+$cfg->setProperty('outcomeProperties',
+                  '("instructor.test.results", "student.test.results", '
+                  . '"static.analysis.results")');
 
 
 #=============================================================================
