@@ -136,7 +136,23 @@ public class PlistJUnitResultFormatter
         {
             return null;
         }
-        return text.replaceAll( "([@$%#])", "\\\\$1" );
+        return text.replaceAll( "([@$%#\"\\\\])", "\\\\$1" );
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Produces a perl string literal from the given string.
+     * @param text the input string to convert
+     * @return the corresponding string literal
+     */
+    public String perlStringLiteral(String text)
+    {
+        if (text == null)
+        {
+            return "''";
+        }
+        return "'" + text.replaceAll( "'", "\\\\'" ) + "'";
     }
 
 
@@ -157,7 +173,7 @@ public class PlistJUnitResultFormatter
         public int       level;
         /** A message associated with the exception object, if any. */
         public String    message;
-        
+
         /**
          * Create a new descriptor.
          * @param suite
@@ -322,7 +338,7 @@ public class PlistJUnitResultFormatter
     protected int codeOf( Throwable error )
     {
         if ( error == null ) return 1;
-        
+
         // First-pass code assignment is made by the code table
         int code = 0;
         for ( int i = 0; i < codeTable.length; i++ )
@@ -410,7 +426,7 @@ public class PlistJUnitResultFormatter
                 }
             }
         }
-        
+
         return code;
     }
 
