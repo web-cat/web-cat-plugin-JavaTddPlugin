@@ -304,16 +304,15 @@ public class HintingJUnitResultFormatter
                 {
                     outBuffer.append( "$results->addHint( " );
                     outBuffer.append( mandatory );
-                    outBuffer.append( ", \"" );
-                    outBuffer.append(
-                        perlEscape( hint ).replaceAll("\"", "\\\\\"") );
+                    outBuffer.append( ", " );
+                    outBuffer.append( perlStringLiteral( hint ) );
                     if ( traceMsg == null )
                     {
-                        outBuffer.append( "\", undef );" );
+                        outBuffer.append( ", undef );" );
                     }
                     else
                     {
-                        outBuffer.append( "\", <<TRACE );" );
+                        outBuffer.append( ", <<TRACE );" );
                         outBuffer.append( StringUtils.LINE_SEP );
                         outBuffer.append( perlEscape( traceMsg ) );
                         outBuffer.append( "TRACE" );
@@ -533,7 +532,12 @@ public class HintingJUnitResultFormatter
         "junit.textui.TestRunner",
         "java.lang.reflect.Method",
         "sun.reflect.",
-        "org.apache.tools.ant."
+        "org.apache.tools.ant.",
+        // Web-CAT infrastructure
+        "net.sf.webcat.plugins.",
+        "net.sf.webcat.ReflectionSupport",
+        "net.sf.webcat.TestCase",
+        "cs1705.TestCase"
     };
 
     private static final Pattern[] expectedOutputRegExps = {
