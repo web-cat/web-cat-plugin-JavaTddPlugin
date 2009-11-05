@@ -1295,8 +1295,19 @@ sub translateHTMLFile
     }
     else
     {
-        print( STDERR "Cannot locate code markup number for $className "
+    	my $lcClassName = $className;
+    	$lcClassName =~ tr/A-Z/a-z/;
+        if ( defined( $classToMarkupNoMap{$lcClassName} ) )
+        {
+            $cfg->setProperty( 'codeMarkup' . $classToMarkupNoMap{$lcClassName}
+                               . '.remarks',
+                    $messageStats->{file}->{$sourceName}->{remarks}->content );
+        }
+        else
+        {
+            print( STDERR "Cannot locate code markup number for $className "
                . "in $sourceName\n" );
+        }
     }
     if ( $debug > 1 )
     {
@@ -1392,15 +1403,18 @@ print "score with ref tests: $runtimeScoreWithoutCoverage\n" if ( $debug > 2 );
 if ( defined $status{'studentTestResults'}
      && $status{'studentTestResults'}->testsExecuted > 0 )
 {
-    if ( $allStudentTestsMustPass
-         && $status{'studentTestResults'}->testsFailed > 0 )
+    if ($studentsMustSubmitTests)
     {
-        $runtimeScoreWithoutCoverage = 0;
-    }
-    else
-    {
-        $runtimeScoreWithoutCoverage *=
-            $status{'studentTestResults'}->testPassRate;
+        if ( $allStudentTestsMustPass
+             && $status{'studentTestResults'}->testsFailed > 0 )
+        {
+            $runtimeScoreWithoutCoverage = 0;
+        }
+        else
+        {
+            $runtimeScoreWithoutCoverage *=
+                $status{'studentTestResults'}->testPassRate;
+        }
     }
     $studentCasesPercent = int(
         $status{'studentTestResults'}->testPassRate * 100.0 + 0.5 );
