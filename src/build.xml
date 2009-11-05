@@ -139,6 +139,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            destdir="${studentBuild}"
            verbose="off"
            deprecation="on"
+           debug="on"
+           debuglevel="lines,vars,source"
            source="${javaSourceVersion}">
       <classpath refid="build.classpath"/>
     </javac>
@@ -183,6 +185,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            verbose="off"
            failonerror="false"
            debug="on"
+           debuglevel="lines,vars,source"
            source="${javaSourceVersion}"
            casesensitive="no"
            includes="${testCasePattern}">
@@ -323,6 +326,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            destdir="${studentBuild}"
            verbose="off"
            debug="on"
+           debuglevel="lines,vars,source"
            source="${javaSourceVersion}">
       <classpath refid="build.classpath"/>
     </javac>
