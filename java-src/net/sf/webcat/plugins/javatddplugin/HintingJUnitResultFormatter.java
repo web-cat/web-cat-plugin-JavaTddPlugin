@@ -202,6 +202,10 @@ public class HintingJUnitResultFormatter
                 case CLASS_TEAR_DOWN:
                     hint = "Failure during test suite tear down";
                     break;
+                case TEST_CASE:
+                    // This is the typical case, so don't provide a
+                    // mandatory hint
+                    break;
             }
 
             TestOptions options = testOptionsFor( result.test );
@@ -228,6 +232,8 @@ public class HintingJUnitResultFormatter
             // Look for explicit hint first
             if ( hint == null
                  && result.message != null
+                 && !Pattern.compile("In file .*( which reads|on this line):")
+                     .matcher(result.message).find()
                  /* && result.message.matches( HINT_MARKER_PLUS_ALL_RE )*/ )
             {
                 hint = result.message.replaceFirst( HINT_MARKER_RE, "" );
@@ -257,7 +263,7 @@ public class HintingJUnitResultFormatter
 //                output.write(
 //                     "explicit hint, after trimming: " + hint + "\n" );
 
-                // Add the required prefix, if any, but pushing the message
+                // Add the required prefix, if any, by pushing the message
                 // back through the options object
                 options.setHint( hint );
                 hint = options.fullHintText();
@@ -537,6 +543,7 @@ public class HintingJUnitResultFormatter
         "net.sf.webcat.plugins.",
         "net.sf.webcat.ReflectionSupport",
         "net.sf.webcat.TestCase",
+        "student.TestCase",
         "cs1705.TestCase"
     };
 
@@ -545,6 +552,13 @@ public class HintingJUnitResultFormatter
         null,                               // 1: not used
         Pattern.compile( "(?is)\\s*expected:.*but was:.*$" ),// 2: CompFailure
         Pattern.compile( "(?is)((\\s*expected:.*but was:.*)"
+            + "|(<.*> was the same as:\\s*<.*>)"
+            + "|(<.*> matches regex:\\s*<.*>)"
+            + "|(<.*> does not match regex:\\s*<.*>)"
+            + "|(<.*> contains:\\s*<.*>)"
+            + "|(<.*> does not contain:\\s*<.*>)"
+            + "|(<.*> contains regex:\\s*<.*>)"
+            + "|(<.*> does not contain regex:\\s*<.*>)"
             + "|(: ((expected|actual) array was null)"
             +"|(array lengths differed)"
             +"|(arrays firsts differed)).*)$"

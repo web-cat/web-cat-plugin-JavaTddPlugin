@@ -343,12 +343,15 @@ public class PlistJUnitResultFormatter
         int code = 0;
         for ( int i = 0; i < codeTable.length; i++ )
         {
-            if ( codeTable[i] != null
-                 && codeTable[i].isAssignableFrom( error.getClass() ) )
+            if ( codeTable[i] != null )
             {
-                // error instanceof codeTable[i]
-                code = i;
-                break;
+                if (codeTable[i].isAssignableFrom(error.getClass())
+                    || codeTable[i].getName().equals(error.getClass().getName()))
+                {
+                    // error instanceof codeTable[i]
+                    code = i;
+                    break;
+                }
             }
         }
 
