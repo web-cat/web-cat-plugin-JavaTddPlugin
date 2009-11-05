@@ -26,6 +26,7 @@
 package net.sf.webcat;
 
 import java.io.*;
+import java.util.Stack;
 
 //-------------------------------------------------------------------------
 /**
@@ -44,12 +45,9 @@ public class SystemIOUtilities
 {
     //~ Instance/static variables .............................................
 
-    private static PrintStream originalOut;
-    private static PrintStream originalErr;
+    private static Stack<PrintStream> originalOut = new Stack<PrintStream>();
+    private static Stack<PrintStream> originalErr = new Stack<PrintStream>();
     private static InputStream originalIn;
-
-    private static PrintStreamWithHistory  wrappedOut;
-    private static PrintStreamWithHistory  wrappedErr;
 
 
     //~ Constructors ..........................................................
@@ -76,21 +74,18 @@ public class SystemIOUtilities
     public static PrintStreamWithHistory out()
     {
         assertNotOnServer();
-        if (wrappedOut == null)
+        PrintStreamWithHistory out = null;
+        if (System.out instanceof PrintStreamWithHistory)
         {
-            if (System.out instanceof PrintStreamWithHistory)
-            {
-                wrappedOut = (PrintStreamWithHistory)System.out;
-                originalOut = null;
-            }
-            else
-            {
-                originalOut = System.out;
-                wrappedOut = new PrintStreamWithHistory(System.out);
-                System.setOut(wrappedOut);
-            }
+            out = (PrintStreamWithHistory)System.out;
         }
-        return wrappedOut;
+        else
+        {
+            out = new PrintStreamWithHistory(System.out);
+            originalOut.push(System.out);
+            System.setOut(out);
+        }
+        return out;
     }
 
 
@@ -102,12 +97,10 @@ public class SystemIOUtilities
     public static void restoreSystemOut()
     {
         assertNotOnServer();
-        if (originalOut != null)
+        if (originalOut.size() > 0)
         {
-            System.setOut(originalOut);
-            originalOut = null;
+            System.setOut(originalOut.pop());
         }
-        wrappedOut = null;
     }
 
 
@@ -120,21 +113,18 @@ public class SystemIOUtilities
     public static PrintStreamWithHistory err()
     {
         assertNotOnServer();
-        if (wrappedErr == null)
+        PrintStreamWithHistory err = null;
+        if (System.err instanceof PrintStreamWithHistory)
         {
-            if (System.err instanceof PrintStreamWithHistory)
-            {
-                wrappedErr = (PrintStreamWithHistory)System.err;
-                originalErr = null;
-            }
-            else
-            {
-                originalErr = System.err;
-                wrappedErr = new PrintStreamWithHistory(System.err);
-                System.setErr(wrappedErr);
-            }
+            err = (PrintStreamWithHistory)System.err;
         }
-        return wrappedErr;
+        else
+        {
+            err = new PrintStreamWithHistory(System.err);
+            originalErr.push(System.err);
+            System.setErr(err);
+        }
+        return err;
     }
 
 
@@ -146,12 +136,10 @@ public class SystemIOUtilities
     public static void restoreSystemErr()
     {
         assertNotOnServer();
-        if (originalErr != null)
+        if (originalErr.size() > 0)
         {
-            System.setErr(originalErr);
-            originalErr = null;
+            System.setErr(originalErr.pop());
         }
-        wrappedErr = null;
     }
 
 
@@ -196,7 +184,7 @@ public class SystemIOUtilities
         try
         {
             if (SystemIOUtilities.class.getClassLoader()
-                    .loadClass("cs1705.web.internal.Interpreter") != null)
+                    .loadClass("student.web.internal.Interpreter") != null)
             {
                 inServlet = true;
             }
