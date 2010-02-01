@@ -12,12 +12,12 @@
     ruleset.
   </description>
 
-  <rule ref="rulesets/naming.xml/LongVariable"
+  <!-- rule ref="rulesets/naming.xml/LongVariable"
     message="The variable name ''{0}'' seems a little longer than
     necessary. It is important to use descriptive names, but
     excessively long variable names can increase typing errors. Try to
     find a slightly shorter (less than 17 characters) but still
-    descriptive variable name."/>
+    descriptive variable name."/ -->
 
      <!--
      ShortVariable

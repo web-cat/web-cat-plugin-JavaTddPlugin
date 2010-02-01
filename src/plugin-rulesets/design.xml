@@ -97,9 +97,9 @@
      SimplifyConditional
      -->
 
-  <rule ref="rulesets/design.xml/CompareObjectsWithEquals"
+  <!-- rule ref="rulesets/design.xml/CompareObjectsWithEquals"
     message="When comparing two objects you probably want to use the
-    .equals method, not the equality operator (==)."/>
+    .equals method, not the equality operator (==)."/ -->
 
   <rule ref="rulesets/design.xml/UncommentedEmptyMethod"
     message="This method does not contain any code. Should it be doing

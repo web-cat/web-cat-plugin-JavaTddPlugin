@@ -25,9 +25,18 @@
         <module name="JavadocMethod">
             <property name="allowUndeclaredRTE" value="true"/>
             <property name="allowThrowsTagsForSubclasses" value="true"/>
+            <!-- property name="allowMissingParamTags" value="true"/-->
+            <property name="allowMissingThrowsTags" value="true"/>
+            <!-- property name="allowMissingReturnTag" value="true"/-->
+            <property name="scope" value="package"/>
+        </module>
+        <module name="JavadocMethod">
+            <property name="allowUndeclaredRTE" value="true"/>
+            <property name="allowThrowsTagsForSubclasses" value="true"/>
             <property name="allowMissingParamTags" value="true"/>
             <property name="allowMissingThrowsTags" value="true"/>
             <property name="allowMissingReturnTag" value="true"/>
+            <property name="excludeScope" value="package"/>
         </module>
         <module name="JavadocType">
             <property name="authorFormat" value="\S"/>
@@ -36,9 +45,9 @@
         <module name="JavadocVariable">
             <property name="scope" value="protected"/>
         </module>
-        <module name="JavadocStyle">
+        <!-- module name="JavadocStyle">
             <property name="checkEmptyJavadoc" value="true"/>
-        </module>
+        </module-->
 
 
         <!-- Checks for Naming Conventions.                  -->
@@ -127,7 +136,7 @@
 	    <property name="option" value="space"/>
 	</module>
 	-->
-        <!-- module name="TabCharacter"/ -->
+        <module name="TabCharacter"/>
         <module name="WhitespaceAfter">
 	    <property name="tokens" value="COMMA, SEMI"/>
 	</module>
@@ -174,7 +183,11 @@
         <module name="DoubleCheckedLocking"/>
         <module name="EmptyStatement"/>
         <!-- module name="EqualsHashCode"/ :let PMD handle this -->
-        <module name="HiddenField"/>
+        <module name="HiddenField">
+            <property name="ignoreConstructorParameter" value="true"/>
+            <property name="ignoreSetter" value="true"/>
+            <property name="ignoreAbstractMethods" value="true"/>
+        </module>
         <!-- module name="IllegalInstantiation"/ -->
         <!-- module name="InnerAssignment"/ :let PMD handle this -->
 	<!--
