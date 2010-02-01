@@ -139,6 +139,7 @@ public class ReflectionSupport
         if (aClass == null) return "null";
         String result = aClass.getName();
 
+
         // If it is an array, add appropriate number of brackets
         try
         {
@@ -160,6 +161,54 @@ public class ReflectionSupport
             result = result.substring(pos + 1);
         }
         return result;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Returns the name of the given class without any package prefix.
+     * If the argument is an array type, square brackets are added to
+     * the name as appropriate.  This method isuseful in generating
+     * diagnostic messages or feedback.
+     * @param aClass The class to generate a name for
+     * @return The class' name, without the package part, e.g., "String"
+     *     instead of "java.lang.String"
+     */
+    public static String simpleClassNameUsingPrimitives(Class<?> aClass)
+    {
+        if (aClass == Boolean.class)
+        {
+            aClass = Boolean.TYPE;
+        }
+        else if (aClass == Byte.class)
+        {
+            aClass = Byte.TYPE;
+        }
+        else if (aClass == Character.class)
+        {
+            aClass = Character.TYPE;
+        }
+        else if (aClass == Short.class)
+        {
+            aClass = Short.TYPE;
+        }
+        else if (aClass == Integer.class)
+        {
+            aClass = Integer.TYPE;
+        }
+        else if (aClass == Long.class)
+        {
+            aClass = Long.TYPE;
+        }
+        else if (aClass == Float.class)
+        {
+            aClass = Float.TYPE;
+        }
+        else if (aClass == Double.class)
+        {
+            aClass = Double.TYPE;
+        }
+        return simpleClassName(aClass);
     }
 
 
@@ -232,9 +281,10 @@ public class ReflectionSupport
             sb.append(Modifier.toString(mod) + " ");
         }
         sb.append(simpleClassName(method.getReturnType()) + " ");
-        sb.append(simpleClassName(method.getDeclaringClass()) + ".");
         sb.append(method.getName());
         sb.append(simpleArgumentList(method.getParameterTypes()));
+        sb.append(" in class ");
+        sb.append(simpleClassName(method.getDeclaringClass()));
         return sb.toString();
     }
 
@@ -254,20 +304,28 @@ public class ReflectionSupport
         boolean result = formal.isAssignableFrom(actual);
         if (!result)
         {
-            result =
-                ( (    formal.equals(byte.class)
-                    || formal.equals(short.class)
-                    || formal.equals(int.class)
-                    || formal.equals(long.class)
-                    || formal.equals(float.class)
-                    || formal.equals(double.class) )
-                  && Number.class.isAssignableFrom(actual) )
-                || ( formal.equals(boolean.class)
-                     && actual.equals(Boolean.class) )
-                || ( formal.equals(char.class)
-                     && actual.equals(Character.class) );
+            result = canAutoBoxFromActualToFormal(actual, formal);
         }
         return result;
+    }
+
+
+    // ----------------------------------------------------------
+    public static boolean canAutoBoxFromActualToFormal(
+        Class<?> actual, Class<?> formal)
+    {
+        return
+            ( (    formal.equals(byte.class)
+                || formal.equals(short.class)
+                || formal.equals(int.class)
+                || formal.equals(long.class)
+                || formal.equals(float.class)
+                || formal.equals(double.class) )
+              && Number.class.isAssignableFrom(actual) )
+            || ( formal.equals(boolean.class)
+                 && actual.equals(Boolean.class) )
+            || ( formal.equals(char.class)
+                 && actual.equals(Character.class) );
     }
 
 
@@ -458,6 +516,31 @@ public class ReflectionSupport
         }
         Method m = getMatchingMethod(targetClass, methodName, paramProfile);
 
+        if (returnType == null || returnType == void.class)
+        {
+            Class<?> declaredReturnType = m.getReturnType();
+            assertTrue("method " + simpleMethodName(m)
+                + " should be a void method",
+                declaredReturnType == void.class ||
+                declaredReturnType == null);
+        }
+        else
+        {
+            Class<?> declaredReturnType = m.getReturnType();
+            assertTrue("method " + simpleMethodName(m)
+                + " should be declared with a return type of "
+                + simpleClassNameUsingPrimitives(returnType),
+                declaredReturnType != void.class &&
+                declaredReturnType != null &&
+                (actualMatchesFormal(declaredReturnType, returnType)
+                    // Had to add this second part in for legacy compatibility,
+                    // where tests written with Integer.class need to
+                    // work, even though they should have been written
+                    // with int.class
+                 || canAutoBoxFromActualToFormal(
+                     returnType, declaredReturnType)));
+        }
+
         result = invoke(receiver, m, params);
 
         if (result != null)
@@ -470,7 +553,7 @@ public class ReflectionSupport
                 assertTrue("method " + simpleMethodName(m)
                     + " did not produce result of type "
                     + simpleClassName(returnType),
-                    returnType.isAssignableFrom(result.getClass()));
+                    actualMatchesFormal(result.getClass(), returnType));
             }
             else
             {
@@ -584,6 +667,25 @@ public class ReflectionSupport
             }
         }
         Method m = getMatchingMethod(targetClass, methodName, paramProfile);
+
+        if (returnType == null || returnType == void.class)
+        {
+            Class<?> declaredReturnType = m.getReturnType();
+            assertTrue("method" + simpleMethodName(m)
+                + " should be a void method",
+                declaredReturnType == void.class ||
+                declaredReturnType == null);
+        }
+        else
+        {
+            Class<?> declaredReturnType = m.getReturnType();
+            assertTrue("method" + simpleMethodName(m)
+                + " should be declared with a return type of "
+                + simpleClassNameUsingPrimitives(returnType),
+                declaredReturnType != void.class &&
+                declaredReturnType != null &&
+                !actualMatchesFormal(declaredReturnType, returnType));
+        }
 
         result = invokeEx(receiver, m, params);
 
