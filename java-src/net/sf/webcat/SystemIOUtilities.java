@@ -148,12 +148,22 @@ public class SystemIOUtilities
      * Replace {@link System#in} with the contents of the given string.
      * @param contents The content to read from
      */
-    @SuppressWarnings("deprecation")
     public static void replaceSystemInContents(String contents)
     {
         assertNotOnServer();
-        originalIn = System.in;
-        System.setIn(new StringBufferInputStream(contents));
+        if (System.in instanceof MutableStringBufferInputStream)
+        {
+            ((MutableStringBufferInputStream)System.in)
+                .resetContents(contents);
+        }
+        else
+        {
+            originalIn = System.in;
+            MutableStringBufferInputStream newIn =
+                new MutableStringBufferInputStream(contents);
+            newIn.setName("System.in");
+            System.setIn(newIn);
+        }
     }
 
 
