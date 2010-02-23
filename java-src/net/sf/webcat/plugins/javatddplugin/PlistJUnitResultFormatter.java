@@ -1,6 +1,7 @@
 /*==========================================================================*\
+ |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2006 Virginia Tech
+ |  Copyright (C) 2006-2010 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -24,14 +25,9 @@
 
 package net.sf.webcat.plugins.javatddplugin;
 
-import java.io.OutputStream;
-import java.io.PrintWriter;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
-import junit.framework.TestListener;
-import org.apache.tools.ant.taskdefs.optional.junit.JUnitResultFormatter;
 import org.apache.tools.ant.taskdefs.optional.junit.JUnitTest;
-import org.apache.tools.ant.util.FileUtils;
 import org.apache.tools.ant.util.StringUtils;
 
 //-------------------------------------------------------------------------
@@ -40,7 +36,8 @@ import org.apache.tools.ant.util.StringUtils;
  *  in plist format (Apple-style property lists).
  *
  *  @author Stephen Edwards
- *  @version $Id$
+ *  @author Last changed by $Author$
+ *  @version $Revision$, $Date$
  */
 public class PlistJUnitResultFormatter
     extends PerlScoringJUnitResultFormatter
@@ -384,6 +381,16 @@ public class PlistJUnitResultFormatter
                              "junit.framework.Assert" ) )
                     {
                         methodName = trace[pos].getMethodName();
+                    }
+                    else
+                    {
+                        pos = findLast( trace, 0, "student.TestCase" );
+                        if ( pos < trace.length
+                             && trace[pos].getClassName().equals(
+                                 "student.TestCase" ) )
+                        {
+                            methodName = trace[pos].getMethodName();
+                        }
                     }
                 }
                 else

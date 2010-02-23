@@ -1,7 +1,7 @@
 /*==========================================================================*\
  |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2006 Virginia Tech
+ |  Copyright (C) 2006-2010 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -27,7 +27,6 @@ package net.sf.webcat.plugins.javatddplugin;
 
 import java.util.regex.Pattern;
 import junit.framework.Test;
-import net.sf.webcat.plugins.javatddplugin.PlistJUnitResultFormatter.*;
 import org.apache.tools.ant.taskdefs.optional.junit.*;
 import org.apache.tools.ant.util.*;
 
@@ -37,7 +36,8 @@ import org.apache.tools.ant.util.*;
  *  hints for use by a Perl-based hint formatting engine.
  *
  *  @author Stephen Edwards
- *  @version $Id$
+ *  @author Last changed by $Author$
+ *  @version $Revision$, $Date$
  */
 public class HintingJUnitResultFormatter
     extends PlistJUnitResultFormatter
@@ -525,8 +525,6 @@ public class HintingJUnitResultFormatter
     //~ Instance/static variables .............................................
 
     private static final String HINT_MARKER_RE = "^(?i)hint:\\s*";
-    private static final String HINT_MARKER_PLUS_ALL_RE =
-        HINT_MARKER_RE + ".*";
 
     private static final String[] defaultStackFilters = {
         // JUnit 4 support:
@@ -543,6 +541,7 @@ public class HintingJUnitResultFormatter
         "net.sf.webcat.plugins.",
         "net.sf.webcat.ReflectionSupport",
         "net.sf.webcat.TestCase",
+        "student.GUITestCase",
         "student.TestCase",
         "cs1705.TestCase"
     };
@@ -551,7 +550,7 @@ public class HintingJUnitResultFormatter
         null,                               // 0: not used
         null,                               // 1: not used
         Pattern.compile( "(?is)\\s*expected:.*but was:.*$" ),// 2: CompFailure
-        Pattern.compile( "(?is)((\\s*expected:.*but was:.*)"
+        Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
             + "|(<.*> was the same as:\\s*<.*>)"
             + "|(<.*> matches regex:\\s*<.*>)"
             + "|(<.*> does not match regex:\\s*<.*>)"
@@ -560,16 +559,40 @@ public class HintingJUnitResultFormatter
             + "|(<.*> contains regex:\\s*<.*>)"
             + "|(<.*> contains regexes:)"
             + "|(<.*> does not contain regex:\\s*<.*>)"
-            + "|(: ((expected|actual) array was null)"
+            + "|(: (expected|actual) array was null)"
             +"|(array lengths differed)"
             +"|(arrays firsts differed)).*)$"
             ),// 3: assertEquals (including JUnit 4.x array version
-        null,                               // 4: assertFalse
+        Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
+            + "|(<.*> was the same as:\\s*<.*>)"
+            + "|(<.*> matches regex:\\s*<.*>)"
+            + "|(<.*> does not match regex:\\s*<.*>)"
+            + "|(<.*> contains:)"
+            + "|(<.*> does not contain:\\s*<.*>)"
+            + "|(<.*> contains regex:\\s*<.*>)"
+            + "|(<.*> contains regexes:)"
+            + "|(<.*> does not contain regex:\\s*<.*>)"
+            + "|(: (expected|actual) array was null)"
+            +"|(array lengths differed)"
+            +"|(arrays firsts differed)).*)$"
+            ),// 4: assertFalse
         null,                               // 5: assertNotNull
         Pattern.compile( "(?i)\\s*expected not same$" ),  // 6: assertNotSame
         null,                               // 7: assertNull
         Pattern.compile( "(?is)\\s*expected same:.*was not:.*$" ),//8:assertSame
-        null,                               // 9: assertTrue
+        Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
+            + "|(<.*> was the same as:\\s*<.*>)"
+            + "|(<.*> matches regex:\\s*<.*>)"
+            + "|(<.*> does not match regex:\\s*<.*>)"
+            + "|(<.*> contains:)"
+            + "|(<.*> does not contain:\\s*<.*>)"
+            + "|(<.*> contains regex:\\s*<.*>)"
+            + "|(<.*> contains regexes:)"
+            + "|(<.*> does not contain regex:\\s*<.*>)"
+            + "|(: (expected|actual) array was null)"
+            +"|(array lengths differed)"
+            +"|(arrays firsts differed)).*)$"
+            ),// 9: assertTrue
         null,                               // 10: not used
         null,                               // 11: not used
         null,                               // 12: not used

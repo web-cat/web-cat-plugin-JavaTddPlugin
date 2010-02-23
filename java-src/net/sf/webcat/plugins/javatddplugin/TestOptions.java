@@ -1,7 +1,7 @@
 /*==========================================================================*\
  |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2006 Virginia Tech
+ |  Copyright (C) 2006-2010 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -25,8 +25,6 @@
 
 package net.sf.webcat.plugins.javatddplugin;
 
-import org.apache.tools.ant.taskdefs.optional.junit.*;
-
 import junit.framework.Test;
 
 //-------------------------------------------------------------------------
@@ -35,7 +33,8 @@ import junit.framework.Test;
  *  a specific method.
  *
  *  @author Stephen Edwards
- *  @version $Id$
+ *  @author Last changed by $Author$
+ *  @version $Revision$, $Date$
  */
 public class TestOptions
     extends HintOptions

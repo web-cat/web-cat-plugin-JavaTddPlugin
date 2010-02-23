@@ -1,7 +1,7 @@
 /*==========================================================================*\
  |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2006 Virginia Tech
+ |  Copyright (C) 2006-2010 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -29,7 +29,6 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
-import junit.framework.TestListener;
 import org.apache.tools.ant.taskdefs.optional.junit.JUnitResultFormatter;
 import org.apache.tools.ant.taskdefs.optional.junit.JUnitTest;
 import org.apache.tools.ant.util.FileUtils;
@@ -41,7 +40,8 @@ import org.apache.tools.ant.util.StringUtils;
  *  stdout/stderr contents.
  *
  *  @author Stephen Edwards
- *  @version $Id$
+ *  @author Last changed by $Author$
+ *  @version $Revision$, $Date$
  */
 public class OutputCaptureJUnitResultFormatter
     implements JUnitResultFormatter

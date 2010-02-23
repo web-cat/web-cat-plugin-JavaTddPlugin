@@ -1,7 +1,7 @@
 /*==========================================================================*\
  |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2006 Virginia Tech
+ |  Copyright (C) 2006-2010 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -25,7 +25,6 @@
 
 package net.sf.webcat.plugins.javatddplugin;
 
-import net.sf.webcat.annotations.*;
 import org.apache.tools.ant.taskdefs.optional.junit.JUnitTest;
 
 //-------------------------------------------------------------------------
@@ -34,7 +33,8 @@ import org.apache.tools.ant.taskdefs.optional.junit.JUnitTest;
  *  a test class.
  *
  *  @author Stephen Edwards
- *  @version $Id$
+ *  @author Last changed by $Author$
+ *  @version $Revision$, $Date$
  */
 public class TestSuiteOptions
     extends HintOptions
@@ -119,7 +119,7 @@ public class TestSuiteOptions
     private String hintFromClassName( String name )
     {
         String result = name;
-        
+
         // First, strip off package name, if any
         int pos = result.lastIndexOf( '.' );
         if ( pos > 0 )

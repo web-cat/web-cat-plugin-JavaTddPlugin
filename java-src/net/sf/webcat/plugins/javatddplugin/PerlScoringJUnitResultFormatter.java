@@ -1,7 +1,7 @@
 /*==========================================================================*\
  |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2006 Virginia Tech
+ |  Copyright (C) 2006-2010 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -29,7 +29,6 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
-import junit.framework.TestListener;
 import org.apache.tools.ant.taskdefs.optional.junit.JUnitResultFormatter;
 import org.apache.tools.ant.taskdefs.optional.junit.JUnitTest;
 import org.apache.tools.ant.util.FileUtils;
@@ -42,7 +41,8 @@ import org.apache.tools.ant.util.StringUtils;
  *  interpreted by Perl.
  *
  *  @author Stephen Edwards
- *  @version $Id$
+ *  @author Last changed by $Author$
+ *  @version $Revision$, $Date$
  */
 public class PerlScoringJUnitResultFormatter
     implements JUnitResultFormatter
@@ -184,7 +184,7 @@ public class PerlScoringJUnitResultFormatter
      * @param test the test case
      * @return the scoring weight
      */
-    protected double scoringWeightOf( @SuppressWarnings("unused") Test test )
+    protected double scoringWeightOf(Test test)
     {
         return 1.0;
     }
@@ -199,9 +199,7 @@ public class PerlScoringJUnitResultFormatter
      * @param buffer the string buffer where output should be placed
      * @param suite  the test suite that is ending
      */
-    protected void outputForSuite(
-        StringBuffer buffer,
-        @SuppressWarnings("unused") JUnitTest suite )
+    protected void outputForSuite(StringBuffer buffer, JUnitTest suite)
     {
         buffer.append( "$results->addTestsExecuted(" );
         buffer.append( numExecuted );
