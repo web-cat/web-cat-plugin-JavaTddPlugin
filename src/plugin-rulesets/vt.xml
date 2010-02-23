@@ -29,7 +29,9 @@
 [ancestor::ClassOrInterfaceDeclaration[
     count( ExtendsList[
         ClassOrInterfaceType/@Image='TestCase'
-        or ClassOrInterfaceType/@Image='junit.framework.TestCase']
+        or ClassOrInterfaceType/@Image='junit.framework.TestCase'
+        or ClassOrInterfaceType/@Image='student.TestCase'
+        or ClassOrInterfaceType/@Image='student.GUITestCase']
     ) = 1
     ]]
                 ]]>
@@ -108,7 +110,9 @@
   [ancestor::ClassOrInterfaceDeclaration[
     count( ExtendsList[
         ClassOrInterfaceType/@Image='TestCase'
-        or ClassOrInterfaceType/@Image='junit.framework.TestCase']
+        or ClassOrInterfaceType/@Image='junit.framework.TestCase'
+        or ClassOrInterfaceType/@Image='student.TestCase'
+        or ClassOrInterfaceType/@Image='student.GUITestCase']
     ) = 1
     ]]
                 ]]>
@@ -190,7 +194,9 @@
 //ClassOrInterfaceDeclaration[
     count( ExtendsList[
         ClassOrInterfaceType/@Image='TestCase'
-        or ClassOrInterfaceType/@Image='junit.framework.TestCase']
+        or ClassOrInterfaceType/@Image='junit.framework.TestCase'
+        or ClassOrInterfaceType/@Image='student.TestCase'
+        or ClassOrInterfaceType/@Image='student.GUITestCase']
     ) = 1
     ][
   not(descendant::MethodDeclaration[
