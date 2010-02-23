@@ -1,7 +1,7 @@
 /*==========================================================================*\
  |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2007 Virginia Tech
+ |  Copyright (C) 2007-2010 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -25,12 +25,15 @@
 
 package net.sf.webcat;
 
-import java.io.BufferedReader;
-import java.io.StringReader;
-import java.util.Arrays;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.Scanner;
+import junit.framework.AssertionFailedError;
+import net.sf.webcat.MutableStringBufferInputStream;
+import net.sf.webcat.PrintStreamWithHistory;
+import net.sf.webcat.PrintWriterWithHistory;
+import net.sf.webcat.StringNormalizer;
+import net.sf.webcat.SystemIOUtilities;
 
 //-------------------------------------------------------------------------
 /**
@@ -47,24 +50,9 @@ import java.util.Scanner;
  *  the {@link #stringNormalizer()} method to access the normalizer and
  *  set your own comparison options, however.
  *  </p>
- *  <p>
- *  This class also provides a series of boolean predicates to perform
- *  various common kinds of string comparisons.  You can use these as
- *  helper predicates, calling them inside
- *  {@link junit.framework.TestCase#assertTrue(boolean)}.  These comparisons
- *  support the following variations:
- *  </p><ul>
- *  <li><p>Using plain strings, regular expressions, or fuzzy comparisons
- *  (normalized strings).</p></li>
- *  <li><p>Looking for a whole string match, or just substring
- *  containment.</p></li>
- *  <li><p>Using a single expected string/substring, or an array of substrings
- *  that should be found in the actual output in the corresponding
- *  order.</p></li>
- *  </ul>
  *
  *  @author  Stephen Edwards
- *  @version $Id$
+ *  @version 2007.09.12
  */
 public class TestCase
     extends junit.framework.TestCase
@@ -76,6 +64,7 @@ public class TestCase
     // off the parens.
     private PrintWriterWithHistory tcOut = null;
     private Scanner                tcIn  = null;
+    private MutableStringBufferInputStream tcInBuf = null;
     private StringNormalizer       sn = new StringNormalizer(true);
 
     // Used for communicating with assertTrue() and assertFalse().  Ideally,
@@ -83,6 +72,8 @@ public class TestCase
     // have to be static so these messages must be too.
     private static String predicateReturnsTrueReason;
     private static String predicateReturnsFalseReason;
+
+    private static Boolean trimStackTraces;
 
 
     //~ Constructor ...........................................................
@@ -112,6 +103,18 @@ public class TestCase
 
     //~ Methods ...............................................................
 
+    @Override
+    public void runBare()
+        throws Throwable
+    {
+        predicateReturnsTrueReason = null;
+        predicateReturnsFalseReason = null;
+        instrumentIO();
+        super.runBare();
+        resetIO();
+    }
+
+
     // ----------------------------------------------------------
     /**
      * Sets up the fixture, for example, open a network connection. This
@@ -121,6 +124,7 @@ public class TestCase
     protected void setUp()
         throws Exception
     {
+        // Included only for Javadoc purposes--implementation adds nothing.
         super.setUp();
     }
 
@@ -134,23 +138,56 @@ public class TestCase
     protected void tearDown()
         throws Exception
     {
+        // Included only for Javadoc purposes--implementation adds nothing.
         super.tearDown();
-        resetIO();
-        predicateReturnsTrueReason = null;
-        predicateReturnsFalseReason = null;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * An internal helper that ensures input/output buffering is in place
+     * before each test case.
+     */
+    protected void instrumentIO()
+    {
+        // Clear out all the stream history stuff
+        tcIn = null;
+        tcOut = null;
+        tcInBuf = null;
+
+        // Make sure these are history-wrapped
+        SystemIOUtilities.out();
+        SystemIOUtilities.err();
+
+        // First, make sure the original System.in gets captured, so it
+        // can be restored later
+        SystemIOUtilities.replaceSystemInContents(null);
+
+        // The previous line actually replaced System.in, but now we'll
+        // "replace the replacement" with one that uses fail() if it
+        // has no contents.
+        System.setIn(new MutableStringBufferInputStream((String)null)
+        {
+            protected void handleMissingContents()
+            {
+                fail("Attempt to access System.in before its contents "
+                    + "have been set");
+            }
+        });
     }
 
 
     // ----------------------------------------------------------
     /**
      * An internal helper that resets all of the input/output buffering
-     * between test cases.
+     * after each test case.
      */
     protected void resetIO()
     {
         // Clear out all the stream history stuff
         tcIn = null;
         tcOut = null;
+        tcInBuf = null;
 
         // Make sure these are history-wrapped
         SystemIOUtilities.out().clearHistory();
@@ -217,8 +254,10 @@ public class TestCase
      */
     public Scanner in()
     {
-        assert tcIn != null
-            : "You must call setIn() before you can access the stream";
+        if (tcIn == null)
+        {
+            setIn((String)null);
+        }
         return tcIn;
     }
 
@@ -232,7 +271,22 @@ public class TestCase
      */
     public void setIn(String contents)
     {
-        tcIn = new Scanner(contents);
+        if (tcInBuf == null)
+        {
+            tcInBuf = new MutableStringBufferInputStream(contents)
+            {
+                protected void handleMissingContents()
+                {
+                    fail("Attempt to access built-in test case Scanner "
+                        + "in() before its contents have been set");
+                }
+            };
+            tcIn = new Scanner(tcInBuf);
+        }
+        else
+        {
+            tcInBuf.resetContents(contents);
+        }
     }
 
 
@@ -246,6 +300,7 @@ public class TestCase
     public void setIn(Scanner contents)
     {
         tcIn = contents;
+        tcInBuf = null;
     }
 
 
@@ -323,9 +378,17 @@ public class TestCase
         {
             message += " (after normalizing strings)";
         }
-        assertEquals(
-            message, stringNormalizer().normalize(expected),
-            stringNormalizer().normalize(actual));
+        try
+        {
+            assertEquals(
+                message, stringNormalizer().normalize(expected),
+                stringNormalizer().normalize(actual));
+        }
+        catch (AssertionFailedError e)
+        {
+            trimStack(e);
+            throw e;
+        }
     }
 
 
@@ -345,18 +408,26 @@ public class TestCase
         String falseReason = predicateReturnsFalseReason;
         predicateReturnsFalseReason = null;
         predicateReturnsTrueReason = null;
-        if (!condition)
+        if (falseReason != null)
         {
-        	if (message == null)
-        	{
-        		message = falseReason;
-        	}
-        	else
-        	{
-        		message += " " + falseReason;
-        	}
+            if (message == null)
+            {
+                message = falseReason;
+            }
+            else
+            {
+                message += " " + falseReason;
+            }
         }
-        junit.framework.TestCase.assertTrue(message, condition);
+        try
+        {
+            junit.framework.TestCase.assertTrue(message, condition);
+        }
+        catch (AssertionFailedError e)
+        {
+            trimStack(e);
+            throw e;
+        }
     }
 
 
@@ -392,18 +463,26 @@ public class TestCase
         String trueReason = predicateReturnsTrueReason;
         predicateReturnsFalseReason = null;
         predicateReturnsTrueReason = null;
-        if (condition)
+        if (trueReason != null)
         {
-        	if (message == null)
-        	{
-        		message = trueReason;
-        	}
-        	else
-        	{
-        		message += " " + trueReason;
-        	}
+            if (message == null)
+            {
+                message = trueReason;
+            }
+            else
+            {
+                message += " " + trueReason;
+            }
         }
-        junit.framework.TestCase.assertFalse(message, condition);
+        try
+        {
+            junit.framework.TestCase.assertFalse(message, condition);
+        }
+        catch (AssertionFailedError e)
+        {
+            trimStack(e);
+            throw e;
+        }
     }
 
 
@@ -561,7 +640,7 @@ public class TestCase
      * expression.  A null for the actual value is treated the same as an
      * empty string for the purposes of matching.  The regular expression
      * must match the full string (all characters taken together).  To
-     * match a substring, use {@link #containsRegex(Pattern,String)}
+     * match a substring, use {@link #containsRegex(String,Pattern)}
      * instead.
      * <p>
      * Note that this predicate uses the opposite parameter ordering
@@ -647,44 +726,12 @@ public class TestCase
 
     // ----------------------------------------------------------
     /**
-     * Determine whether one String contains another as a substring.
-     * This method is identical to {@link String#contains(String)}, but
-     * is provided for symmetry with the other comparison predicates provided
-     * in this class.  If the largerString is null, this method returns
-     * false (since it can contain nothing).
-     * <p>
-     * Note that this predicate uses the opposite parameter ordering
-     * from JUnit assertions: The value to test is the <b>first</b>
-     * parameter, and the expected substring is the <b>second</b>.
-     * </p>
-     * @param largerString The target to look in
-     * @param substring    The substring to look for
-     * @return True if the largerString contains the substring
-     */
-    public boolean contains(String largerString, String substring)
-    {
-        boolean result = largerString != null
-            && largerString.contains(substring);
-        if (result)
-        {
-            predicateReturnsTrueReason =
-                "<" + compact(largerString) + "> contains:<"
-                + compact(substring) + ">";
-        }
-        else
-        {
-            predicateReturnsFalseReason =
-                "<" + compact(largerString) + "> does not contain:<"
-                + compact(substring) + ">";
-        }
-        return result;
-    }
-
-
-    // ----------------------------------------------------------
-    /**
      * Determine whether one String contains a sequence of other substrings
-     * in order.  It looks for each element of the array of substrings in turn
+     * in order.  In addition to the string to search, you can provide an
+     * arbitrary number of additional parameters to search for.  If you only
+     * provide one substring, this method behaves the same as
+     * {@link String#contains(CharSequence)}.  If you provide more than
+     * one substring, it looks for each such element in turn
      * in the larger string, making sure they are all found in the proper order
      * (each substring must strictly follow the previous one, although there
      * can be any amount of intervening characters between any two substrings
@@ -696,17 +743,17 @@ public class TestCase
      * parameter, and the expected substrings are the <b>second</b>.
      * </p>
      * @param largerString The target to look in
-     * @param substrings   The substrings to look for (in order)
+     * @param substrings   One or more substrings to look for (in order)
      * @return True if the largerString contains all of the specified
      * substrings in order.
      */
-    public boolean contains(String largerString, String[] substrings)
+    public boolean contains(String largerString, String ... substrings)
     {
         int pos = (largerString == null) ? -1 : 0;
-        for (int i = 0; i < substrings.length  &&  largerString != null; i++)
+        for (int i = 0; i < substrings.length  &&  pos >= 0; i++)
         {
             pos = largerString.indexOf(substrings[i], pos);
-            if (pos > 0)
+            if (pos >= 0)
             {
                 pos += substrings[i].length();
             }
@@ -714,14 +761,27 @@ public class TestCase
             {
                 predicateReturnsFalseReason =
                     "<" + compact(largerString) + "> does not contain:<"
-                    + compact(substrings[i]) + ">";
+                    + compact(substrings[i], 25, 10) + ">";
+                if (substrings.length > 1)
+                {
+                    predicateReturnsFalseReason += "(substring " + i + ")";
+                }
+                break;
             }
         }
         if (pos >= 0)
         {
             predicateReturnsTrueReason =
-                "<" + compact(largerString) + "> contains:"
-                + Arrays.toString(substrings);
+                "<" + compact(largerString) + "> contains:";
+            for (int i = 0; i < substrings.length; i++)
+            {
+                if (i > 0)
+                {
+                    predicateReturnsTrueReason += ", ";
+                }
+                predicateReturnsTrueReason +=
+                    "<" + compact(substrings[i], 25, 10) + ">";
+            }
             return true;
         }
         else
@@ -733,39 +793,9 @@ public class TestCase
 
     // ----------------------------------------------------------
     /**
-     * Determine whether one String contains another as a substring,
-     * respecting preferences for what differences matter.  If the larger
-     * string is null, this method returns false (since it can contain
-     * nothing).
-     * <p>This method makes "fuzzy" string comparisons that ignore things
-     * like differences in spacing, punctuation, or capitalization.  Use
-     * {@link #stringNormalizer()} to access and modify the
-     * {@link StringNormalizer} object's preferences for comparing
-     * strings.
-     * </p>
-     * <p>
-     * Note that this predicate uses the opposite parameter ordering
-     * from JUnit assertions: The value to test is the <b>first</b>
-     * parameter, and the expected substring is the <b>second</b>.
-     * </p>
-     * @param largerString The target to look in
-     * @param substring    The substring to look for
-     * @return True if the largerString contains the specified
-     * substring.
-     */
-    public boolean fuzzyContains(String largerString, String substring)
-    {
-        return contains(
-            stringNormalizer().normalize(largerString),
-            stringNormalizer().normalize(substring));
-    }
-
-
-    // ----------------------------------------------------------
-    /**
      * Determine whether one String contains a sequence of other substrings
      * in order, respecting preferences for what differences matter.  It
-     * looks for each element of the array of substrings in turn
+     * looks for each of the specified substrings in turn
      * in the larger string, making sure they are all found in the proper order
      * (each substring must strictly follow the previous one, although there
      * can be any amount of intervening characters between any two substrings
@@ -782,12 +812,12 @@ public class TestCase
      * from JUnit assertions: The value to test is the <b>first</b>
      * parameter, and the expected substrings are the <b>second</b>.
      * </p>
-     * @param substrings   The substrings to look for (in order)
      * @param largerString The target to look in
+     * @param substrings   The substrings to look for (in order)
      * @return True if the largerString contains all of the specified
      * substrings in order.
      */
-    public boolean fuzzyContains(String largerString, String[] substrings)
+    public boolean fuzzyContains(String largerString, String ... substrings)
     {
         // Normalized the array of expected substrings
         String[] normalizedSubstrings = new String[substrings.length];
@@ -805,66 +835,9 @@ public class TestCase
 
     // ----------------------------------------------------------
     /**
-     * Determine whether one String contains another as a substring, where
-     * the expected substring is specified as a regular expression.
-     * If the largerString is null, this method returns false (since it
-     * can contain nothing).
-     * <p>
-     * Note that this predicate uses the opposite parameter ordering
-     * from JUnit assertions: The value to test is the <b>first</b>
-     * parameter, and the expected substring is the <b>second</b>.
-     * </p>
-     * @param largerString The target to look in
-     * @param substring    The substring to look for (interpreted as a
-     *                     regular expression {@link Pattern})
-     * @return True if the largerString contains the substring pattern
-     */
-    public boolean containsRegex(String largerString, String substring)
-    {
-        return containsRegex(largerString, Pattern.compile(substring));
-    }
-
-
-    // ----------------------------------------------------------
-    /**
-     * Determine whether one String contains another as a substring, where
-     * the expected substring is specified as a regular expression.
-     * If the largerString is null, this method returns false (since it
-     * can contain nothing).
-     * <p>
-     * Note that this predicate uses the opposite parameter ordering
-     * from JUnit assertions: The value to test is the <b>first</b>
-     * parameter, and the expected substring is the <b>second</b>.
-     * </p>
-     * @param largerString The target to look in
-     * @param substring    The substring to look for
-     * @return True if the largerString contains the substring pattern
-     */
-    public boolean containsRegex(String largerString, Pattern substring)
-    {
-        boolean result = largerString != null
-          && substring.matcher(largerString).find();
-        if (result)
-        {
-            predicateReturnsTrueReason =
-                "<" + compact(largerString) + "> contains regex:<"
-                + compact(substring.toString(), 25, 10) + ">";
-        }
-        else
-        {
-            predicateReturnsFalseReason =
-                "<" + compact(largerString) + "> does not contain regex:<"
-                + compact(substring.toString(), 25, 10) + ">";
-        }
-        return result;
-    }
-
-
-    // ----------------------------------------------------------
-    /**
      * Determine whether one String contains a sequence of other substrings
      * in order, where the expected substrings are specified as a regular
-     * expressions.  It looks for each element of the array of substrings
+     * expressions.  It looks for each of the specified regular expressions
      * in turn in the larger string, making sure they are all found in the
      * proper order (each substring must strictly follow the previous one,
      * although there can be any amount of intervening characters between
@@ -876,13 +849,13 @@ public class TestCase
      * parameter, and the expected substrings are the <b>second</b>.
      * </p>
      * @param largerString The target to look in
-     * @param substrings   An array of expected substrings (interpreted as
+     * @param substrings   A sequence of expected substrings (interpreted as
      *                     regular expression {@link Pattern}s), which must
      *                     occur in the same order in the larger string
      * @return True if the largerString contains all of the specified
-     * substrings in order.
+     * regular expressions in order.
      */
-    public boolean containsRegex(String largerString, String[] substrings)
+    public boolean containsRegex(String largerString, String ... substrings)
     {
         Pattern[] patterns = new Pattern[substrings.length];
         for (int i = 0; i < substrings.length; i++)
@@ -897,19 +870,19 @@ public class TestCase
     /**
      * Determine whether one String contains a sequence of other substrings
      * in order, where the expected substrings are specified as a regular
-     * expressions.  It looks for each element of the array of substrings
+     * expressions.  It looks for each of the specified regular expressions
      * in turn in the larger string, making sure they are all found in the
      * proper order (each substring must strictly follow the previous one,
      * although there can be any amount of intervening characters between
      * any two substrings in the array).  If the larger string is null, this
      * method returns false (since it can contain nothing).
      * @param largerString The target to look in
-     * @param substrings   An array of expected substrings, which must
-     *                     occur in the same order in the larger string
+     * @param substrings   A sequence of expected regular expressions, which
+     *                     must occur in the same order in the larger string
      * @return True if the largerString contains all of the specified
-     * substrings in order.
+     * regular expressions in order.
      */
-    public boolean containsRegex(String largerString, Pattern[] substrings)
+    public boolean containsRegex(String largerString, Pattern ... substrings)
     {
         boolean result = true;
         int pos = 0;
@@ -922,6 +895,10 @@ public class TestCase
                 predicateReturnsFalseReason =
                     "<" + compact(largerString) + "> does not contain regex:<"
                     + compact(substrings[i].toString(), 25, 10) + ">";
+                if (substrings.length > 1)
+                {
+                    predicateReturnsFalseReason += "(pattern " + i + ")";
+                }
                 break;
             }
             pos = matcher.end();
@@ -929,8 +906,16 @@ public class TestCase
         if (result)
         {
             predicateReturnsTrueReason =
-                "<" + compact(largerString) + "> contains:"
-                + Arrays.toString(substrings);
+                "<" + compact(largerString) + "> contains regexes:";
+            for (int i = 0; i < substrings.length; i++)
+            {
+                if (i > 0)
+                {
+                    predicateReturnsTrueReason += ", ";
+                }
+                predicateReturnsTrueReason +=
+                    "<" + compact(substrings[i].toString(), 25, 10) + ">";
+            }
             return true;
         }
         else
@@ -942,61 +927,11 @@ public class TestCase
 
     // ----------------------------------------------------------
     /**
-     * Determine whether one String contains another as a substring, where
-     * the expected substring is specified as a regular expression, and
-     * respecting preferences for what differences matter.  This method
-     * behaves just like {@link #fuzzyContains(String,String)}, except
-     * that the first argument is interpreted as a regular expression.
-     * String normalization rules are only appled to the larger string,
-     * not to the regular expression.
-     * <p>
-     * Note that this predicate uses the opposite parameter ordering
-     * from JUnit assertions: The value to test is the <b>first</b>
-     * parameter, and the expected substring is the <b>second</b>.
-     * </p>
-     * @param largerString The target to look in
-     * @param substring    The substring to look for (interpreted as a
-     *                     regular expression {@link Pattern})
-     * @return True if the largerString contains the substring pattern
-     */
-    public boolean fuzzyContainsRegex(String largerString, String substring)
-    {
-        return fuzzyContainsRegex(largerString, Pattern.compile(substring));
-    }
-
-
-    // ----------------------------------------------------------
-    /**
-     * Determine whether one String contains another as a substring, where
-     * the expected substring is specified as a regular expression, and
-     * respecting preferences for what differences matter.  This method
-     * behaves just like {@link #fuzzyContains(String,String)}, except
-     * that the first argument is interpreted as a regular expression.
-     * String normalization rules are only appled to the larger string,
-     * not to the regular expression.
-     * <p>
-     * Note that this predicate uses the opposite parameter ordering
-     * from JUnit assertions: The value to test is the <b>first</b>
-     * parameter, and the expected substring is the <b>second</b>.
-     * </p>
-     * @param largerString The target to look in
-     * @param substring    The substring to look for
-     * @return True if the largerString contains the substring pattern
-     */
-    public boolean fuzzyContainsRegex(String largerString, Pattern substring)
-    {
-        return containsRegex(
-            stringNormalizer().normalize(largerString), substring);
-    }
-
-
-    // ----------------------------------------------------------
-    /**
      * Determine whether one String contains a sequence of other substrings
      * in order, where the expected substrings are specified as regular
      * expressions, and respecting preferences for what differences matter.
-     * This method behaves just like {@link #fuzzyContains(String[],String)},
-     * except that the first argument is interpreted as an array of regular
+     * This method behaves just like {@link #fuzzyContains(String,String...)},
+     * except that the second argument is interpreted as an array of regular
      * expressions.  String normalization rules are only appled to the
      * larger string, not to the regular expressions.
      * @param largerString The target to look in
@@ -1006,7 +941,7 @@ public class TestCase
      * @return True if the largerString contains all of the specified
      * substrings in order.
      */
-    public boolean fuzzyContainsRegex(String largerString, String[] substrings)
+    public boolean fuzzyContainsRegex(String largerString, String ... substrings)
     {
         Pattern[] patterns = new Pattern[substrings.length];
         for (int i = 0; i < substrings.length; i++)
@@ -1022,8 +957,8 @@ public class TestCase
      * Determine whether one String contains a sequence of other substrings
      * in order, where the expected substrings are specified as regular
      * expressions, and respecting preferences for what differences matter.
-     * This method behaves just like {@link #fuzzyContains(Pattern[],String)},
-     * except that the first argument is interpreted as an array of regular
+     * This method behaves just like {@link #fuzzyContains(String,String...)},
+     * except that the second argument is interpreted as an array of regular
      * expressions.  String normalization rules are only appled to the
      * larger string, not to the regular expressions.
      * @param largerString The target to look in
@@ -1032,9 +967,71 @@ public class TestCase
      * @return True if the largerString contains all of the specified
      * substrings in order.
      */
-    public boolean fuzzyContainsRegex(String largerString, Pattern[] substrings)
+    public boolean fuzzyContainsRegex(String largerString, Pattern ... substrings)
     {
         return containsRegex(
             stringNormalizer().normalize(largerString), substrings);
+    }
+
+
+    // ----------------------------------------------------------
+    private static void trimStack(Throwable t)
+    {
+        if (trimStackTraces == null)
+        {
+            try
+            {
+                String setting =
+                    System.getProperty("student.TestCase.trimStackTraces");
+                if (setting == null)
+                {
+                    trimStackTraces = true;
+                }
+                else
+                {
+                    setting = setting.toLowerCase().trim();
+                    trimStackTraces = "yes".equals(setting)
+                        || "true".equals(setting)
+                        || "on".equals(setting)
+                        || "1".equals(setting);
+                }
+            }
+            catch (Exception e)
+            {
+                trimStackTraces = true;
+            }
+        }
+
+        if (!trimStackTraces)
+        {
+            return;
+        }
+
+        StackTraceElement[] oldTrace = t.getStackTrace();
+        int pos1 = 0;
+        while (pos1 < oldTrace.length
+            && (oldTrace[pos1].getClassName().equals("junit.framework.Assert")))
+        {
+            ++pos1;
+        }
+        int pos2 = pos1;
+        while (pos2 < oldTrace.length
+            && (oldTrace[pos2].getClassName().equals("student.TestCase")))
+        {
+            ++pos2;
+        }
+
+        if (pos2 > pos1 && pos2 < oldTrace.length - 1)
+        {
+            StackTraceElement[] newTrace =
+                new StackTraceElement[oldTrace.length - (pos2 - pos1)];
+            if (pos1 > 0)
+            {
+                System.arraycopy(oldTrace, 0, newTrace, 0, pos1);
+            }
+            System.arraycopy(
+                oldTrace, pos2, newTrace, pos1, newTrace.length - pos1);
+            t.setStackTrace(newTrace);
+        }
     }
 }
