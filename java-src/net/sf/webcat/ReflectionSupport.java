@@ -624,7 +624,7 @@ public class ReflectionSupport
 
     // ----------------------------------------------------------
     /**
-     * Just like {@link #invoke(Object, Class<T>, Object...)}, but unwraps
+     * Just like {@link #invoke(Object, Class, String, Object...)}, but unwraps
      * any InvocationTargetExceptions and throws the true cause.  This
      * version is provided when you want to write test cases where you
      * are intending to check for Exceptions as expected results.
@@ -1028,7 +1028,7 @@ public class ReflectionSupport
 
     // ----------------------------------------------------------
     /**
-     * Just like {@link #create(Class<T>, Object...)}, but unwraps
+     * Just like {@link #create(Class, Object...)}, but unwraps
      * any InvocationTargetExceptions and throws the true cause.  This
      * version is provided when you want to write test cases where you
      * are intending to check for Exceptions as expected results.
