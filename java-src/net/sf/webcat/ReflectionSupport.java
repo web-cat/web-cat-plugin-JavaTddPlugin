@@ -547,7 +547,7 @@ public class ReflectionSupport
         {
             if (returnType != null)
             {
-                assertTrue("method" + simpleMethodName(m)
+                assertTrue("method " + simpleMethodName(m)
                     + " should be a void method",
                     returnType != void.class);
                 assertTrue("method " + simpleMethodName(m)
@@ -610,7 +610,19 @@ public class ReflectionSupport
             {
                 cause = cause.getCause();
             }
-            throw new RuntimeException(cause);
+
+            if (cause instanceof Error)
+            {
+                throw (Error)cause;
+            }
+            else if (cause instanceof RuntimeException)
+            {
+                throw (RuntimeException)cause;
+            }
+            else
+            {
+                throw new RuntimeException(cause);
+            }
         }
         catch (IllegalAccessException e)
         {
@@ -671,7 +683,7 @@ public class ReflectionSupport
         if (returnType == null || returnType == void.class)
         {
             Class<?> declaredReturnType = m.getReturnType();
-            assertTrue("method" + simpleMethodName(m)
+            assertTrue("method " + simpleMethodName(m)
                 + " should be a void method",
                 declaredReturnType == void.class ||
                 declaredReturnType == null);
@@ -679,12 +691,18 @@ public class ReflectionSupport
         else
         {
             Class<?> declaredReturnType = m.getReturnType();
-            assertTrue("method" + simpleMethodName(m)
+            assertTrue("method " + simpleMethodName(m)
                 + " should be declared with a return type of "
                 + simpleClassNameUsingPrimitives(returnType),
                 declaredReturnType != void.class &&
                 declaredReturnType != null &&
-                !actualMatchesFormal(declaredReturnType, returnType));
+                (actualMatchesFormal(declaredReturnType, returnType)
+                    // Had to add this second part in for legacy compatibility,
+                    // where tests written with Integer.class need to
+                    // work, even though they should have been written
+                    // with int.class
+                 || canAutoBoxFromActualToFormal(
+                     returnType, declaredReturnType)));
         }
 
         result = invokeEx(receiver, m, params);
@@ -693,7 +711,7 @@ public class ReflectionSupport
         {
             if (returnType != null)
             {
-                assertTrue("method" + simpleMethodName(m)
+                assertTrue("method " + simpleMethodName(m)
                     + " should be a void method",
                     returnType != void.class);
                 assertTrue("method " + simpleMethodName(m)
@@ -759,9 +777,14 @@ public class ReflectionSupport
         {
             Throwable cause = e;
             Exception ex = null;
+            Error     error = null;
             if (cause instanceof Exception)
             {
                 ex = (Exception)cause;
+            }
+            else if (cause instanceof Error)
+            {
+                error = (Error)cause;
             }
             while (cause.getCause() != null)
             {
@@ -770,8 +793,16 @@ public class ReflectionSupport
                 {
                     ex = (Exception)cause;
                 }
+                else if (cause instanceof Error)
+                {
+                    error = (Error)cause;
+                }
             }
-            if (ex != null)
+            if (error != null)
+            {
+                throw error;
+            }
+            else if (ex != null)
             {
                 throw ex;
             }
