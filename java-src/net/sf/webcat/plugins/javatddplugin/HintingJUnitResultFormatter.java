@@ -534,7 +534,7 @@ public class HintingJUnitResultFormatter
         "junit.swingui.TestRunner",
         "junit.awtui.TestRunner",
         "junit.textui.TestRunner",
-        "java.lang.reflect.Method",
+        "java.lang.reflect.",
         "sun.reflect.",
         "org.apache.tools.ant.",
         // Web-CAT infrastructure
@@ -543,13 +543,16 @@ public class HintingJUnitResultFormatter
         "net.sf.webcat.TestCase",
         "student.GUITestCase",
         "student.TestCase",
+        "student.testingsupport.ReflectionSupport",
         "cs1705.TestCase"
     };
 
     private static final Pattern[] expectedOutputRegExps = {
         null,                               // 0: not used
         null,                               // 1: not used
-        Pattern.compile( "(?is)\\s*expected:.*but was:.*$" ),// 2: CompFailure
+        Pattern.compile( "(?is)\\s*"
+            + "(\\(after normalizing strings\\)\\s*)?"
+            + "expected:.*but was:.*$" ),// 2: CompFailure
         Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
             + "|(<.*> was the same as:\\s*<.*>)"
             + "|(<.*> matches regex:\\s*<.*>)"
@@ -594,7 +597,19 @@ public class HintingJUnitResultFormatter
             +"|(arrays firsts differed)).*)$"
             ),// 9: assertTrue
         null,                               // 10: not used
-        null,                               // 11: not used
+        Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
+            + "|(<.*> was the same as:\\s*<.*>)"
+            + "|(<.*> matches regex:\\s*<.*>)"
+            + "|(<.*> does not match regex:\\s*<.*>)"
+            + "|(<.*> contains:)"
+            + "|(<.*> does not contain:\\s*<.*>)"
+            + "|(<.*> contains regex:\\s*<.*>)"
+            + "|(<.*> contains regexes:)"
+            + "|(<.*> does not contain regex:\\s*<.*>)"
+            + "|(: (expected|actual) array was null)"
+            +"|(array lengths differed)"
+            +"|(arrays firsts differed)).*)$"
+            ),// 11: custom assert helper method in test case, so still apply these
         null,                               // 12: not used
         null                                // 13: not used
     };
