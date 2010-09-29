@@ -52,7 +52,6 @@
       <include name="*.jar"/>
     </fileset>
     <pathelement location="${instructorBuild}"/>
-    <pathelement location="${studentBuild}"/>
     <pathelement location="${assignmentClassFiles}"/>
     <fileset dir="${assignmentClassDir}" casesensitive="false">
       <include name="**/*.jar"/>
@@ -68,6 +67,8 @@
     <fileset dir="${clover.dir}" casesensitive="false">
       <include name="**/*.jar"/>
     </fileset>
+    <pathelement location="${studentBuild}"/>
+    <pathelement location="${basedir}"/>
   </path>
 
   <path id="checkstyle.classpath">
@@ -143,6 +144,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            debuglevel="lines,vars,source"
            source="${javaSourceVersion}">
       <classpath refid="build.classpath"/>
+      <compilerarg value="-Xlint:unchecked"/>
     </javac>
   </target>
 
@@ -200,13 +202,18 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <junit printsummary="off"
            haltonerror="no"
            haltonfailure="no"
+    	   filtertrace="no"
            fork="yes"
            forkmode="once"
            timeout="${exec.timeout}">
       <classpath refid="build.classpath"/>
       <jvmarg value="${enableAssertions}"/>
       <jvmarg value="-D${security.manager}"/>
-      <jvmarg value="-Dabbot.robot.verify=false"/>
+        <!--jvmarg value="-Dabbot.robot.verify=false"/-->
+        <jvmarg value="-Dabbot.robot.mode=awt"/>
+        <!--jvmarg value="-Dabbot.robot.event_post_delay=200"/>
+        <jvmarg value="-Dabbot.robot.auto_delay=100"/>
+        <jvmarg value="-Dstudent.TestCase.trimStackTraces=false"/-->
       <jvmarg value="-Djava.security.policy==file:${javaPolicyFile}"/>
       <jvmarg value="-DProfilingSecurityManager.output=${resultDir}/instr-permissions.txt"/>
       <jvmarg value="-Dant.home=${ant.home}"/>
@@ -215,6 +222,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-DworkingDir=${workingDir}"/>
       <jvmarg value="-DassignmentClassDir=${assignmentClassDir}"/>
       <jvmarg value="-DinstructorClassDir=${instructorClassDir}"/>
+      <jvmarg value="-Dstudent.TestCase.trimStackTraces=false"/>
+      <jvmarg value="-Xms512m"/>
+      <jvmarg value="-Xmx512m"/>
       <formatter
         classname="net.sf.webcat.plugins.javatddplugin.HintingJUnitResultFormatter"
         extension=".inc"/>
@@ -261,7 +271,10 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <classpath refid="checkstyle.classpath"/>
       <jvmarg value="${enableAssertions}"/>
       <jvmarg value="-D${security.manager}"/>
-      <jvmarg value="-Dabbot.robot.verify=false"/>
+        <!--jvmarg value="-Dabbot.robot.verify=false"/-->
+        <jvmarg value="-Dabbot.robot.mode=awt"/>
+        <!--jvmarg value="-Dabbot.robot.event_post_delay=200"/>
+        <jvmarg value="-Dabbot.robot.auto_delay=100"/-->
       <jvmarg value="-Djava.security.policy==file:${javaPolicyFile}"/>
       <jvmarg value="-DProfilingSecurityManager.output=${resultDir}/student-permissions.txt"/>
       <jvmarg value="-Dant.home=${ant.home}"/>
@@ -270,6 +283,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-DworkingDir=${workingDir}"/>
       <jvmarg value="-DassignmentClassDir=${assignmentClassDir}"/>
       <jvmarg value="-DinstructorClassDir=${instructorClassDir}"/>
+        <jvmarg value="-Xms512m"/>
+        <jvmarg value="-Xmx512m"/>
       <formatter
         classname="net.sf.webcat.plugins.javatddplugin.PerlScoringJUnitResultFormatter"
         extension=".inc"/>

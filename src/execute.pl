@@ -1257,6 +1257,7 @@ if ( !$status{'studentHasSrcs'} )
 my %cloveredClasses = ();
 my %classToFileNameMap = ();
 my %classToMarkupNoMap = ();
+my %fileToMarkupNoMap = ();
 
 #---------------------------------------------------------------------------
 # Translate one HTML file from clover markup to what Web-CAT expects
@@ -1264,6 +1265,7 @@ sub translateHTMLFile
 {
     my $file = shift;
     my $stripEmptyCoverage = shift;
+    my $cloverData = shift;
     # print "translating $file\n";
 
     # Record class name
@@ -1285,30 +1287,36 @@ sub translateHTMLFile
         @comments = sort { $b->{line}->content  <=>  $a->{line}->content }
             @{ $messages{$sourceName} };
     }
+    elsif (defined $messages{"src/$sourceName"})
+    {
+        $sourceName = "src/" . $sourceName;
+        @comments = sort { $b->{line}->content  <=>  $a->{line}->content }
+            @{ $messages{$sourceName} };
+    }
     $messageStats->{file}->{$sourceName}->{remarks} =
         countRemarks( \@comments );
-    if ( defined( $classToMarkupNoMap{$className} ) )
-    {
-        $cfg->setProperty( 'codeMarkup' . $classToMarkupNoMap{$className}
-                           . '.remarks',
-                $messageStats->{file}->{$sourceName}->{remarks}->content );
-    }
-    else
-    {
-    	my $lcClassName = $className;
-    	$lcClassName =~ tr/A-Z/a-z/;
-        if ( defined( $classToMarkupNoMap{$lcClassName} ) )
-        {
-            $cfg->setProperty( 'codeMarkup' . $classToMarkupNoMap{$lcClassName}
-                               . '.remarks',
-                    $messageStats->{file}->{$sourceName}->{remarks}->content );
-        }
-        else
-        {
-            print( STDERR "Cannot locate code markup number for $className "
-               . "in $sourceName\n" );
-        }
-    }
+#    if ( defined( $classToMarkupNoMap{$className} ) )
+#    {
+#        $cfg->setProperty( 'codeMarkup' . $classToMarkupNoMap{$className}
+#                           . '.remarks',
+#                $messageStats->{file}->{$sourceName}->{remarks}->content );
+#    }
+#    else
+#    {
+#    	my $lcClassName = $className;
+#    	$lcClassName =~ tr/A-Z/a-z/;
+#        if ( defined( $classToMarkupNoMap{$lcClassName} ) )
+#        {
+#            $cfg->setProperty( 'codeMarkup' . $classToMarkupNoMap{$lcClassName}
+#                               . '.remarks',
+#                    $messageStats->{file}->{$sourceName}->{remarks}->content );
+#        }
+#        else
+#        {
+#            print( STDERR "Cannot locate code markup number for $className "
+#               . "in $sourceName\n" );
+#        }
+#    }
     if ( $debug > 1 )
     {
         print "$sourceName: ", $#comments + 1, "\n";
@@ -1322,8 +1330,61 @@ sub translateHTMLFile
         die "Cannot open file for input '$file': $!";
     my @html = <HTML>;  # Slurp in the whole file
     close( HTML );
+    my $allHtml = join( "", @html );
+
+    my $conditionCount = ($allHtml =~ s|(<tr>
+        <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
+        <a[^<>]*>([^<>]*)</a>
+        (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+        Hilight(">\s*)<a[^<>]*>
+        (\s*<span\s+class="keyword">assert</span>([^<>]\|<(/?)span[^<>]*>)*)
+        \s*</a>
+        |$1"line$2$3$4$5$6|ixsg);
+
+    if ($conditionCount)
+    {
+        if ($debug)
+        {
+            print "\n\n$conditionCount assert statements found.\n";
+            print $cloverData->data;
+            print "\n";
+        }
+        $cloverData->{coverage}{project}{metrics}{coveredconditionals} +=
+            $conditionCount;
+        $cloverData->{coverage}{project}{metrics}{coveredelements} +=
+            $conditionCount;
+        foreach my $pkg ( @{ $cloverData->{coverage}{project}{package} } )
+        {
+            foreach my $file ( @{ $pkg->{file} } )
+            {
+                my $fileName = $file->{name}->content;
+                if ($debug)
+                {
+                    print "    clover patch: checking $fileName against $sourceName\n";
+                }
+                $fileName =~ s,\\,/,go;
+                my $Uprojdir = $working_dir . "/";
+                $fileName =~ s/^\Q$Uprojdir\E(src\/)?//io;
+                print "    ... pruned file name = $fileName\n" if ($debug);
+                if ($fileName eq $sourceName)
+                {
+                    print "    ... clover element found!\n" if ($debug);
+                    $file->{metrics}{coveredconditionals} += $conditionCount;
+                    $file->{metrics}{coveredelements} += $conditionCount;
+                }
+            }
+        }
+        if ($debug)
+        {
+            print "\nafter correction:\n";
+            print $cloverData->data;
+            print "\n";
+        }
+    }
+
     my $reformatter = new Web_CAT::Clover::Reformatter(
-        \@comments, $stripEmptyCoverage, join( "", @html ) );
+        \@comments, $stripEmptyCoverage, $allHtml
+        );
     $reformatter->save( $file );
 }
 
@@ -1334,6 +1395,7 @@ sub processCloverDir
 {
     my $path = shift;
     my $stripEmptyCoverage = shift;
+    my $cloverData = shift;
 
     # print "processing $path, strip = $stripEmptyCoverage\n";
 
@@ -1341,7 +1403,7 @@ sub processCloverDir
     {
         for my $file ( <$path/*> )
         {
-            processCloverDir( $file, $stripEmptyCoverage );
+            processCloverDir( $file, $stripEmptyCoverage, $cloverData );
         }
 
         # is the dir empty now?
@@ -1367,7 +1429,7 @@ sub processCloverDir
     else
     {
         # An HTML file to keep!
-        translateHTMLFile( $path, $stripEmptyCoverage );
+        translateHTMLFile( $path, $stripEmptyCoverage, $cloverData );
     }
 }
 
@@ -1434,11 +1496,62 @@ print "score with student tests: $runtimeScoreWithoutCoverage\n"
     if ( $debug > 2 );
 
 
+#=============================================================================
+# post-process generated HTML files
+#=============================================================================
+my $clover = XML::Smart->new("$log_dir/clover.xml");
 if ( !$buildFailed ) # $can_proceed )
 {
-    my $cloverLog      = "$log_dir/clover.xml";
+
+    # Delete unneeded files from the clover/ html dir
+    if ( -d "$log_dir/clover" )
+    {
+        processCloverDir("$log_dir/clover",
+            !defined( $status{'studentTestResults'} )
+            || !$status{'studentTestResults'}->hasResults
+            || !$status{'studentTestResults'}->testsExecuted,
+            $clover);
+    }
+
+    # If any classes in the default package, move them to correct place
+    my $defPkgDir = "$log_dir/clover/default-pkg";
+    if ( -d $defPkgDir )
+    {
+        for my $file ( <$defPkgDir/*> )
+        {
+            my $newLoc = $file;
+            if ( $newLoc =~ s,/default-pkg/,/,o )
+            {
+                rename( $file, $newLoc );
+            }
+        }
+        if ( !rmdir( $defPkgDir ) )
+        {
+            adminLog( "cannot delete empty directory '$defPkgDir': $!" );
+        }
+    }
+
+    if ( $debug > 1 )
+    {
+        print "Clover'ed classes (from HTML):\n";
+        foreach my $class ( keys %cloveredClasses )
+        {
+            print "\t$class\n";
+        }
+        print "\n";
+    }
+}
+
+my $time6 = time;
+if ( $debug )
+{
+    print "\n", ( $time6 - $time5 ), " seconds\n";
+}
+
+
+if ( !$buildFailed ) # $can_proceed )
+{
     my $numCodeMarkups = $cfg->getProperty( 'numCodeMarkups', 0 );
-    my $clover         = XML::Smart->new( $cloverLog );
     my $ptsPerUncovered = 0.0;
     if ( $runtimeScoreWithoutCoverage > 0 &&
          $clover->{coverage}{project}{metrics}{methods} > 0 )
@@ -1521,6 +1634,7 @@ if ( !$buildFailed ) # $can_proceed )
 #           }
             $numCodeMarkups++;
             $classToMarkupNoMap{$fqClassName} = $numCodeMarkups;
+            $fileToMarkupNoMap{$fileName} = $numCodeMarkups;
             if ( $pkgName ne "default-pkg" )
             {
                 $cfg->setProperty( "codeMarkup${numCodeMarkups}.pkgName",
@@ -1596,57 +1710,67 @@ if ( !$buildFailed ) # $can_proceed )
     }
 
     # Check that all HTML files were covered
-    if ( 0 ) # $can_proceed )
-    {
-        foreach my $class ( keys %cloveredClasses )
-        {
-            # Instead of just an admin e-mail report, force grading
-            # to halt until the problem is fixed.
-            print STDOUT
-            "HTML file for $class has no corresponding clover stats!\n"
-            . "This will result in incorrect scoring, so processing of this "
-            . "submission is being paused.\n";
-            $cfg->setProperty( "halt", 1 );
-        }
-    }
-    else
-    {
-        # Force nasty grade?
-        # $gradedElementsCovered = 0;
-        foreach my $class ( keys %cloveredClasses )
-        {
-            $numCodeMarkups++;
-            my $className = $class;
-            if ( $class =~ m/^(.+)\.([^.])+$/o )
-            {
-                my $pkgName = $1;
-                $className = $2;
-                $cfg->setProperty( "codeMarkup${numCodeMarkups}.pkgName",
-                                   $pkgName );
-            }
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.className",
-                               $className );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.elements",
-                               1 );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.elementsCovered",
-                               0 );
-            my $fileName = $class;
-            $fileName =~ s,\.,/,go;
-            $fileName .= ".java";
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.deductions",
-                               $ptsPerUncovered
-                - $messageStats->{file}->{$fileName}->{pts}->content );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.remarks",
-                $messageStats->{file}->{$fileName}->{remarks}->content );
-        }
-    }
+#    if ( 0 ) # $can_proceed )
+#    {
+#        foreach my $class ( keys %cloveredClasses )
+#        {
+#            # Instead of just an admin e-mail report, force grading
+#            # to halt until the problem is fixed.
+#            print STDOUT
+#            "HTML file for $class has no corresponding clover stats!\n"
+#            . "This will result in incorrect scoring, so processing of this "
+#            . "submission is being paused.\n";
+#            $cfg->setProperty( "halt", 1 );
+#        }
+#    }
+#    else
+#    {
+#        # Force nasty grade?
+#        # $gradedElementsCovered = 0;
+#        foreach my $class ( keys %cloveredClasses )
+#        {
+#            $numCodeMarkups++;
+#            my $className = $class;
+#            if ( $class =~ m/^(.+)\.([^.])+$/o )
+#            {
+#                my $pkgName = $1;
+#                $className = $2;
+#                $cfg->setProperty( "codeMarkup${numCodeMarkups}.pkgName",
+#                                   $pkgName );
+#            }
+#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.className",
+#                               $className );
+#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.elements",
+#                               1 );
+#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.elementsCovered",
+#                               0 );
+#            my $fileName = $class;
+#            $fileName =~ s,\.,/,go;
+#            $fileName .= ".java";
+#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.deductions",
+#                               $ptsPerUncovered
+#                - $messageStats->{file}->{$fileName}->{pts}->content );
+#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.remarks",
+#                $messageStats->{file}->{$fileName}->{remarks}->content );
+#        }
+#    }
     $cfg->setProperty( "numCodeMarkups", $numCodeMarkups );
+
+    foreach my $file ( @{ $clover->{coverage}{project}{package}{file} })
+    {
+        my $fn = $file->{name}->content;
+            $fn =~ s,\\,/,go;
+            $fn =~ s/^\Q$Uprojdir\E//io;
+        $cfg->setProperty( 'codeMarkup' . $fileToMarkupNoMap{$fn}
+                           . '.remarks',
+               (0 + $messageStats->{file}->{$fn}->{remarks}->content ));
+    }
 }
 
-my $time6 = time;
+my $time7 = time;
 if ( $debug )
 {
-    print "\n", ( $time6 - $time5 ), " seconds\n";
+    print "\n", ( $time7 - $time6 ), " seconds\n";
 }
 
 
@@ -1852,63 +1976,14 @@ $cfg->setProperty('outcomeProperties',
 
 
 #=============================================================================
-# post-process generated HTML files
-#=============================================================================
-if ( !$buildFailed ) # $can_proceed )
-{
-
-    # Delete unneeded files from the clover/ html dir
-    if ( -d "$log_dir/clover" )
-    {
-        processCloverDir( "$log_dir/clover",
-            !defined( $status{'studentTestResults'} )
-            || !$status{'studentTestResults'}->hasResults
-            || !$status{'studentTestResults'}->testsExecuted );
-    }
-
-    # If any classes in the default package, move them to correct place
-    my $defPkgDir = "$log_dir/clover/default-pkg";
-    if ( -d $defPkgDir )
-    {
-        for my $file ( <$defPkgDir/*> )
-        {
-            my $newLoc = $file;
-            if ( $newLoc =~ s,/default-pkg/,/,o )
-            {
-                rename( $file, $newLoc );
-            }
-        }
-        if ( !rmdir( $defPkgDir ) )
-        {
-            adminLog( "cannot delete empty directory '$defPkgDir': $!" );
-        }
-    }
-
-    if ( $debug > 1 )
-    {
-        print "Clover'ed classes (from HTML):\n";
-        foreach my $class ( keys %cloveredClasses )
-        {
-            print "\t$class\n";
-        }
-        print "\n";
-    }
-}
-
-my $time7 = time;
-if ( $debug )
-{
-    print "\n", ( $time7 - $time6 ), " seconds\n";
-}
-
-
-#=============================================================================
 # generate reference test results
 #=============================================================================
 if ( defined $status{'instrTestResults'} )
 {
     my $sectionTitle = "Estimate of Problem Coverage ";
-    if ( $status{'instrTestResults'}->testsExecuted == 0 )
+    if ( $status{'instrTestResults'}->testsExecuted == 0
+        || ($studentsMustSubmitTests
+            && !$status{'studentTestResults'}->hasResults))
     {
         $sectionTitle .=
             "<b class=\"warn\">(Unknown!)</b>";
@@ -1993,6 +2068,15 @@ EOF
             $status{'feedback'}->print( $status{'compileMsgs'} );
             $status{'feedback'}->print( "</pre>\n" );
         }
+    }
+    elsif ($studentsMustSubmitTests
+        && !$status{'studentTestResults'}->hasResults)
+    {
+        $status{'feedback'}->print( <<EOF );
+<p><b class="warn">You are required to write your own software tests
+for this assignment.  You must provide your own tests
+to get further feedback.</b></p>
+EOF
     }
     elsif ( $status{'instrTestResults'}->allTestsFail )
     {
@@ -2171,7 +2255,8 @@ if ( $studentsMustSubmitTests )
     }
 }
 
-print "score with coverage: $runtimeScore\n" if ( $debug > 2 );
+print "score with coverage: $runtimeScore ($gradedElementsCovered "
+    . "elements / $gradedElements covered)\n" if ( $debug > 2 );
 
 # Total them up
 # my $rawScore = $can_proceed

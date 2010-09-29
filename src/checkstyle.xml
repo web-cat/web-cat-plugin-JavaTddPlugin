@@ -225,8 +225,8 @@
         </module>
 	-->
         <module name="TodoComment">
-	    <property name="format" value="TODO:|FIX\s*ME"/>
-	</module>
+            <property name="format" value="TODO:|FIX\s*ME"/>
+        </module>
         <module name="UpperEll"/>
 
         <module name="GenericIllegalRegexp">
@@ -237,7 +237,13 @@
         </module>
         <module name="GenericIllegalRegexp">
             <property name="format"
-	              value="^\s*\*\s*@author\s+your-pid"/>
+                  value="^\s*\*\s*@author\s+Partner( [1-9])?'s\s+name"/>
+            <property name="message"
+                  value="Place your own name (and user name) after the @author tag."/>
+        </module>
+        <module name="GenericIllegalRegexp">
+            <property name="format"
+	              value="^\s*\*\s*@author\s+your-(pid|username)"/>
             <property name="message"
 	              value="Place your own name after the @author tag (and your partner's, if this is a lab assignment)."/>
         </module>

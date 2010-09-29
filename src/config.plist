@@ -1,9 +1,9 @@
 {
     name             = "JavaTddPlugin";
     version.major    = 3;
-    version.minor    = 2;
+    version.minor    = 3;
     version.revision = 1;
-    version.date     = 20100131;
+    version.date     = 20100929;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -11,7 +11,7 @@
     provider.url     = "http://web-cat.cs.vt.edu/updates";
     license          = "GNU Affero General Public License v.3";
     license.url      = "http://www.gnu.org/licenses/agpl.html";
-    copyright        = "(c) 2006-2009 Virginia Tech Department of Computer Science";
+    copyright        = "(c) 2006-2010 Virginia Tech Department of Computer Science";
     info.url         = "http://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin";
     history.url      = "http://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin/ChangeHistory";
     executable = execute.pl;
