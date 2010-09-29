@@ -21,7 +21,8 @@
   <target name="build.java.jars"
     depends="init"
     description="Build a distributable jar file for this plug-in">
-    <jar destfile="${ant.project.name}Support.jar" basedir="bin">
+  	<delete file="src/${ant.project.name}Support.jar"/>
+    <jar destfile="src/${ant.project.name}Support.jar">
       <manifest>
         <attribute name="Specification-Title"
           value="Web-CAT/JavaTddPlugin/Support/Internal"/>
@@ -30,8 +31,13 @@
         <attribute name="Specification-Vendor"
           value="http://web-cat.sourceforge.net/"/>
       </manifest>
+      <fileset dir="bin"/>
+      <zipfileset src="src/defaultJars/student.jar">
+        <include name="student/*Test*.class"/>
+        <include name="student/testingsupport/*.class"/>
+      </zipfileset>
     </jar>
-    <copy file="${ant.project.name}Support.jar" todir="src"/>
+    <delete file="webcat-support-${full.version}.jar"/>
     <jar destfile="webcat-support-${full.version}.jar">
       <manifest>
         <attribute name="Specification-Title"
@@ -41,10 +47,10 @@
         <attribute name="Specification-Vendor"
           value="http://web-cat.sourceforge.net/"/>
       </manifest>
-      <fileset dir="bin">
-         <include name="**/*.class"/>
-         <exclude name="net/sf/webcat/plugins/"/>
-      </fileset>
+      <zipfileset src="src/${ant.project.name}Support.jar">
+        <include name="**/*.class"/>
+        <exclude name="net/sf/webcat/plugins/"/>
+      </zipfileset>
     </jar>
   </target>
 
@@ -87,6 +93,7 @@
         <fileset dir="/Users/edwards/eclipse/plugins/org.junit4_4.3.1">
           <include name="*.jar"/>
         </fileset>
+      	<pathelement location="src/defaultJars/student.jar"/>
       </classpath>
       <sourcepath>
         <dirset dir="." includes="java-src/"/>
@@ -97,6 +104,7 @@
       <footer><![CDATA[Last updated: ${updated.date} &#149; ${updated.time}]]></footer>
       <link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
       <link href="http://www.junit.org/junit/javadoc/3.8.1/"/>
+      <link href="http://courses.cs.vt.edu/~cs1114/api/"/>
     </javadoc>
     <zip destfile="webcat-support-api.zip" basedir="api"/>
   </target>
