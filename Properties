@@ -1,0 +1,22 @@
+#This file is automatically rewritten by ANT, so all formatting will be trashed.
+#Wed Sep 29 12:34:14 EDT 2010
+timeoutMultiplier=2
+version.minor=3
+copyright="(c) 2006-2010 Virginia Tech Department of Computer Science"
+license.url="http\://www.gnu.org/licenses/agpl.html"
+author="Stephen Edwards (edwards@cs.vt.edu)"
+executable=execute.pl
+license="GNU Affero General Public License v.3"
+info.url="http\://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin"
+interpreter.prefix="${PerlForPlugins.perl.exe}"
+languages=( { name \= Java; version \= 1.4
+autoPublish=true
+version.major=3
+version.date=20100929
+history.url="http\://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin/ChangeHistory"
+timeoutInternalPadding=400
+provider="Virginia Tech Computer Science"
+authorUid=edwards
+provider.url="http\://web-cat.cs.vt.edu/updates"
+version.revision=1
+name="JavaTddPlugin"
