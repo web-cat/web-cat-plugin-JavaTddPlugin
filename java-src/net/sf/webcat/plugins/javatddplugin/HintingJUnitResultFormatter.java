@@ -177,8 +177,10 @@ public class HintingJUnitResultFormatter
         }
         if ( error != null )
         {
-            // output.write(
-            //     "generating hint for: '" + result.message + "'\n" );
+//            System.out.println(
+//                "generating hint for: '" + result.message);
+//            output.write(
+//                "generating hint for: '" + result.message + "'\n" );
             // Figure out hint text
             String hint = null;
             TestPhase phase = stoppedInPhase( error );
@@ -260,23 +262,25 @@ public class HintingJUnitResultFormatter
                 {
                     hint = null;
                 }
+                else
+                {
+                    // Add the required prefix, if any, by pushing the message
+                    // back through the options object
+                    options.setHint( hint );
+                    hint = options.fullHintText();
+                }
 //                output.write(
 //                     "explicit hint, after trimming: " + hint + "\n" );
-
-                // Add the required prefix, if any, by pushing the message
-                // back through the options object
-                options.setHint( hint );
-                hint = options.fullHintText();
             }
 
             // if none, generate default hint
             if ( hint == null && !options.onlyExplicitHints() )
             {
-                // output.write(
-                //     "no explicit hint, looking for default ...\n" );
+//                 output.write(
+//                     "no explicit hint, looking for default ...\n" );
                 hint = options.fullHintText();
-                // output.write(
-                //     "default hint: '" + hint + "'\n" );
+//                 output.write(
+//                     "default hint: '" + hint + "'\n" );
             }
 
             // Determine stack trace, if any
