@@ -1287,12 +1287,6 @@ sub translateHTMLFile
         @comments = sort { $b->{line}->content  <=>  $a->{line}->content }
             @{ $messages{$sourceName} };
     }
-    elsif (defined $messages{"src/$sourceName"})
-    {
-        $sourceName = "src/" . $sourceName;
-        @comments = sort { $b->{line}->content  <=>  $a->{line}->content }
-            @{ $messages{$sourceName} };
-    }
     $messageStats->{file}->{$sourceName}->{remarks} =
         countRemarks( \@comments );
 #    if ( defined( $classToMarkupNoMap{$className} ) )
@@ -1502,6 +1496,28 @@ print "score with student tests: $runtimeScoreWithoutCoverage\n"
 my $clover = XML::Smart->new("$log_dir/clover.xml");
 if ( !$buildFailed ) # $can_proceed )
 {
+    # Figure out mapping from class names to file names
+    my $Uprojdir = $working_dir . "/";
+    foreach my $pkg ( @{ $clover->{coverage}{project}{package} } )
+    {
+        my $pkgName = $pkg->{name}->content;
+        # print "package: ", $pkg->{name}->content, "\n";
+        foreach my $file ( @{ $pkg->{file} } )
+        {
+            # print "\tclass: ", $file->{class}->{name}->content, "\n";
+            my $className = $file->{class}->{name}->content;
+            if ( !defined( $className ) || $className eq "" ) { next; }
+            my $fqClassName = $className;
+            my $fileName = $file->{name}->content;
+            $fileName =~ s,\\,/,go;
+            $fileName =~ s/^\Q$Uprojdir\E//io;
+            if ( $pkgName ne "default-pkg" )
+            {
+                $fqClassName = $pkgName . ".$className";
+            }
+            $classToFileNameMap{$fqClassName} = $fileName;
+        }
+    }
 
     # Delete unneeded files from the clover/ html dir
     if ( -d "$log_dir/clover" )
@@ -1600,7 +1616,6 @@ if ( !$buildFailed ) # $can_proceed )
         }
     }
     my $Uprojdir = $working_dir . "/";
-    #$NTprojdir =~ s,/,\\,go;
     foreach my $pkg ( @{ $clover->{coverage}{project}{package} } )
     {
         my $pkgName = $pkg->{name}->content;
@@ -1618,7 +1633,6 @@ if ( !$buildFailed ) # $can_proceed )
             {
                 $fqClassName = $pkgName . ".$className";
             }
-            $classToFileNameMap{$fqClassName} = $fileName;
 #           if ( !defined( delete( $cloveredClasses{$fqClassName} ) ) )
 #           {
 #               # Instead of just an admin e-mail report, force grading
