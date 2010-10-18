@@ -29,6 +29,7 @@
 [ancestor::ClassOrInterfaceDeclaration[
     count( ExtendsList[
         ClassOrInterfaceType/@Image='TestCase'
+        or ClassOrInterfaceType/@Image='GUITestCase'
         or ClassOrInterfaceType/@Image='junit.framework.TestCase'
         or ClassOrInterfaceType/@Image='student.TestCase'
         or ClassOrInterfaceType/@Image='student.GUITestCase']
@@ -110,6 +111,7 @@
   [ancestor::ClassOrInterfaceDeclaration[
     count( ExtendsList[
         ClassOrInterfaceType/@Image='TestCase'
+        or ClassOrInterfaceType/@Image='GUITestCase'
         or ClassOrInterfaceType/@Image='junit.framework.TestCase'
         or ClassOrInterfaceType/@Image='student.TestCase'
         or ClassOrInterfaceType/@Image='student.GUITestCase']
@@ -194,6 +196,7 @@
 //ClassOrInterfaceDeclaration[
     count( ExtendsList[
         ClassOrInterfaceType/@Image='TestCase'
+        or ClassOrInterfaceType/@Image='GUITestCase'
         or ClassOrInterfaceType/@Image='junit.framework.TestCase'
         or ClassOrInterfaceType/@Image='student.TestCase'
         or ClassOrInterfaceType/@Image='student.GUITestCase']
