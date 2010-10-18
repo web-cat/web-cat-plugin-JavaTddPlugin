@@ -26,6 +26,8 @@
   <property name="security.manager"     value="java.security.manager"/>
   <property name="studentBuild"         value="${resultDir}/studentbin"/>
   <property name="student.results.dir"  value="${resultDir}/student.results"/>
+  <property name="publicDir"            value="${resultDir}/public"/>
+  <property name="diagrams.dir"         value="${publicDir}/diagrams"/>
 
   <!-- These are for reference tests -->
   <property name="testCasePath"                 value="${scriptHome}/tests"/>
@@ -45,6 +47,14 @@
 
   <condition property="isDebugging">
     <matches string="${debug}" pattern="[3-9]"/>
+  </condition>
+
+  <condition property="generateDiagrams">
+    <and>
+      <istrue value="${wantClassDiagrams}"/>
+      <isset property="doxygenDir"/>
+      <isset property="dotDir"/>
+    </and>
   </condition>
 
   <path id="build.classpath">
@@ -179,6 +189,38 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <delete file="${psfile}"/>
   </target>
 
+  <target name="generate-diagrams"
+          description="generates class diagrams from the student's source code"
+          if="generateDiagrams">
+
+    <!-- Fill in the doxygen configuration template with the correct paths -->
+    <copy file="${scriptHome}/doxygen.config.template"
+          tofile="${basedir}/doxygen.config">
+      <filterchain>
+        <replacetokens>
+          <token key="doxygenInputDir" value="${basedir}"/>
+          <token key="doxygenOutputDir" value="${basedir}/doxygen"/>
+          <token key="doxygenDotDir" value="${dotDir}"/>
+        </replacetokens>
+      </filterchain>
+    </copy>
+
+    <!-- Run the doxygen tool -->
+    <exec executable="${doxygenDir}/doxygen" failonerror="false">
+      <arg value="${basedir}/doxygen.config"/>
+    </exec>
+
+    <!-- Copy the generated class diagram images into the result dir -->
+    <mkdir dir="${diagrams.dir}"/>
+    <copy todir="${diagrams.dir}">
+      <fileset dir="${basedir}/doxygen/html" includes="inherit__graph__*.png"/>
+    </copy>
+
+    <!-- Delete the Doxygen generated files from the working dir so they
+         don't all get copied into the result dir -->
+    <delete dir="${basedir}/doxygen"/>
+  </target>
+
   <target name="compile-instructor-tests"
           depends="syntax-check"
           description="compile all of the instructor-provided unit tests">
@@ -202,7 +244,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <junit printsummary="off"
            haltonerror="no"
            haltonfailure="no"
-    	   filtertrace="no"
+           filtertrace="no"
            fork="yes"
            forkmode="once"
            timeout="${exec.timeout}">
@@ -419,6 +461,6 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
   <target name="run"
           depends="clean, instructor-test, clover-report, checkstyle,
-                   pmd, generate-pdf, final-clean"/>
+                   pmd, generate-pdf, generate-diagrams, final-clean"/>
 
 </project>

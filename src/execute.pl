@@ -40,6 +40,7 @@ my $working_dir = $cfg->getProperty( 'workingDir' );
 my $script_home = $cfg->getProperty( 'scriptHome' );
 my $log_dir     = $cfg->getProperty( 'resultDir' );
 my $timeout     = $cfg->getProperty( 'timeout', 45 );
+my $public_dir  = "$log_dir/public";
 
 my $maxToolScore          = $cfg->getProperty( 'max.score.tools', 20 );
 my $maxCorrectnessScore   = $cfg->getProperty( 'max.score.correctness',
@@ -93,6 +94,8 @@ my $scriptLog          = "$log_dir/$scriptLogRelative";
 my $markupPropFile     = "$script_home/markup.properties";
 my $pdfPrintoutRelative = "$pid.pdf";
 my $pdfPrintout        = "$log_dir/$pdfPrintoutRelative";
+my $diagramsRelative   = "diagrams";
+my $diagrams           = "$public_dir/$diagramsRelative";
 my $can_proceed        = 1;
 my $buildFailed        = 0;
 my $antLogOpen         = 0;
@@ -2339,6 +2342,42 @@ points possible = $scoreToTenths</p>
 <p>Full-precision (unrounded) percentages are used to calculate
 your score, not the rounded numbers shown above.</p>
 EOF
+    $status{'feedback'}->endFeedbackSection;
+}
+
+
+#=============================================================================
+# generate collapsible section for class diagrams
+#=============================================================================
+if ( -d $diagrams and scalar <$diagrams/*> )
+{
+    $status{'feedback'}->startFeedbackSection(
+        "Graphical Representation of Your Class Design",
+        ++$expSectionId );
+    $status{'feedback'}->print( <<EOF );
+<p>The images below present a graphical representation of your
+solution's class design. An arrow pointing from <b>B</b> to
+<b>A</b> means that <b>B</b> extends/implements <b>A</b>. These
+diagrams are provided for your benefit as well as for the course
+staff to refer to when grading.</p>
+<div style="border: 1px solid gray; background-color: white; padding: 1em">
+EOF
+    opendir my($dirhandle), $diagrams;
+    my @diagramFiles = readdir $dirhandle;
+    closedir $dirhandle;
+
+    for my $diagramFile (@diagramFiles)
+    {
+        if ($diagramFile !~ /^\..*/)
+        {
+            my $url = "\${publicResourceURL}/diagrams/$diagramFile";
+            $status{'feedback'}->print(
+                "<span style=\"margin-right: 1em\">"
+                . "<img src=\"$url\"/></span>\n");
+        }
+    }
+
+    $status{'feedback'}->print('</div>');
     $status{'feedback'}->endFeedbackSection;
 }
 

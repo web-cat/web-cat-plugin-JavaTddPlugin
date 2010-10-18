@@ -18,5 +18,5 @@ timeoutInternalPadding=400
 provider="Virginia Tech Computer Science"
 authorUid=edwards
 provider.url="http\://web-cat.cs.vt.edu/updates"
-version.revision=3
+version.revision=4
 name="JavaTddPlugin"

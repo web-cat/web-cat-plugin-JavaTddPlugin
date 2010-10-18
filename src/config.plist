@@ -2,7 +2,7 @@
     name             = "JavaTddPlugin";
     version.major    = 3;
     version.minor    = 3;
-    version.revision = 3;
+    version.revision = 4;
     version.date     = 20101018;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
@@ -104,7 +104,7 @@
                             { value = 1.6; } );
             default     = 1.5;
             name        = "Java Source Compatibility";
- 	    category    = "Java Settings";
+         category    = "Java Settings";
             description =
   "The Java source compatibility version to use when compiling student code
   (used with <code>javac's -source</code> command line argument).";
@@ -388,7 +388,7 @@
   submissions within this many days of the deadline (only useful when <i>Hide
   Hints</i> is non-zero, to restore hints as the deadline approaches).";
         },
-	{
+    {
             property    = wantPDF;
             type        = boolean;
             default     = false;
@@ -402,7 +402,7 @@
   <code>ps2pdf</code> as external commands, and requires these programs to
   be correctly installed and configured.";
         },
-	{
+    {
             property    = enscriptStyle;
             type        = shortText;
             size        = 15;
@@ -419,6 +419,20 @@
   <code>ifh</code>, and <code>msvc</code>.  It is possible to add your
   own custom formatting definitions to your enscript installation and then
   use your own style name here as well.";
+        },
+        {
+            property    = wantClassDiagrams;
+            type        = boolean;
+            default     = true;
+            name        = "Generate Class Diagrams";
+            category    = "Feedback Settings";
+            description =
+  "Set to true if you wish to generate class diagrams from students' code.
+  The diagrams will be viewable by students, and accessible by TAs during
+  grading.  <b>Note:</b>  This option uses both <code>doxygen</code> and
+  <code>dot</code> as external commands, and requires these programs to
+  be correctly installed and configured in the JavaTddPlugin's global
+  configuration options.";
         },
         {
             property    = debug;
@@ -444,6 +458,36 @@
   files are deleted when a given submission has been completely processed.
   This setting is provided for debugging purposes, when one wishes to
   inspect the intermediate test driver source code or other derived files.";
+        }
+    );
+    globalOptions = (
+        {
+            property    = doxygenDir;
+            type        = shortText;
+            size        = 40;
+            name        = "Doxygen Directory";
+            description =
+  "The directory on the local server that contains the Doxygen executable.
+  Doxygen (and Dot, below) are used to generate class diagrams for the code
+  that students submit; if you do not have a copy of Doxygen or wish to
+  disable diagram generation across all assignments, you can leave this
+  field blank. If you are not the user administering this Web-CAT server,
+  you will need to have your system administrator install this tool and set
+  this path if you wish to use it.";
+        },
+        {
+            property    = dotDir;
+            type        = shortText;
+            size        = 40;
+            name        = "Dot Directory";
+            description =
+  "The directory on the local server that contains the Dot executable (from
+  the <b>Graphviz</b> package). Dot (and Doxygen, above) are used to generate
+  class diagrams for the code that students submit; if you do not have a copy
+  of Dot or wish to disable diagram generation across all assignments, you can
+  leave this field blank. If you are not the user administering this Web-CAT
+  server, you will need to have your system administrator install this tool
+  and set this path if you wish to use it.";
         }
     );
 }
