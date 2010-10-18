@@ -1326,7 +1326,10 @@ sub translateHTMLFile
     close( HTML );
     my $allHtml = join( "", @html );
 
-    my $conditionCount = ($allHtml =~ s|(<tr>
+    # count the number of assertions that were not fully covered, in order
+    # to remove them from the coverage stats
+    my $preCount = $allHtml;
+    my $conditionCount = ($preCount =~ s|(<tr>
         <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
         <a[^<>]*>([^<>]*)</a>
         (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
@@ -1334,6 +1337,25 @@ sub translateHTMLFile
         (\s*<span\s+class="keyword">assert</span>([^<>]\|<(/?)span[^<>]*>)*)
         \s*</a>
         |$1"line$2$3$4$5$6|ixsg);
+
+    # Now, "unhighlight" all those that were only executed true (leave those
+    # That were never executed at all marked, even though they won't be
+    # counted against the student)
+    my $executedConditionCount = ($allHtml =~ s|(<tr>
+        <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
+        <a[^<>]*>([^<>]*)</a>
+        (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+        Hilight(">\s*)<a[^<>]*title="[^<>]*true\s[1-9][0-9]*\stime(s?),
+        \sfalse\s0\stimes[^<>]*"[^<>]*>
+        (\s*<span\s+class="keyword">assert</span>([^<>]\|<(/?)span[^<>]*>)*)
+        \s*</a>
+        |$1"line$2$3$4$5$7|ixsg);
+
+    if ($debug)
+    {
+        print "\tFound $conditionCount uncovered assertions, with ",
+            "$executedConditionCount partially executed.\n";
+    }
 
     if ($conditionCount)
     {
@@ -1343,10 +1365,14 @@ sub translateHTMLFile
             print $cloverData->data;
             print "\n";
         }
-        $cloverData->{coverage}{project}{metrics}{coveredconditionals} +=
-            $conditionCount;
-        $cloverData->{coverage}{project}{metrics}{coveredelements} +=
-            $conditionCount;
+        $cloverData->{coverage}{project}{metrics}{conditionals} -=
+            2 * $conditionCount;
+        $cloverData->{coverage}{project}{metrics}{coveredconditionals} -=
+            $executedConditionCount;
+        $cloverData->{coverage}{project}{metrics}{elements} -=
+            2 * $conditionCount;
+        $cloverData->{coverage}{project}{metrics}{coveredelements} -=
+            $executedConditionCount;
         foreach my $pkg ( @{ $cloverData->{coverage}{project}{package} } )
         {
             foreach my $file ( @{ $pkg->{file} } )
@@ -1354,7 +1380,8 @@ sub translateHTMLFile
                 my $fileName = $file->{name}->content;
                 if ($debug)
                 {
-                    print "    clover patch: checking $fileName against $sourceName\n";
+                    print "    clover patch: checking $fileName against ",
+                        "$sourceName\n";
                 }
                 $fileName =~ s,\\,/,go;
                 my $Uprojdir = $working_dir . "/";
@@ -1363,8 +1390,12 @@ sub translateHTMLFile
                 if ($fileName eq $sourceName)
                 {
                     print "    ... clover element found!\n" if ($debug);
-                    $file->{metrics}{coveredconditionals} += $conditionCount;
-                    $file->{metrics}{coveredelements} += $conditionCount;
+                    $file->{metrics}{conditionals} -= 2 * $conditionCount;
+                    $file->{metrics}{coveredconditionals} -=
+                        $executedConditionCount;
+                    $file->{metrics}{elements} -= 2 * $conditionCount;
+                    $file->{metrics}{coveredelements} -=
+                        $executedConditionCount;
                 }
             }
         }
