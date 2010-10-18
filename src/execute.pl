@@ -1358,7 +1358,7 @@ sub translateHTMLFile
                 }
                 $fileName =~ s,\\,/,go;
                 my $Uprojdir = $working_dir . "/";
-                $fileName =~ s/^\Q$Uprojdir\E(src\/)?//io;
+                $fileName =~ s/^\Q$Uprojdir\E//io;
                 print "    ... pruned file name = $fileName\n" if ($debug);
                 if ($fileName eq $sourceName)
                 {
