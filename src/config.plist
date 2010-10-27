@@ -1,9 +1,9 @@
 {
     name             = "JavaTddPlugin";
     version.major    = 3;
-    version.minor    = 3;
-    version.revision = 4;
-    version.date     = 20101018;
+    version.minor    = 4;
+    version.revision = 1;
+    version.date     = 20101026;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -209,6 +209,19 @@
                           );
         },
         {
+            property    = requireSimpleExceptionCoverage;
+            type        = boolean;
+            default     = false;
+            name        = "Require Coverage of Simple Catch Blocks";
+            category    = "Test Case Settings";
+            description =
+  "When set, this option requires students to test all catch blocks, including
+  simple try/catch statements that are provided purely for compiler compliance
+  and that simply print a stack trace.  If unchecked, catch blocks that
+  contain only a statement to print the stack trace are not counted in
+  coverage measurements, and do not result in point deductions.";
+        },
+        {
             property    = studentTestInclude;
             type        = shortText;
             size        = 40;
@@ -362,6 +375,30 @@
             description =
   "Maximum number of hints the student will receive from failed reference
   tests.";
+        },
+        {
+            property    = minCoverageLevel;
+            type        = double;
+            name        = "Minimum Test Coverage for Hints";
+            category    = "Feedback Settings";
+            description =
+  "If students are required to submit tests, this value is a minimum test
+  coverage threshold that must be achieved in order for any hints to be
+  given.  It should be a number between 0.0-100.0 representing the minimum
+  percent coverage required to see hints.";
+        },
+        {
+            property    = junitErrorsHideHints;
+            type        = boolean;
+            default     = false;
+            name        = "Clean JUnit Tests Required for Hints";
+            category    = "Feedback Settings";
+            description =
+  "If students are required to submit tests, this option requires all test
+  case classes to be free of PMD-based JUnit style errors, such as failing
+  to include at least one test method in each test case class, failing
+  to include assert*() calls in each test case method, or using \"bogus\"
+  assertions such as assertEquals(1, 1).";
         },
         {
             property    = hideHintsWithin;

@@ -51,6 +51,7 @@ my $instructorCasesPercent = 0;
 my $studentCasesPercent    = 0;
 my $codeCoveragePercent    = 0;
 #my $studentTestMsgs;
+my $hasJUnitErrors         = 0;
 
 my %status = (
     'antTimeout'         => 0,
@@ -114,6 +115,9 @@ my $defaultMaxBeforeCollapsing = 100000;
 my $toolDeductionScaleFactor =
     $cfg->getProperty( 'toolDeductionScaleFactor', 1 );
 my $coverageMetric    = $cfg->getProperty( 'coverageMetric', 0 );
+my $minCoverageLevel =
+    $cfg->getProperty( 'minCoverageLevel', 0.0 );
+
 my $allStudentTestsMustPass =
     $cfg->getProperty( 'allStudentTestsMustPass', 0 );
 $allStudentTestsMustPass =
@@ -123,6 +127,15 @@ my $studentsMustSubmitTests =
 $studentsMustSubmitTests =
     ( $studentsMustSubmitTests =~ m/^(true|on|yes|y|1)$/i );
 if ( !$studentsMustSubmitTests ) { $allStudentTestsMustPass = 0; }
+my $requireSimpleExceptionCoverage =
+    $cfg->getProperty( 'requireSimpleExceptionCoverage', 0 );
+$requireSimpleExceptionCoverage =
+    ( $requireSimpleExceptionCoverage =~ m/^(true|on|yes|y|1)$/i );
+my $junitErrorsHideHints =
+    $cfg->getProperty( 'junitErrorsHideHints', 0);
+$junitErrorsHideHints =
+    ( $junitErrorsHideHints =~ m/^(true|on|yes|y|1)$/i )
+    && $studentsMustSubmitTests;
 
 
 #=============================================================================
@@ -968,6 +981,14 @@ sub trackMessageInstance
         print "tracking $group, $rule, $fileName, ",
         $violation->{line}->content, "\n";
     }
+    if ($group eq "testing")
+    {
+        $hasJUnitErrors++;
+        if ($debug > 1)
+        {
+            print "found JUnit error!\n";
+        }
+    }
 
     # messageStats->group->rule->filename->{num, collapse} (pts later)
     trackMessageInstanceInContext(
@@ -1354,19 +1375,53 @@ sub translateHTMLFile
         \s*</a>
         |$1"line$2$3$4$5$7|ixsg);
 
+    # Now, "unhighlight" all fail() method calls in test cases that weren't
+    # executed.
+    my $unexecutedFailCount = ($allHtml =~ s|(<tr>
+        <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
+        <a[^<>]*>([^<>]*)</a>
+        (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+        Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted[^<>]*"[^<>]*>
+        (\s*fail\s*\((<span [^<>]*>[^<>]*</span>)?\)\s*;)
+        \s*</a>
+        |$1"line$2$3$4$5$6|ixsg);
+
+    # Now, handle simple exception handlers, if needed.
+    my $simpleCatchBlocks = 0;
+    if (!$requireSimpleExceptionCoverage)
+    {
+        $simpleCatchBlocks = ($allHtml =~ s|(<tr>
+            ((?!</tr>).)*<span\sclass="keyword">catch</span>((?!</tr>).)*
+            (</tr>\s*<tr>((?!</tr>).)*){((?!</tr>).)*</tr>\s*
+            (<tr>((?!</tr>).)*<td\sclass="srcCell">\s*
+                <span\s+class="srcLine">\s*
+                    (<span\s+class="comment">((?!</span>).)*</span>\s*)?
+                </span>\s*</td>\s*</tr>\s*)*
+            <tr>\s*
+            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            [^<>]*"[^<>]*>
+            (\s*[a-zA-Z_][a-zA-Z0-9_]*\s*.\s*printStackTrace\s*\([^<>()]*\)\s*;)
+            \s*</a>
+            |$1"line$11$12$13$14$15|ixsg);
+    }
+
     if ($debug)
     {
         print "\tFound $conditionCount uncovered assertions, with ",
             "$executedConditionCount partially executed.\n";
+        print "\tFound $unexecutedFailCount unexecuted fail() statements.\n";
+        print "\tFound $simpleCatchBlocks simple catch blocks.\n";
     }
 
-    if ($conditionCount)
+    if ($conditionCount || $unexecutedFailCount || $simpleCatchBlocks)
     {
         if ($debug)
         {
-            print "\n\n$conditionCount assert statements found.\n";
-            print $cloverData->data;
-            print "\n";
+            print $cloverData->data, "\n";
         }
         $cloverData->{coverage}{project}{metrics}{conditionals} -=
             2 * $conditionCount;
@@ -1376,6 +1431,17 @@ sub translateHTMLFile
             2 * $conditionCount;
         $cloverData->{coverage}{project}{metrics}{coveredelements} -=
             $executedConditionCount;
+
+        $cloverData->{coverage}{project}{metrics}{elements} -=
+            $unexecutedFailCount;
+        $cloverData->{coverage}{project}{metrics}{statements} -=
+            $unexecutedFailCount;
+
+        $cloverData->{coverage}{project}{metrics}{elements} -=
+            $simpleCatchBlocks;
+        $cloverData->{coverage}{project}{metrics}{statements} -=
+            $simpleCatchBlocks;
+
         foreach my $pkg ( @{ $cloverData->{coverage}{project}{package} } )
         {
             foreach my $file ( @{ $pkg->{file} } )
@@ -1399,6 +1465,12 @@ sub translateHTMLFile
                     $file->{metrics}{elements} -= 2 * $conditionCount;
                     $file->{metrics}{coveredelements} -=
                         $executedConditionCount;
+
+                    $file->{metrics}{elements} -= $unexecutedFailCount;
+                    $file->{metrics}{statements} -= $unexecutedFailCount;
+
+                    $file->{metrics}{elements} -= $simpleCatchBlocks;
+                    $file->{metrics}{statements} -= $simpleCatchBlocks;
                 }
             }
         }
@@ -2225,19 +2297,49 @@ EOF
     }
     if ( $hintsLimit != 0 )
     {
-        my $hints = $status{'instrTestResults'}->formatHints( 0, $hintsLimit);
-        if ( defined $hints && $hints ne "" )
+        if ($studentsMustSubmitTests
+               && $hasJUnitErrors
+               && $junitErrorsHideHints)
         {
-            my $extra = "";
-            if ( $studentsMustSubmitTests )
-            {
-                $extra = "and your testing ";
-            }
             $status{'feedback'}->print( <<EOF );
+<p>Your JUnit test classes contain <b class="warn">problems that must be
+fixed</b> before you can receive any more specific feedback.  Be sure that
+all of your test classes contain test methods, and that all of your test
+methods include appropriate assertions to check for expected behavior.
+You must fix these problems with your own tests to get further feedback.</p>
+EOF
+        }
+        elsif ($studentsMustSubmitTests
+            && (!$status{'studentTestResults'}->hasResults
+                || $gradedElementsCovered / $gradedElements * 100.0 <
+                   $minCoverageLevel))
+        {
+            $status{'feedback'}->print( <<EOF );
+<p>Your JUnit test cases <b class="warn">do not exercise enough of your
+solution</b> for you to receive any more specific feedback.  Improve your
+testing by writing more test cases that exercise more of your solution's
+features.  Be sure to write <b>meaningful tests</b> that include appropriate
+assertions to check for expected behavior.  You must improve your testing
+to get further feedback.</p>
+EOF
+        }
+        else
+        {
+            my $hints = $status{'instrTestResults'}->formatHints(
+                0, $hintsLimit);
+            if ( defined $hints && $hints ne "" )
+            {
+                my $extra = "";
+                if ( $studentsMustSubmitTests )
+                {
+                    $extra = "and your testing ";
+                }
+                $status{'feedback'}->print( <<EOF );
 <p>The following hint(s) may help you locate some ways in which your solution
 $extra may be improved:</p>
 $hints
 EOF
+            }
         }
     }
 
