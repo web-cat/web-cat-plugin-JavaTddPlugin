@@ -2169,11 +2169,13 @@ solution is being assessed by running a suite of reference tests.</p>
 EOF
         }
         $status{'feedback'}->print( <<EOF );
-<p><b class="warn">Your code failed to compile correctly against
-the reference tests.</b></p>
+<p><b class="warn">Your code is inconsistent with the expectations of the
+reference tests, so the reference tests failed to compile against your
+solution.</b></p>
 <p>This is most likely because you have not named your class(es)
 as required in the assignment, have failed to provide one or more required
-methods, or have failed to use the required signature for a method.</p>
+methods (or fields), or have failed to use the required signature for a
+method (or type for a field).</p>
 <p>Failure to follow these constraints will prevent the proper assessment
 of your solution and your tests.</p>
 EOF
