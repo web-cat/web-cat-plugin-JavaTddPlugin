@@ -13,7 +13,7 @@
     <rule name="JUnit3TestsHaveAssertions"
           message="A test case method should use one or more 'assert...()' methods to check that the desired behavior is actually occurring."
           class="net.sourceforge.pmd.rules.XPathRule"
-	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnit3TestsHaveAssertions">
+      externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnit3TestsHaveAssertions">
       <description>
       All JUnit test methods should contain at least one assertion.
       </description>
@@ -54,7 +54,7 @@
     <rule name="JUnit4TestsHaveAssertions"
           message="A test case method should use one or more 'assert...()' methods to check that the desired behavior is actually occurring."
           class="net.sourceforge.pmd.rules.XPathRule"
-	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnit4TestsHaveAssertions">
+      externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnit4TestsHaveAssertions">
       <description>
       All JUnit 4.x test methods should contain at least one assertion.
       </description>
@@ -89,7 +89,7 @@
     <rule name="JUnit3ConstantAssertion"
           message="This assertion uses only values known at compile time, so it cannot test any useful behavior exhibited by your code at run-time."
           class="net.sourceforge.pmd.rules.XPathRule"
-	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
+      externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
       <description>
       All assertEquals() or assertTrue() assertions in JUnit test methods
       should contain one or more non-literal parameters.
@@ -139,7 +139,7 @@
     <rule name="JUnit4ConstantAssertion"
           message="This assertion uses only values known at compile time, so it cannot test any useful behavior exhibited by your code at run-time."
           class="net.sourceforge.pmd.rules.XPathRule"
-	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
+      externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
       <description>
       All assertEquals() or assertTrue() assertions in JUnit 4.x test methods
       should contain one or more non-literal parameters.
@@ -185,7 +185,7 @@
     <rule name="JUnitTestClassNeedsTestCase"
           message="This JUnit test class does not contain any actual tests."
           class="net.sourceforge.pmd.rules.XPathRule"
-	  externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitTestClassNeedsTestCase">
+      externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitTestClassNeedsTestCase">
       <description>
       All JUnit test classes should contain a test method.
       </description>
@@ -216,6 +216,38 @@
   public class Foo extends TestCase {
            // oops, no test cases!
    }
+  }
+  ]]>
+      </example>
+      </rule>
+
+      <rule name="FormalParametersNeedMeaningfulNames"
+            message="A formal parameter has been left with its auto-generated default name instead of a more meaningful name."
+            class="net.sourceforge.pmd.rules.XPathRule"
+        externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#FormalParametersNeedMeaningfulNames">
+        <description>
+        When using a development environment that can auto-generate empty
+        method definitions, you should change the auto-generated formal
+        parameter names to something more meaningful.
+        </description>
+        <properties>
+        <property name="xpath">
+            <value>
+  <![CDATA[
+  //MethodDeclaration/MethodDeclarator/FormalParameters/FormalParameter/VariableDeclaratorId[matches(@Image, '^arg[0-9]+$')]
+  ]]>
+            </value>
+        </property>
+        </properties>
+        <priority>2</priority>
+
+      <example>
+  <![CDATA[
+  public class FooClass
+  {
+      public void foo(int arg0, String arg1)
+      {
+      }
   }
   ]]>
       </example>
