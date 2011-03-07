@@ -22,7 +22,7 @@ use Web_CAT::FeedbackGenerator;
 use Web_CAT::JUnitResultsReader;
 use Web_CAT::Utilities
     qw( confirmExists filePattern copyHere htmlEscape addReportFile scanTo
-        scanThrough linesFromFile );
+        scanThrough linesFromFile addReportFileWithStyle );
 use XML::Smart;
 #use Data::Dump qw( dump );
 
@@ -45,6 +45,17 @@ my $public_dir  = "$log_dir/public";
 my $maxToolScore          = $cfg->getProperty( 'max.score.tools', 20 );
 my $maxCorrectnessScore   = $cfg->getProperty( 'max.score.correctness',
                                                100 - $maxToolScore );
+
+
+#=============================================================================
+# Import local libs
+#=============================================================================
+
+my $local_lib   = "$script_home/perllib";
+push @INC, $local_lib;
+eval "require JavaTddPlugin";
+
+
 #my $instructorCases        = 0;
 #my $instructorCasesPassed  = undef;
 my $instructorCasesPercent = 0;
@@ -451,7 +462,7 @@ if ( $callAnt )
         . "2>&1 > " . File::Spec->devnull;
 
     print $cmdline, "\n" if ( $debug );
-	my ( $exitcode, $timeout_status ) = Proc::Background::timeout_system(
+    my ( $exitcode, $timeout_status ) = Proc::Background::timeout_system(
         $timeout - $postProcessingTime, $cmdline );
     if ( $timeout_status )
     {
@@ -1321,8 +1332,8 @@ sub translateHTMLFile
 #    }
 #    else
 #    {
-#    	my $lcClassName = $className;
-#    	$lcClassName =~ tr/A-Z/a-z/;
+#       my $lcClassName = $className;
+#       $lcClassName =~ tr/A-Z/a-z/;
 #        if ( defined( $classToMarkupNoMap{$lcClassName} ) )
 #        {
 #            $cfg->setProperty( 'codeMarkup' . $classToMarkupNoMap{$lcClassName}
@@ -1935,13 +1946,24 @@ if ( $status{'studentHasSrcs'}
                 . "must pass for you to get further feedback.</b>\n" );
     }
 
-    my @lines = linesFromFile( "$log_dir/student-results.txt" );
+    # Transform the plain text JUnit results to an interactive HTML view.
+    JavaTddPlugin::transformTestResults("student_",
+        "$log_dir/student-results.txt",
+        "$log_dir/student-results.html");
+
+    open(STUDENTRESULTS, "$log_dir/student-results.html");
+    my @lines = <STUDENTRESULTS>;
+    close(STUDENTRESULTS);
     if ( $#lines >= 0 )
     {
-        $status{'feedback'}->print( "<pre>\n" );
+        $status{'feedback'}->print(<<EOF);
+<p>The results of running your own test cases are shown below. Click on a
+failed test to see the reason for the failure and an execution trace that
+shows where the error occurred.</p>
+EOF
         $status{'feedback'}->print( @lines );
-        $status{'feedback'}->print( "</pre>\n" );
     }
+    unlink "$log_dir/student-results.html";
 
     @lines = linesFromFile( "$log_dir/student-out.txt" );
     if ( $#lines >= 0 )
@@ -2052,19 +2074,19 @@ if ( defined $status{'instrTestResults'}
 }
 if ( defined $messageStats)
 {
-	my $staticResults = '';
-	foreach my $grp (keys %{$messageStats})
-	{
-		if ($grp eq 'file'
-		    || $grp eq 'num'
-		    || $grp eq 'pts'
-		    || $grp eq 'collapse')
-		{
-		    next;
-		}
+    my $staticResults = '';
+    foreach my $grp (keys %{$messageStats})
+    {
+        if ($grp eq 'file'
+            || $grp eq 'num'
+            || $grp eq 'pts'
+            || $grp eq 'collapse')
+        {
+            next;
+        }
 
-		foreach my $rule (keys(%{$messageStats->{$grp}}))
-		{
+        foreach my $rule (keys(%{$messageStats->{$grp}}))
+        {
             if ($rule eq 'file'
                 || $rule eq 'num'
                 || $rule eq 'pts'
@@ -2073,21 +2095,21 @@ if ( defined $messageStats)
                 next;
             }
             my $thisRule = '{'
-            	. '"name"="' . $rule . '";'
+                . '"name"="' . $rule . '";'
                 . '"group"="' . $grp . '";'
                 . '"count"="' . $messageStats->{$grp}->{$rule}->{num} . '";'
                 . '"pts"="' . $messageStats->{$grp}->{$rule}->{pts} . '";'
-            	. '}';
+                . '}';
             if ($staticResults eq '')
             {
                 $staticResults = $thisRule;
             }
             else
             {
-        	   $staticResults .= ',' . $thisRule;
+               $staticResults .= ',' . $thisRule;
             }
         }
-	}
+    }
     $cfg->setProperty('static.analysis.results', '(' . $staticResults . ')');
 }
 $cfg->setProperty('outcomeProperties',
@@ -2169,13 +2191,11 @@ solution is being assessed by running a suite of reference tests.</p>
 EOF
         }
         $status{'feedback'}->print( <<EOF );
-<p><b class="warn">Your code is inconsistent with the expectations of the
-reference tests, so the reference tests failed to compile against your
-solution.</b></p>
+<p><b class="warn">Your code failed to compile correctly against
+the reference tests.</b></p>
 <p>This is most likely because you have not named your class(es)
 as required in the assignment, have failed to provide one or more required
-methods (or fields), or have failed to use the required signature for a
-method (or type for a field).</p>
+methods, or have failed to use the required signature for a method.</p>
 <p>Failure to follow these constraints will prevent the proper assessment
 of your solution and your tests.</p>
 EOF
@@ -2356,13 +2376,25 @@ EOF
             $status{'instrFeedback'}->print( "\n");
         }
 
-        my @lines = linesFromFile( "$log_dir/instr-results.txt" );
+        # Transform the plain text JUnit results into an interactive HTML
+        # view.
+        JavaTddPlugin::transformTestResults("instr_",
+            "$log_dir/instr-results.txt",
+            "$log_dir/instr-results.html");
+
+        open(INSTRRESULTS, "$log_dir/instr-results.html");
+        my @lines = <INSTRRESULTS>;
+        close(INSTRRESULTS);
         if ( $#lines >= 0 )
         {
-            $status{'instrFeedback'}->print( "<pre>\n" );
+            $status{'instrFeedback'}->print(<<EOF);
+<p>The results of running the instructor's reference test cases are shown
+below. Click on a failed test to see the reason for the failure and an
+execution trace that shows where the error occurred.</p>
+EOF
             $status{'instrFeedback'}->print( @lines );
-            $status{'instrFeedback'}->print( "</pre>\n" );
         }
+        unlink "$log_dir/instr-results.html";
 
         @lines = linesFromFile( "$log_dir/instr-out.txt" );
         if ( $#lines >= 0 )
@@ -2499,7 +2531,7 @@ EOF
         $rptFile->close;
         if ( $rptFile->hasContent )
         {
-            addReportFile( $cfg, $rptFile->fileName );
+            addReportFileWithStyle( $cfg, $rptFile->fileName, 'text/html', 1 );
         }
         else
         {
@@ -2517,7 +2549,7 @@ EOF
         $rptFile->close;
         if ( $rptFile->hasContent )
         {
-            addReportFile( $cfg, $rptFile->fileName, 'text/html', 'staff' );
+            addReportFileWithStyle( $cfg, $rptFile->fileName, 'text/html', 1, 'staff' );
         }
         else
         {
@@ -2530,10 +2562,11 @@ EOF
 # -----------
 if ( -f $pdfPrintout )
 {
-    addReportFile(
+    addReportFileWithStyle(
         $cfg,
         $pdfPrintoutRelative,
         "application/pdf",
+        1,
         undef,
         "false",
         "PDF code printout" );
@@ -2543,8 +2576,8 @@ if ( -f $pdfPrintout )
 # ----------
 if ( -f $scriptLog && stat( $scriptLog )->size > 0 )
 {
-    addReportFile( $cfg, $scriptLogRelative, "text/plain", "admin" );
-    addReportFile( $cfg, $antLogRelative,    "text/plain", "admin" );
+    addReportFileWithStyle( $cfg, $scriptLogRelative, "text/plain", 0, "admin" );
+    addReportFileWithStyle( $cfg, $antLogRelative,    "text/plain", 0, "admin" );
 }
 
 $cfg->setProperty( 'score.correctness', $runtimeScore );
