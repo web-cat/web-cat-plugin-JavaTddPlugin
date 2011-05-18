@@ -1,7 +1,7 @@
 /*==========================================================================*\
  |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2006 Virginia Tech
+ |  Copyright (C) 2006-2011 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -20,7 +20,7 @@
  |  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  |
  |  Project manager: Stephen Edwards <edwards@cs.vt.edu>
- |  Virginia Tech CS Dept, 660 McBryde Hall (0106), Blacksburg, VA 24061 USA
+ |  Virginia Tech CS Dept, 114 McBryde Hall (0106), Blacksburg, VA 24061 USA
 \*==========================================================================*/
 
 package net.sf.webcat.annotations;
@@ -29,14 +29,18 @@ import java.lang.annotation.*;
 
 //-------------------------------------------------------------------------
 /**
-*  Marker annotation to indicate that test case failures within a single
-*  method or an entire class should not include abbreviated stack trace
-*  information in the hint message for test case failures due to unexpected
-*  exceptions thrown from the code under test.
-*
-*  @author Stephen Edwards
-*  @version $Id$
-*/
+ *  Marker annotation to indicate that test case failures within a single
+ *  method or an entire class should not include abbreviated stack trace
+ *  information in the hint message for test case failures due to unexpected
+ *  exceptions thrown from the code under test.
+ *
+ *  @deprecated Use
+ *  {@link student.testingsupport.annotations.NoStackTraces} instead.
+ *  @author Stephen Edwards
+ *  @author  Last changed by $Author$
+ *  @version $Revision$, $Date$
+ */
+@Deprecated
 @Documented
 @Inherited
 @Retention( RetentionPolicy.RUNTIME )

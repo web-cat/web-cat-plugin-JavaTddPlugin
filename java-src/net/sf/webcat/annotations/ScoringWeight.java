@@ -1,7 +1,7 @@
 /*==========================================================================*\
  |  $Id$
  |*-------------------------------------------------------------------------*|
- |  Copyright (C) 2006 Virginia Tech
+ |  Copyright (C) 2006-2011 Virginia Tech
  |
  |  This file is part of Web-CAT.
  |
@@ -20,7 +20,7 @@
  |  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  |
  |  Project manager: Stephen Edwards <edwards@cs.vt.edu>
- |  Virginia Tech CS Dept, 660 McBryde Hall (0106), Blacksburg, VA 24061 USA
+ |  Virginia Tech CS Dept, 114 McBryde Hall (0106), Blacksburg, VA 24061 USA
 \*==========================================================================*/
 
 package net.sf.webcat.annotations;
@@ -33,9 +33,13 @@ import java.lang.annotation.*;
  *  a default weight for all test case methods in a suite class.  Without
  *  using this annotation, the default weight is 1.0.
  *
+ *  @deprecated Use
+ *  {@link student.testingsupport.annotations.ScoringWeight} instead.
  *  @author Stephen Edwards
- *  @version $Id$
+ *  @author  Last changed by $Author$
+ *  @version $Revision$, $Date$
  */
+@Deprecated
 @Documented
 @Inherited
 @Retention( RetentionPolicy.RUNTIME )
