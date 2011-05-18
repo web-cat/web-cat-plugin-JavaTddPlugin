@@ -1361,6 +1361,46 @@ sub translateHTMLFile
     close( HTML );
     my $allHtml = join( "", @html );
 
+    # Look for @author tags
+    my @partnerExcludePatterns = ();
+    my $partnerExcludePatterns_raw =
+        $cfg->getProperty('grader.partnerExcludePatterns', "");
+    if ($partnerExcludePatterns_raw ne "")
+    {
+        @partnerExcludePatterns =
+            split(/(?<!\\),/, $partnerExcludePatterns_raw);
+    }
+    my $userName = $cfg->getProperty('userName', "");
+    if ($userName ne "")
+    {
+        push(@partnerExcludePatterns, $userName);
+    }
+    my $potentialPartners = $cfg->getProperty('grader.potentialpartners', "");
+    while ($allHtml =~ m/<span[^<>]*class="javadoc"[^<>]*>\@author<\/span>\s*([^<>]*)<\/span>/g)
+    {
+        my $authors = $1;
+        $authors =~ s/\@[a-zA-Z][a-zA-Z0-9\.]+[a-zA-Z]/ /g;
+        $authors =~ s/your-pid [\(]?and if in lab[,]? partner[']?s pid on same line[\)]?//;
+        $authors =~ s/Partner [1-9][' ]?s name [\(]?pid[\)]?//;
+        $authors =~ s/[,;:\(\)\]\]\{\}=!\@#%^&\*<>\/\\\`'"]/ /g;
+        foreach my $pat (@partnerExcludePatterns)
+	{
+            $authors =~ s/(?<!\S)$pat(?!\S)//g;
+	}
+        $authors =~ s/^\s+//;
+        $authors =~ s/\s+$//;
+        $authors =~ s/\s\s+/ /g;
+        if ($authors ne "")
+	{
+	    if ($potentialPartners ne "")
+	    {
+		$potentialPartners .= " ";
+	    }
+	    $potentialPartners .= $authors;
+	}
+    }
+    $cfg->setProperty('grader.potentialpartners', $potentialPartners);
+
     # count the number of assertions that were not fully covered, in order
     # to remove them from the coverage stats
     my $preCount = $allHtml;
