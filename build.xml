@@ -6,7 +6,7 @@
     <exec executable="perl" failonerror="true">
         <arg file="../DevTools/PlistToProperties.pl"/>
         <arg value="src/config.plist"/>
-        <arg value="Properties"/>
+        <arg value="${basedir}/Properties"/>
         <env key="PERLLIB" path="/Web-CAT/PerlForPlugins/Resources/lib"/>
     </exec>
     <propertyfile file="Properties"
