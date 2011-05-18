@@ -25,8 +25,6 @@
 
 package net.sf.webcat.plugins.javatddplugin;
 
-import net.sf.webcat.annotations.*;
-
 //-------------------------------------------------------------------------
 /**
  *  A base class for managing the various options controlling default
@@ -107,53 +105,103 @@ public class HintOptions
      * results to populate this object's fields.
      * @param element the element to read annotations from
      */
+    @SuppressWarnings("deprecation")
     public void loadFromAnnotations(
-        java.lang.reflect.AnnotatedElement element )
+        java.lang.reflect.AnnotatedElement element)
     {
         // filterFromStackTraces
-        if ( element.isAnnotationPresent( FilterFromStackTraces.class ) )
+        if (element.isAnnotationPresent(
+            student.testingsupport.annotations.FilterFromStackTraces.class))
         {
-            FilterFromStackTraces annotation =
-                element.getAnnotation( FilterFromStackTraces.class );
-            setFilterFromStackTraces( annotation.value() );
+            student.testingsupport.annotations.FilterFromStackTraces annotation
+                = element.getAnnotation(student.testingsupport.annotations
+                    .FilterFromStackTraces.class);
+            setFilterFromStackTraces(annotation.value());
+        }
+        if (element.isAnnotationPresent(
+            net.sf.webcat.annotations.FilterFromStackTraces.class))
+        {
+            net.sf.webcat.annotations.FilterFromStackTraces annotation =
+                element.getAnnotation(
+                    net.sf.webcat.annotations.FilterFromStackTraces.class);
+            setFilterFromStackTraces(annotation.value());
         }
 
         // hint
-        if ( element.isAnnotationPresent( Hint.class ) )
+        if (element.isAnnotationPresent(
+            student.testingsupport.annotations.Hint.class))
         {
-            Hint annotation = element.getAnnotation( Hint.class );
-            setHint( annotation.value() );
+            student.testingsupport.annotations.Hint annotation = element
+                .getAnnotation(student.testingsupport.annotations.Hint.class);
+            setHint(annotation.value());
+        }
+        if (element.isAnnotationPresent(net.sf.webcat.annotations.Hint.class))
+        {
+            net.sf.webcat.annotations.Hint annotation =
+                element.getAnnotation(net.sf.webcat.annotations.Hint.class);
+            setHint(annotation.value());
         }
 
         // hintPrefix
-        if ( element.isAnnotationPresent( HintPrefix.class ) )
+        if (element.isAnnotationPresent(
+            student.testingsupport.annotations.HintPrefix.class))
         {
-            HintPrefix annotation =
-                element.getAnnotation( HintPrefix.class );
-            setHintPrefix( annotation.value() );
+            student.testingsupport.annotations.HintPrefix annotation =
+                element.getAnnotation(
+                    student.testingsupport.annotations.HintPrefix.class);
+            setHintPrefix(annotation.value());
+        }
+        if (element.isAnnotationPresent(
+            net.sf.webcat.annotations.HintPrefix.class))
+        {
+            net.sf.webcat.annotations.HintPrefix annotation = element
+                .getAnnotation(net.sf.webcat.annotations.HintPrefix.class);
+            setHintPrefix(annotation.value());
         }
 
         // noStackTraces and noStackTracesForAsserts
-        if ( element.isAnnotationPresent( NoStackTraces.class ) )
+        if (element.isAnnotationPresent(
+            student.testingsupport.annotations.NoStackTraces.class))
         {
-            NoStackTraces annotation =
-                element.getAnnotation( NoStackTraces.class );
-            setNoStackTraces( true );
-            setNoStackTracesForAsserts( !annotation.value() );
+            student.testingsupport.annotations.NoStackTraces annotation =
+                element.getAnnotation(
+                    student.testingsupport.annotations.NoStackTraces.class);
+            setNoStackTraces(true);
+            setNoStackTracesForAsserts(!annotation.value());
+        }
+        if (element.isAnnotationPresent(
+            net.sf.webcat.annotations.NoStackTraces.class))
+        {
+            net.sf.webcat.annotations.NoStackTraces annotation = element
+                .getAnnotation(net.sf.webcat.annotations.NoStackTraces.class);
+            setNoStackTraces(true);
+            setNoStackTracesForAsserts(!annotation.value());
         }
 
         // onlyExplicitHints
-        if ( element.isAnnotationPresent( OnlyExplicitHints.class ) )
+        if (element.isAnnotationPresent(
+            student.testingsupport.annotations.OnlyExplicitHints.class)
+            || element.isAnnotationPresent(
+                net.sf.webcat.annotations.OnlyExplicitHints.class))
         {
-            setOnlyExplicitHints( true );
+            setOnlyExplicitHints(true);
         }
 
         // scoringWeight
-        if ( element.isAnnotationPresent( ScoringWeight.class ) )
+        if (element.isAnnotationPresent(
+            student.testingsupport.annotations.ScoringWeight.class))
         {
-            ScoringWeight annotation =
-                element.getAnnotation( ScoringWeight.class );
-            setScoringWeight( annotation.value() );
+            student.testingsupport.annotations.ScoringWeight annotation =
+                element.getAnnotation(
+                    student.testingsupport.annotations.ScoringWeight.class);
+            setScoringWeight(annotation.value());
+        }
+        if (element.isAnnotationPresent(
+            net.sf.webcat.annotations.ScoringWeight.class))
+        {
+            net.sf.webcat.annotations.ScoringWeight annotation = element
+                .getAnnotation(net.sf.webcat.annotations.ScoringWeight.class);
+            setScoringWeight(annotation.value());
         }
     }
 
