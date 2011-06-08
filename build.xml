@@ -1,5 +1,7 @@
 <project name="JavaTddPlugin" default="export.jar" basedir=".">
 
+  <property file="${user.home}/build.properties"/>
+
   <target name="init"
     description="Set the build date in the Properties file">
     <tstamp/>
@@ -18,8 +20,27 @@
       value="${version.major}.${version.minor}.${version.revision}"/>
   </target>
 
+  <target name="check.local.student.jar" if="local.student.jar.path">
+    <condition property="need.local.student.jar">
+      <or>
+        <not>
+          <available file="src/defaultJars/student.jar" />
+        </not>
+      	<not>
+      	  <uptodate srcfile="${local.student.jar.path}"
+      		targetfile="src/defaultJars/student.jar"/>
+        </not>
+      </or>
+    </condition>
+  </target>
+  <target name="get.local.student.jar"
+  	depends="check.local.student.jar" if="need.local.student.jar">
+    <copy overwrite="true" todir="src/defaultJars"
+      file="${local.student.jar.path}"/>
+  </target>
+
   <target name="build.java.jars"
-    depends="init"
+    depends="init, get.local.student.jar"
     description="Build a distributable jar file for this plug-in">
   	<delete file="src/${ant.project.name}Support.jar"/>
     <jar destfile="src/${ant.project.name}Support.jar">
@@ -34,7 +55,7 @@
       <fileset dir="bin"/>
       <zipfileset src="src/defaultJars/student.jar">
         <include name="student/*Test*.class"/>
-        <include name="student/testingsupport/*.class"/>
+        <include name="student/testingsupport/"/>
       </zipfileset>
     </jar>
     <delete file="webcat-support-${full.version}.jar"/>

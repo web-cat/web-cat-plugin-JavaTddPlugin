@@ -1,5 +1,5 @@
 #This file is automatically rewritten by ANT, so all formatting will be trashed.
-#Wed May 18 13:48:42 EDT 2011
+#Tue Jun 07 22:39:30 EDT 2011
 timeoutMultiplier=2
 version.minor=4
 copyright="(c) 2006-2010 Virginia Tech Department of Computer Science"
@@ -12,7 +12,7 @@ interpreter.prefix="${PerlForPlugins.perl.exe}"
 languages=( { name \= Java; version \= 1.4
 autoPublish=true
 version.major=3
-version.date=20110518
+version.date=20110607
 history.url="http\://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin/ChangeHistory"
 timeoutInternalPadding=400
 provider="Virginia Tech Computer Science"
