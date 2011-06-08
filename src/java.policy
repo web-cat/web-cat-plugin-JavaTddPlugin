@@ -5,11 +5,11 @@ grant codeBase "file:${java.home}/lib/ext/*" {
     permission java.security.AllPermission;
 };
 
-grant codeBase "file:/${ant.home}/-" {
+grant codeBase "file:${ant.home}/-" {
     permission java.security.AllPermission;
 };
 
-grant codeBase "file:/${scriptHome}/-" {
+grant codeBase "file:${scriptHome}/-" {
     permission java.security.AllPermission;
 };
 
