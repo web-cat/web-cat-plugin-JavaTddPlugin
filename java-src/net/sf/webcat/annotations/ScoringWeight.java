@@ -46,6 +46,19 @@ import java.lang.annotation.*;
 @Target({ ElementType.TYPE, ElementType.METHOD })
 public @interface ScoringWeight
 {
-    /** The weight for this test case (or all test cases in a class). */
+    /**
+     * The weight for this test case method (if applied to a method), or
+     * the cumulative weight for all test methods in this class (if applied
+     * to a test class).
+     * @return The weight.
+     */
     double value();
+
+    /**
+     * The default scoring weight to use on test methods in a test class.
+     * This is only applicable when using this annotation on a test class,
+     * and will be ignored if specified on an individual method.
+     * @return The default weight.
+     */
+    double defaultMethodWeight() default 1.0;
 }

@@ -195,6 +195,7 @@ public class HintOptions
                 element.getAnnotation(
                     student.testingsupport.annotations.ScoringWeight.class);
             setScoringWeight(annotation.value());
+            setDefaultMethodScoringWeight(annotation.defaultMethodWeight());
         }
         if (element.isAnnotationPresent(
             net.sf.webcat.annotations.ScoringWeight.class))
@@ -202,6 +203,7 @@ public class HintOptions
             net.sf.webcat.annotations.ScoringWeight annotation = element
                 .getAnnotation(net.sf.webcat.annotations.ScoringWeight.class);
             setScoringWeight(annotation.value());
+            setDefaultMethodScoringWeight(annotation.defaultMethodWeight());
         }
     }
 
@@ -378,16 +380,25 @@ public class HintOptions
 
     // ----------------------------------------------------------
     /**
-     * Find out if only explicit hints should be used.
-     * @return true if only explicit hints should be used
+     * Determine if a non-default scoring weight has been set.
+     * @return True if a non-default scoring weight has been set.
+     */
+    public boolean hasScoringWeight()
+    {
+        return scoringWeight != null;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Get the scoring weight for this object.
+     * @return The scoring weight.
      */
     public double scoringWeight()
     {
         if ( scoringWeight == null )
         {
-            return ( parent == null )
-                ? 1.0
-                : parent.scoringWeight();
+            return defaultMethodScoringWeight();
         }
         return scoringWeight.doubleValue();
     }
@@ -395,12 +406,40 @@ public class HintOptions
 
     // ----------------------------------------------------------
     /**
-     * Set whether only explicit hints should be used.
-     * @param value true if only explicit hints should be used
+     * Set the scoring weight for this object.
+     * @param value The scoring weight to use.
      */
     public void setScoringWeight( double value )
     {
         scoringWeight = Double.valueOf( value );
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Get the default scoring weight for methods in this object.
+     * @return The default scoring weight for methods.
+     */
+    public double defaultMethodScoringWeight()
+    {
+        if ( defaultMethodScoringWeight == null )
+        {
+            return ( parent == null )
+                ? 1.0
+                : parent.defaultMethodScoringWeight();
+        }
+        return defaultMethodScoringWeight.doubleValue();
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Set the default scoring weight for methods in this object.
+     * @param value The default scoring weight to use.
+     */
+    public void setDefaultMethodScoringWeight( double value )
+    {
+        defaultMethodScoringWeight = Double.valueOf( value );
     }
 
 
@@ -464,6 +503,7 @@ public class HintOptions
     private Boolean  noStackTracesForAsserts;
     private Boolean  onlyExplicitHints;
     private Double   scoringWeight;
+    private Double   defaultMethodScoringWeight;
     private String[] stackTraceStopFilters;
 
     private HintOptions parent;

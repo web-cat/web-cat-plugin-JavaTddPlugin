@@ -223,6 +223,6 @@ public class PerlScoringJUnitResultFormatter
     /** A scratch string buffer for formatting purposes. */
     protected StringBuffer outBuffer = new StringBuffer();
 
-    private double numExecuted = 0.0;
-    private double numFailed   = 0.0;
+    protected double numExecuted = 0.0;
+    protected double numFailed   = 0.0;
 }

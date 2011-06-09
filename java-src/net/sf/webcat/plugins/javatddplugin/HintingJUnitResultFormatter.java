@@ -136,6 +136,20 @@ public class HintingJUnitResultFormatter
 
 
     // ----------------------------------------------------------
+    protected void outputForSuite(StringBuffer buffer, JUnitTest suite)
+    {
+        // recalibrate the test weighting if necessary
+        if (suiteOptions().hasScoringWeight())
+        {
+            numFailed =
+                numFailed / numExecuted * suiteOptions().scoringWeight();
+            numExecuted = suiteOptions().scoringWeight();
+        }
+        super.outputForSuite(buffer, suite);
+    }
+
+
+    // ----------------------------------------------------------
     protected String removeClassNameFromMessage( String msg, Object object )
     {
         if ( object != null && msg != null )
