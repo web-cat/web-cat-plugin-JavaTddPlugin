@@ -225,6 +225,7 @@ public class HintingJUnitResultFormatter
             }
 
             TestOptions options = testOptionsFor( result.test );
+            result.priority = options.hintPriority();
 
             // Look for mandatory JUnit errors
             //     Method "fName" not found
@@ -329,6 +330,8 @@ public class HintingJUnitResultFormatter
                     outBuffer.append( "$results->addHint( " );
                     outBuffer.append( mandatory );
                     outBuffer.append( ", " );
+                    outBuffer.append( result.priority );
+                    outBuffer.append( ", " );
                     outBuffer.append( perlStringLiteral( hint ) );
                     if ( traceMsg == null )
                     {
@@ -370,8 +373,18 @@ public class HintingJUnitResultFormatter
             error = error.getCause();
         }
         String suiteName = suiteOptions().suite().getName();
+        int frameCount = 0;
         for ( StackTraceElement frame : error.getStackTrace() )
         {
+            ++frameCount;
+            if (frameCount > 20)
+            {
+                sb.append("... ");
+                sb.append(Integer.toString(
+                    error.getStackTrace().length - frameCount + 1));
+                sb.append(" more omitted\n");
+                break;
+            }
             if ( suiteName != null && suiteName.equals( frame.getClassName() ) )
             {
                 break;

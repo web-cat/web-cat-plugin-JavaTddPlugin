@@ -205,6 +205,16 @@ public class HintOptions
             setScoringWeight(annotation.value());
             setDefaultMethodScoringWeight(annotation.defaultMethodWeight());
         }
+
+        // hintPriority
+        if (element.isAnnotationPresent(
+            student.testingsupport.annotations.HintPriority.class))
+        {
+            student.testingsupport.annotations.HintPriority annotation =
+                element.getAnnotation(
+                    student.testingsupport.annotations.HintPriority.class);
+            setHintPriority(annotation.value());
+        }
     }
 
 
@@ -391,6 +401,34 @@ public class HintOptions
 
     // ----------------------------------------------------------
     /**
+     * Get the hint priority for this object.
+     * @return The hint priority.
+     */
+    public int hintPriority()
+    {
+        if ( hintPriority == null )
+        {
+            return ( parent == null )
+                ? 0
+                : parent.hintPriority();
+        }
+        return hintPriority;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Set the hint priority for this object.
+     * @param value The hint priority to use.
+     */
+    public void setHintPriority(int value)
+    {
+        hintPriority = value;
+    }
+
+
+    // ----------------------------------------------------------
+    /**
      * Get the scoring weight for this object.
      * @return The scoring weight.
      */
@@ -504,6 +542,7 @@ public class HintOptions
     private Boolean  onlyExplicitHints;
     private Double   scoringWeight;
     private Double   defaultMethodScoringWeight;
+    private Integer  hintPriority;
     private String[] stackTraceStopFilters;
 
     private HintOptions parent;
