@@ -168,6 +168,8 @@ public class PlistJUnitResultFormatter
         public int       code;
         /** The associated error level. */
         public int       level;
+        /** A priorty level (greater number == higher priority). */
+        public int       priority = 0;
         /** A message associated with the exception object, if any. */
         public String    message;
 
@@ -259,19 +261,77 @@ public class PlistJUnitResultFormatter
 
 
     // ----------------------------------------------------------
+    private void appendResults(char c)
+    {
+        testResultsPlist.append(c);
+        testResultsPerlList.append(c);
+    }
+
+
+    // ----------------------------------------------------------
+    private void appendResults(String str)
+    {
+        testResultsPlist.append(str);
+        testResultsPerlList.append(str);
+    }
+
+
+    // ----------------------------------------------------------
+    private void appendResultsQuotedValue(String str)
+    {
+        testResultsPlist.append('"');
+        testResultsPlist.append(str.replace("\"", "\\\""));
+        testResultsPlist.append('"');
+
+        testResultsPerlList.append('\'');
+        testResultsPerlList.append(str.replace("'", "\\'"));
+        testResultsPerlList.append('\'');
+    }
+
+
+    // ----------------------------------------------------------
+    private void appendResultsValue(int value)
+    {
+        appendResults(Integer.toString(value));
+    }
+
+
+    // ----------------------------------------------------------
+    private void appendResultsLabel(String str)
+    {
+        testResultsPlist.append(str);
+        testResultsPlist.append('=');
+
+        testResultsPerlList.append('\'');
+        testResultsPerlList.append(str);
+        testResultsPerlList.append("'=>");
+    }
+
+
+    // ----------------------------------------------------------
+    private void appendResultsValueSeparator()
+    {
+        testResultsPlist.append(';');
+        testResultsPerlList.append(',');
+        if (debugFormat) appendResults("\n\t");
+    }
+
+
+    // ----------------------------------------------------------
     /**
      * Format and print out a plist dictionary summarizing a test result.
      * @param result
      */
-    protected void formatTestResultAsPlist( TestResultDescriptor result )
+    protected void formatTestResultAsPlist(TestResultDescriptor result)
     {
-        testResultsPlist.append( "{" );
-        if (debugFormat) testResultsPlist.append( "\n\t" );
-        testResultsPlist.append( "suite=\"" );
-        testResultsPlist.append( result.suite.getName() );
-        testResultsPlist.append( "\";" );
-        if (debugFormat) testResultsPlist.append( "\n\t" );
-        testResultsPlist.append( "test=\"" );
+        appendResults('{');
+        if (debugFormat) appendResults("\n\t");
+
+        appendResultsLabel("suite");
+        appendResultsQuotedValue(result.suite.getName());
+        appendResultsValueSeparator();
+
+        appendResultsLabel("test");
         String testName = "";
         if ( result.test != null )
         {
@@ -282,26 +342,29 @@ public class PlistJUnitResultFormatter
                 testName = testName.substring( 0, pos );
             }
         }
-        testResultsPlist.append( testName );
-        testResultsPlist.append( "\";" );
-        if (debugFormat) testResultsPlist.append( "\n\t" );
-        testResultsPlist.append( "level=" );
-        testResultsPlist.append( result.level );
-        testResultsPlist.append( ";" );
-        if (debugFormat) testResultsPlist.append( "\n\t" );
-        testResultsPlist.append( "code=" );
-        testResultsPlist.append( result.code );
-        testResultsPlist.append( ";" );
-        if ( result.message != null )
+        appendResultsQuotedValue(testName);
+        appendResultsValueSeparator();
+
+        appendResultsLabel("level");
+        appendResultsValue(result.level);
+        appendResultsValueSeparator();
+
+        appendResultsLabel("code");
+        appendResultsValue(result.code);
+        appendResultsValueSeparator();
+
+        appendResultsLabel("priority");
+        appendResultsValue(result.priority);
+        appendResultsValueSeparator();
+
+        if (result.message != null)
         {
-            if (debugFormat) testResultsPlist.append( "\n\t" );
-            testResultsPlist.append( "message=\"" );
-            testResultsPlist.append( result.message.replace("\"", "\\\\\"") );
-            testResultsPlist.append( "\";" );
+            appendResultsLabel("message");
+            appendResultsQuotedValue(result.message);
+            appendResultsValueSeparator();
         }
-        if (debugFormat) testResultsPlist.append( "\n" );
-        testResultsPlist.append( "}," );
-        if (debugFormat) testResultsPlist.append( "\n" );
+        appendResults("},");
+        if (debugFormat) appendResults("\n");
     }
 
 
@@ -321,6 +384,12 @@ public class PlistJUnitResultFormatter
         buffer.append( perlEscape( testResultsPlist.toString() ) );
         buffer.append( StringUtils.LINE_SEP );
         buffer.append( "PLIST");
+        buffer.append( StringUtils.LINE_SEP );
+        buffer.append( "$results->addToPerlList( <<PERLLIST );");
+        buffer.append( StringUtils.LINE_SEP );
+        buffer.append( perlEscape( testResultsPerlList.toString() ) );
+        buffer.append( StringUtils.LINE_SEP );
+        buffer.append( "PERLLIST");
         buffer.append( StringUtils.LINE_SEP );
         testResultsPlist.setLength( 0 );
     }
@@ -452,7 +521,7 @@ public class PlistJUnitResultFormatter
         if      ( code <= 1 )  return 1;
         else if ( code <= 13 ) return 2;
         else if ( code <= 28 ) return 3;
-        else if ( code <= 32 ) return 4;
+        else if ( code <= 33 ) return 4;
         else                   return 5;
     }
 
@@ -540,6 +609,9 @@ public class PlistJUnitResultFormatter
     /** Records the status of the current test. */
     protected StringBuffer testResultsPlist = new StringBuffer();
 
+    /** Records the status of the current test. */
+    protected StringBuffer testResultsPerlList = new StringBuffer();
+
     /**
      * If true, extra newlines and tabs will be produced in the plist output.
      * */
@@ -600,21 +672,22 @@ public class PlistJUnitResultFormatter
         RuntimeException.class,                             //   28
 
         // Errors
-        AssertionError.class,                               //   29
-        OutOfMemoryError.class,                             //   30
-        StackOverflowError.class,                           //   31
-        Error.class,                                        //   32
+        student.testingsupport.ReflectionSupport.ReflectionError.class, // 29
+        AssertionError.class,                               //   30
+        OutOfMemoryError.class,                             //   31
+        StackOverflowError.class,                           //   32
+        Error.class,                                        //   33
 
         // checked exceptions
-        ClassNotFoundException.class,                       //   33
-        CloneNotSupportedException.class,                   //   34
-        java.security.GeneralSecurityException.class,       //   35
-        IllegalAccessException.class,                       //   36
-        InstantiationException.class,                       //   37
-        java.io.IOException.class,                          //   38
-        java.text.ParseException.class,                     //   39
-        java.net.URISyntaxException.class,                  //   40
-        Exception.class,                                    //   41
-        Throwable.class                                     //   42
+        ClassNotFoundException.class,                       //   34
+        CloneNotSupportedException.class,                   //   35
+        java.security.GeneralSecurityException.class,       //   36
+        IllegalAccessException.class,                       //   37
+        InstantiationException.class,                       //   38
+        java.io.IOException.class,                          //   39
+        java.text.ParseException.class,                     //   40
+        java.net.URISyntaxException.class,                  //   41
+        Exception.class,                                    //   42
+        Throwable.class                                     //   43
     };
 }
