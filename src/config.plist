@@ -82,20 +82,6 @@
     );
     options = (
         {
-            property    = usingBlueJ;
-            type        = boolean;
-            default     = false;
-            name        = "Using BlueJ";
-            disable     = true;
-            category    = "Java Settings";
-            description =
-  "Set to true if submissions use a BlueJ project structure instead of a
-  traditional Java, Eclipse, or ANT project structure.  BlueJ submissions
-  include an extra subdirectory level, so that the root of the Java package
-  hierarchy within a student's jar file is not the root of the jar file
-  itself.";
-        },
-        {
             property    = javaSourceVersion;
             type        = listChoice;
             choices     = ( { value = 1.3; },
@@ -418,27 +404,28 @@
         {
             property    = hideHintsWithin;
             advanced    = true;
-            disable     = true;
             type        = integer;
             default     = 0;
-            name        = "Hide Hints";
+            name        = "Hide Hints X Days Before Deadline";
             category    = "Feedback Settings";
             description =
   "Suppress all hints from failed reference tests for submissions within this
-  many days of the deadline (set to zero for hints to always be visible).";
+  many days of the deadline (set to zero for hints to always be visible).
+  This setting allows the instructor to \"hide\" hints close to the assignment
+  deadline in an attempt to encourage students to start working earlier.";
         },
         {
             property    = showHintsWithin;
             advanced    = true;
-            disable     = true;
             type        = integer;
             default     = 0;
-            name        = "Show Hints";
+            name        = "Show Hints X Days Before Deadline";
             category    = "Feedback Settings";
             description =
   "Show hints (up to the <i>Hints Limit</i>) from failed reference tests for
   submissions within this many days of the deadline (only useful when <i>Hide
-  Hints</i> is non-zero, to restore hints as the deadline approaches).";
+  Hints X Days Before Deadline</i> is non-zero, to restore hints as the
+  deadline approaches).";
         },
     {
             property    = wantPDF;
