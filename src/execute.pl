@@ -150,6 +150,50 @@ $junitErrorsHideHints =
 
 
 #=============================================================================
+# Adjust hints limit, if needed
+#=============================================================================
+my $extraHintMsg = "";
+if ($hintsLimit)
+{
+    my $hideHintsWithin = $cfg->getProperty('hideHintsWithin', 0);
+    if ($hideHintsWithin > 0)
+    {
+        my $daysBeforeDeadline =
+            ($cfg->getProperty('dueDateTimestamp', 0)
+            - $cfg->getProperty('submissionTimestamp', 0))
+            / (1000 * 60 * 60 * 24);
+        if ($daysBeforeDeadline > 0 && $daysBeforeDeadline < $hideHintsWithin)
+        {
+            # Then we're within X days of deadline.  Check to see if we're
+            # within the re-enable window
+            my $showHintsWithin = $cfg->getProperty('showHintsWithin', 0);
+            if ($daysBeforeDeadline > $showHintsWithin)
+            {
+                $hintsLimit = 0;
+                my $days = "day";
+                if ($hideHintsWithin != 1)
+                {
+                    $days .= "s";
+                }
+                $extraHintMsg = "Hints are not available within "
+                    . "$hideHintsWithin $days of the deadline.";
+                if ($showHintsWithin > 0)
+                {
+                    $days = "day";
+                    if ($showHintsWithin != 1)
+                    {
+                        $days .= "s";
+                    }
+                    $extraHintMsg .= "  Hints will be available again "
+                        . "$showHintsWithin $days before the deadline.";
+                }
+            }
+        }
+    }
+}
+
+
+#=============================================================================
 # Transform simple java file patterns to
 #=============================================================================
 sub setClassPatternIfNeeded
@@ -2077,40 +2121,12 @@ EOF
 if ( defined $status{'studentTestResults'}
      && $status{'studentTestResults'}->hasResults )
 {
-    $cfg->setProperty('student.test.results',
-                      $status{'studentTestResults'}->plist);
-    $cfg->setProperty('student.test.executed',
-                      $status{'studentTestResults'}->testsExecuted);
-    $cfg->setProperty('student.test.passed',
-                      $status{'studentTestResults'}->testsExecuted
-                      - $status{'studentTestResults'}->testsFailed);
-    $cfg->setProperty('student.test.failed',
-                      $status{'studentTestResults'}->testsFailed);
-    $cfg->setProperty('student.test.passRate',
-                      $status{'studentTestResults'}->testPassRate);
-    $cfg->setProperty('student.test.allPass',
-                      $status{'studentTestResults'}->allTestsPass);
-    $cfg->setProperty('student.test.allFail',
-                      $status{'studentTestResults'}->allTestsFail);
+    $status{'studentTestResults'}->saveToCfg($cfg, 'student.test');
 }
 if ( defined $status{'instrTestResults'}
      && $status{'instrTestResults'}->hasResults )
 {
-    $cfg->setProperty('instructor.test.results',
-                      $status{'instrTestResults'}->plist);
-    $cfg->setProperty('instructor.test.executed',
-                      $status{'instrTestResults'}->testsExecuted);
-    $cfg->setProperty('instructor.test.passed',
-                      $status{'instrTestResults'}->testsExecuted
-                      - $status{'instrTestResults'}->testsFailed);
-    $cfg->setProperty('instructor.test.failed',
-                      $status{'instrTestResults'}->testsFailed);
-    $cfg->setProperty('instructor.test.passRate',
-                      $status{'instrTestResults'}->testPassRate);
-    $cfg->setProperty('instructor.test.allPass',
-                      $status{'instrTestResults'}->allTestsPass);
-    $cfg->setProperty('instructor.test.allFail',
-                      $status{'instrTestResults'}->allTestsFail);
+    $status{'instrTestResults'}->saveToCfg($cfg, 'instructor.test');
 }
 if ( defined $messageStats)
 {
@@ -2403,6 +2419,10 @@ $hints
 EOF
             }
         }
+    }
+    elsif ($extraHintMsg ne "")
+    {
+        $status{'feedback'}->print("<p>$extraHintMsg</p>");
     }
 
     # Generate staff-targeted info
