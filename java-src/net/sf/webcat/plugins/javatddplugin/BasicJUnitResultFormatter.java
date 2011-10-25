@@ -133,7 +133,7 @@ public class BasicJUnitResultFormatter
     public void addFailure(Test test, Throwable t)
     {
         messages.add(t.getMessage());
-        super.addFailure(test, t);
+        super.addFailure(test, trimStack(t));
     }
 
 
@@ -141,7 +141,7 @@ public class BasicJUnitResultFormatter
     public void addError(Test test, Throwable t)
     {
         messages.add(t.getMessage());
-        super.addError(test, t);
+        super.addError(test, trimStack(t));
     }
 
 
@@ -195,8 +195,22 @@ public class BasicJUnitResultFormatter
     }
 
 
+    // ----------------------------------------------------------
+    protected Throwable trimStack(Throwable t)
+    {
+        StackTraceElement[] trace = t.getStackTrace();
+        if (trace.length > STACK_LIMIT)
+        {
+            t.setStackTrace(
+                java.util.Arrays.copyOfRange(trace, 0, STACK_LIMIT));
+        }
+        return t;
+    }
+
+
     //~ Instance/static variables .............................................
 
+    private static final int STACK_LIMIT = 20;
     private OutputStream out;
     private boolean needsSeparator = false;
     private PrintStreamWithHistory capture =
