@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import junit.framework.Test;
-import net.sf.webcat.PrintStreamWithHistory;
+import student.testingsupport.PrintStreamWithHistory;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.taskdefs.optional.junit.JUnitTest;
 import org.apache.tools.ant.taskdefs.optional.junit.PlainJUnitResultFormatter;
