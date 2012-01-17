@@ -437,42 +437,41 @@ public class PlistJUnitResultFormatter
             else
             {
                 code = 13;
-                StackTraceElement[] trace = null;
+                StackTraceElement[] trace = error.getStackTrace();
                 String methodName = null;
                 int pos = 0;
-                if ( error.getCause() == null )
+                if ( error.getCause() != null )
                 {
-                    // Then it is a 3.x-style error
-                    trace = error.getStackTrace();
-                    pos = findLast( trace, 0, "junit.framework.Assert" );
+                    // Then it is a 4.x-style error, wrapped by the ANT 1.7
+                    // JUnit test adapter
+                    trace = error.getCause().getStackTrace();
+                }
+
+                pos = findLast( trace, 0, "junit.framework.Assert" );
+                if ( pos < trace.length
+                     && trace[pos].getClassName().equals(
+                         "junit.framework.Assert" ) )
+                {
+                    methodName = trace[pos].getMethodName();
+                }
+                else
+                {
+                    pos = findLast( trace, 0, "student.TestCase" );
                     if ( pos < trace.length
                          && trace[pos].getClassName().equals(
-                             "junit.framework.Assert" ) )
+                              "student.TestCase" ) )
                     {
                         methodName = trace[pos].getMethodName();
                     }
                     else
                     {
-                        pos = findLast( trace, 0, "student.TestCase" );
+                        pos = findLast( trace, 0, "org.junit.Assert" );
                         if ( pos < trace.length
                              && trace[pos].getClassName().equals(
-                                 "student.TestCase" ) )
+                                 "org.junit.Assert" ) )
                         {
                             methodName = trace[pos].getMethodName();
                         }
-                    }
-                }
-                else
-                {
-                    // Then it is a 4.x-style error, wrapped by the ANT
-                    // JUnit test adapter
-                    trace = error.getCause().getStackTrace();
-                    pos = findLast( trace, 0, "org.junit.Assert" );
-                    if ( pos < trace.length
-                         && trace[pos].getClassName().equals(
-                             "org.junit.Assert" ) )
-                    {
-                        methodName = trace[pos].getMethodName();
                     }
                 }
                 if ( methodName != null )
