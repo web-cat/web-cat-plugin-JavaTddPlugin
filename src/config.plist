@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 3;
     version.minor    = 4;
-    version.revision = 3;
-    version.date     = 20110607;
+    version.revision = 4;
+    version.date     = 20120116;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -88,7 +88,7 @@
                             { value = 1.4; },
                             { value = 1.5; },
                             { value = 1.6; } );
-            default     = 1.5;
+            disabled = true;
             name        = "Java Source Compatibility";
          category    = "Java Settings";
             description =

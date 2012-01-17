@@ -152,7 +152,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            deprecation="on"
            debug="on"
            debuglevel="lines,vars,source"
-           source="${javaSourceVersion}">
+      >
+      <!-- source="${javaSourceVersion}" -->
       <classpath refid="build.classpath"/>
       <compilerarg value="-Xlint:unchecked"/>
     </javac>
@@ -230,9 +231,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            failonerror="false"
            debug="on"
            debuglevel="lines,vars,source"
-           source="${javaSourceVersion}"
            casesensitive="no"
            includes="${testCasePattern}">
+    <!-- source="${javaSourceVersion}" -->
       <classpath refid="build.classpath"/>
     </javac>
   </target>
@@ -384,7 +385,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            verbose="off"
            debug="on"
            debuglevel="lines,vars,source"
-           source="${javaSourceVersion}">
+    >
+    <!-- source="${javaSourceVersion}" -->
       <classpath refid="build.classpath"/>
     </javac>
   </target>
@@ -431,7 +433,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <pmd rulesetfiles="${pmdConfigFile}"
          failonerror="false"
          failOnRuleViolation="false"
-         targetjdk="${javaSourceVersion}">
+    >
+      <!-- targetjdk="${javaSourceVersion}" -->
       <classpath refid="pmd.classpath"/>
       <formatter type="xml" toFile="${resultDir}/pmd_report.xml"/>
       <fileset dir="${basedir}"
