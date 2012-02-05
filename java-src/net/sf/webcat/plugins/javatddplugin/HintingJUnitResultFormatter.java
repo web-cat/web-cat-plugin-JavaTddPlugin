@@ -200,7 +200,7 @@ public class HintingJUnitResultFormatter
             TestPhase phase = stoppedInPhase( error );
             int mandatory =
                 ( phase != TestPhase.TEST_CASE
-                  || result.level == 4 )
+                  || (result.level == 4 && result.code != 29) )
                 ? 1 : 0;  // AssertionError
 
             // Provide a mandatory hint in setup/teardown phases
@@ -303,6 +303,8 @@ public class HintingJUnitResultFormatter
 
             if ( ( mandatory == 1 && result.level != 4 )
                  || ( result.level > 2
+                      // Not a reflection failure
+                      && (result.level != 4 || result.code != 29)
                       // Then it was an unexpected exception thrown by the
                       // code under test, or something called by the code
                       // under test

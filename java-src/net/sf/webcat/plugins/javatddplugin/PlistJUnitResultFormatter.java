@@ -423,14 +423,15 @@ public class PlistJUnitResultFormatter
 
         // If it is a test case failure, we cannot use the exception type
         // alone, so we must break down the message to refine the code
-        if ( error instanceof AssertionFailedError )
+        if (error instanceof AssertionFailedError)
         {
             // Older JUnit 3.x-style errors
             // Also works with newer 4.x-style errors, because of the
             // adapters used by the ANT JUnit task
-            if ( error instanceof junit.framework.ComparisonFailure ||
-                 ( error.getCause() != null
-                 && error.getCause() instanceof org.junit.ComparisonFailure ) )
+            if (error instanceof junit.framework.ComparisonFailure
+                || error instanceof org.junit.ComparisonFailure
+                || (error.getCause() != null
+                   && error.getCause() instanceof org.junit.ComparisonFailure))
             {
                 code = 2;
             }
