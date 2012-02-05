@@ -9,7 +9,7 @@
 #=============================================================================
 
 use strict;
-use Carp qw( carp croak );
+use Carp qw(carp croak);
 use Config::Properties::Simple;
 use File::Basename;
 use File::Copy;
@@ -21,38 +21,45 @@ use Web_CAT::Clover::Reformatter;
 use Web_CAT::FeedbackGenerator;
 use Web_CAT::JUnitResultsReader;
 use Web_CAT::Utilities
-    qw( confirmExists filePattern copyHere htmlEscape addReportFile scanTo
-        scanThrough linesFromFile addReportFileWithStyle );
+    qw(confirmExists filePattern copyHere htmlEscape addReportFile scanTo
+       scanThrough linesFromFile addReportFileWithStyle);
 use XML::Smart;
-#use Data::Dump qw( dump );
+#use Data::Dump qw(dump);
 
-my @beautifierIgnoreFiles = ( '.java' );
+my @beautifierIgnoreFiles = ('.java');
 
 
 #=============================================================================
 # Bring command line args into local variables for easy reference
 #=============================================================================
-my $propfile    = $ARGV[0];     # property file name
-my $cfg         = Config::Properties::Simple->new( file => $propfile );
+my $propfile   = $ARGV[0];     # property file name
+my $cfg        = Config::Properties::Simple->new(file => $propfile);
 
-my $pid         = $cfg->getProperty( 'userName' );
-my $working_dir = $cfg->getProperty( 'workingDir' );
-my $script_home = $cfg->getProperty( 'scriptHome' );
-my $log_dir     = $cfg->getProperty( 'resultDir' );
-my $timeout     = $cfg->getProperty( 'timeout', 45 );
-my $public_dir  = "$log_dir/public";
+my $pid        = $cfg->getProperty('userName');
+my $workingDir = $cfg->getProperty('workingDir');
+my $pluginHome = $cfg->getProperty('pluginHome');
+{
+    # scriptHome is deprecated, but may still be used on older servers
+    if (! defined $pluginHome)
+    {
+        $pluginHome = $cfg->getProperty('scriptHome');
+    }
+}
+my $resultDir  = $cfg->getProperty('resultDir');
+my $timeout    = $cfg->getProperty('timeout', 45);
+my $publicDir  = "$resultDir/public";
 
-my $maxToolScore          = $cfg->getProperty( 'max.score.tools', 20 );
-my $maxCorrectnessScore   = $cfg->getProperty( 'max.score.correctness',
-                                               100 - $maxToolScore );
+my $maxToolScore          = $cfg->getProperty('max.score.tools', 20);
+my $maxCorrectnessScore   = $cfg->getProperty('max.score.correctness',
+                                              100 - $maxToolScore);
 
 
 #=============================================================================
 # Import local libs
 #=============================================================================
 
-my $local_lib   = "$script_home/perllib";
-push @INC, $local_lib;
+my $localLib = "$pluginHome/perllib";
+push @INC, $localLib;
 eval "require JavaTddPlugin";
 
 
@@ -73,9 +80,9 @@ my %status = (
     'compileMsgs'        => "",
     'compileErrs'        => 0,
     'feedback'           =>
-        new Web_CAT::FeedbackGenerator( $log_dir, 'feedback.html' ),
+        new Web_CAT::FeedbackGenerator($resultDir, 'feedback.html'),
     'instrFeedback'      =>
-        new Web_CAT::FeedbackGenerator( $log_dir, 'staffFeedback.html' )
+        new Web_CAT::FeedbackGenerator($resultDir, 'staffFeedback.html')
 );
 
 
@@ -83,7 +90,7 @@ my %status = (
 # In addition, some local definitions within this script
 #-------------------------------------------------------
 Web_CAT::Utilities::initFromConfig($cfg);
-if ( defined( $ENV{JAVA_HOME} ) )
+if (defined($ENV{JAVA_HOME}))
 {
     # Make sure selected Java is at the head of the path ...
     $ENV{PATH} =
@@ -92,61 +99,70 @@ if ( defined( $ENV{JAVA_HOME} ) )
 }
 
 die "ANT_HOME environment variable is not set! (Should come from ANTForPlugins)"
-    if !defined( $ENV{ANT_HOME} );
+    if !defined($ENV{ANT_HOME});
 $ENV{PATH} =
     "$ENV{ANT_HOME}" . $Web_CAT::Utilities::FILE_SEPARATOR . "bin"
     . $Web_CAT::Utilities::PATH_SEPARATOR . $ENV{PATH};
 
-my $ANT = "ant";
-my $callAnt            = 1;
-my $antLogRelative     = "ant.log";
-my $antLog             = "$log_dir/$antLogRelative";
-my $scriptLogRelative  = "script.log";
-my $scriptLog          = "$log_dir/$scriptLogRelative";
-my $markupPropFile     = "$script_home/markup.properties";
+my $ANT                 = "ant";
+my $callAnt             = 1;
+my $antLogRelative      = "ant.log";
+my $antLog              = "$resultDir/$antLogRelative";
+my $scriptLogRelative   = "script.log";
+my $scriptLog           = "$resultDir/$scriptLogRelative";
+my $markupPropFile      = "$pluginHome/markup.properties";
 my $pdfPrintoutRelative = "$pid.pdf";
-my $pdfPrintout        = "$log_dir/$pdfPrintoutRelative";
-my $diagramsRelative   = "diagrams";
-my $diagrams           = "$public_dir/$diagramsRelative";
-my $can_proceed        = 1;
-my $buildFailed        = 0;
-my $antLogOpen         = 0;
-my $postProcessingTime = 20;
+my $pdfPrintout         = "$resultDir/$pdfPrintoutRelative";
+my $diagramsRelative    = "diagrams";
+my $diagrams            = "$publicDir/$diagramsRelative";
+my $can_proceed         = 1;
+my $buildFailed         = 0;
+my $antLogOpen          = 0;
+my $postProcessingTime  = 20;
 
 
 #-------------------------------------------------------
 # In the future, these could be set via parameters set in Web-CAT's
 # interface
 #-------------------------------------------------------
-my $debug             = $cfg->getProperty( 'debug',      0 );
-my $hintsLimit        = $cfg->getProperty( 'hintsLimit', 3 );
-my $maxRuleDeduction  = $cfg->getProperty( 'maxRuleDeduction', $maxToolScore );
-my $expSectionId      = $cfg->getProperty( 'expSectionId', 0 );
+my $debug             = $cfg->getProperty('debug',      0);
+my $hintsLimit        = $cfg->getProperty('hintsLimit', 3);
+my $maxRuleDeduction  = $cfg->getProperty('maxRuleDeduction', $maxToolScore);
+my $expSectionId      = $cfg->getProperty('expSectionId', 0);
 my $defaultMaxBeforeCollapsing = 100000;
 my $toolDeductionScaleFactor =
-    $cfg->getProperty( 'toolDeductionScaleFactor', 1 );
-my $coverageMetric    = $cfg->getProperty( 'coverageMetric', 0 );
+    $cfg->getProperty('toolDeductionScaleFactor', 1);
+my $coverageMetric    = $cfg->getProperty('coverageMetric', 0);
 my $minCoverageLevel =
-    $cfg->getProperty( 'minCoverageLevel', 0.0 );
+    $cfg->getProperty('minCoverageLevel', 0.0);
 
 my $allStudentTestsMustPass =
-    $cfg->getProperty( 'allStudentTestsMustPass', 0 );
+    $cfg->getProperty('allStudentTestsMustPass', 0);
 $allStudentTestsMustPass =
-    ( $allStudentTestsMustPass =~ m/^(true|on|yes|y|1)$/i );
+    ($allStudentTestsMustPass =~ m/^(true|on|yes|y|1)$/i);
 my $studentsMustSubmitTests =
-    $cfg->getProperty( 'studentsMustSubmitTests', 0 );
+    $cfg->getProperty('studentsMustSubmitTests', 0);
 $studentsMustSubmitTests =
-    ( $studentsMustSubmitTests =~ m/^(true|on|yes|y|1)$/i );
-if ( !$studentsMustSubmitTests ) { $allStudentTestsMustPass = 0; }
+    ($studentsMustSubmitTests =~ m/^(true|on|yes|y|1)$/i);
+if (!$studentsMustSubmitTests) { $allStudentTestsMustPass = 0; }
 my $requireSimpleExceptionCoverage =
-    $cfg->getProperty( 'requireSimpleExceptionCoverage', 0 );
+    $cfg->getProperty('requireSimpleExceptionCoverage', 0);
 $requireSimpleExceptionCoverage =
-    ( $requireSimpleExceptionCoverage =~ m/^(true|on|yes|y|1)$/i );
+    ($requireSimpleExceptionCoverage =~ m/^(true|on|yes|y|1)$/i);
 my $junitErrorsHideHints =
-    $cfg->getProperty( 'junitErrorsHideHints', 0);
+    $cfg->getProperty('junitErrorsHideHints', 0);
 $junitErrorsHideHints =
-    ( $junitErrorsHideHints =~ m/^(true|on|yes|y|1)$/i )
+    ($junitErrorsHideHints =~ m/^(true|on|yes|y|1)$/i)
     && $studentsMustSubmitTests;
+{
+    # Suppress hints if another plug-in in the pipeline will be handling them
+    my $hintProcessor = $cfg->getProperty('pipeline.hintProcessor');
+    if (defined $hintProcessor &&
+        $hintProcessor ne $cfg->getProperty('pluginName', 'JavaTddPlugin'))
+    {
+        $hintsLimit = 0;
+    }
+}
 
 
 #=============================================================================
@@ -211,7 +227,7 @@ sub setClassPatternIfNeeded
     my $outExtension = $useJavaExtension ? ".java"  : ".class";
 
     my $value = $cfg->getProperty($inProperty);
-    if ( defined $value && $value ne "" )
+    if (defined $value && $value ne "")
     {
         my $wantAllDirs = ($value !~ m,/,);
         my $pattern = undef;
@@ -247,7 +263,7 @@ sub setClassPatternIfNeeded
         }
         if (defined $pattern)
         {
-            $cfg->setProperty( $outProperty, $pattern );
+            $cfg->setProperty($outProperty, $pattern);
         }
     }
 }
@@ -257,7 +273,7 @@ sub setClassPatternIfNeeded
 # Generate derived properties for ANT
 #=============================================================================
 # testCases
-my $scriptData = $cfg->getProperty( 'scriptData', '.' );
+my $scriptData = $cfg->getProperty('scriptData', '.');
 $scriptData =~ s,/$,,;
 
 # testCases (reference test location and/or file name).
@@ -265,24 +281,24 @@ $scriptData =~ s,/$,,;
 # internal path names from student messages.
 my $testCasePathPattern;
 {
-    my $testCasePath = "${script_home}/tests";
-    my $testCaseFileOrDir = $cfg->getProperty( 'testCases' );
-    if ( defined $testCaseFileOrDir && $testCaseFileOrDir ne "" )
+    my $testCasePath = "${pluginHome}/tests";
+    my $testCaseFileOrDir = $cfg->getProperty('testCases');
+    if (defined $testCaseFileOrDir && $testCaseFileOrDir ne "")
     {
-        my $target = confirmExists( $scriptData, $testCaseFileOrDir );
-        if ( -d $target )
+        my $target = confirmExists($scriptData, $testCaseFileOrDir);
+        if (-d $target)
         {
-            $cfg->setProperty( 'testCasePath', $target );
+            $cfg->setProperty('testCasePath', $target);
         }
         else
         {
-            $cfg->setProperty( 'testCasePath', dirname( $target ) );
-            $cfg->setProperty( 'testCasePattern', basename( $target ) );
-            $cfg->setProperty( 'justOneTestClass', 'true' );
+            $cfg->setProperty('testCasePath', dirname($target));
+            $cfg->setProperty('testCasePattern', basename($target));
+            $cfg->setProperty('justOneTestClass', 'true');
         }
         $testCasePath = $target;
     }
-    $testCasePathPattern = filePattern( $testCasePath );
+    $testCasePathPattern = filePattern($testCasePath);
 }
 
 # Set up other test case filtering patterns
@@ -298,77 +314,77 @@ setClassPatternIfNeeded('staticAnalysisExclude',
 
 # useDefaultJar
 {
-    my $useDefaultJar = $cfg->getProperty( 'useDefaultJar' );
-    if ( defined $useDefaultJar && $useDefaultJar =~ /false|\b0\b/i )
+    my $useDefaultJar = $cfg->getProperty('useDefaultJar');
+    if (defined $useDefaultJar && $useDefaultJar =~ /false|\b0\b/i)
     {
-        $cfg->setProperty( 'defaultJars', "$script_home/empty" );
+        $cfg->setProperty('defaultJars', "$pluginHome/empty");
     }
 }
 
 # assignmentJar
 {
-    my $jarFileOrDir = $cfg->getProperty( 'assignmentJar' );
-    if ( defined $jarFileOrDir && $jarFileOrDir ne "" )
+    my $jarFileOrDir = $cfg->getProperty('assignmentJar');
+    if (defined $jarFileOrDir && $jarFileOrDir ne "")
     {
-        my $path = confirmExists( $scriptData, $jarFileOrDir );
-        $cfg->setProperty( 'assignmentClassFiles', $path );
-        if ( -d $path )
+        my $path = confirmExists($scriptData, $jarFileOrDir);
+        $cfg->setProperty('assignmentClassFiles', $path);
+        if (-d $path)
         {
-            $cfg->setProperty( 'assignmentClassDir', $path );
+            $cfg->setProperty('assignmentClassDir', $path);
         }
     }
 }
 
 # classpathJar
 {
-    my $jarFileOrDir = $cfg->getProperty( 'classpathJar' );
-    if ( defined $jarFileOrDir && $jarFileOrDir ne "" )
+    my $jarFileOrDir = $cfg->getProperty('classpathJar');
+    if (defined $jarFileOrDir && $jarFileOrDir ne "")
     {
-        my $path = confirmExists( $scriptData, $jarFileOrDir );
-        $cfg->setProperty( 'instructorClassFiles', $path );
-        if ( -d $path )
+        my $path = confirmExists($scriptData, $jarFileOrDir);
+        $cfg->setProperty('instructorClassFiles', $path);
+        if (-d $path)
         {
-            $cfg->setProperty( 'instructorClassDir', $path );
+            $cfg->setProperty('instructorClassDir', $path);
         }
     }
 }
 
 # useAssertions
 {
-    my $useAssertions = $cfg->getProperty( 'useAssertions' );
-    if ( defined $useAssertions && $useAssertions !~ m/^(true|yes|1|on)$/i )
+    my $useAssertions = $cfg->getProperty('useAssertions');
+    if (defined $useAssertions && $useAssertions !~ m/^(true|yes|1|on)$/i)
     {
-        $cfg->setProperty( 'enableAssertions', '-da' );
+        $cfg->setProperty('enableAssertions', '-da');
     }
 }
 
 # checkstyleConfig
 {
-    my $checkstyle = $cfg->getProperty( 'checkstyleConfig' );
-    if ( defined $checkstyle && $checkstyle ne "" )
+    my $checkstyle = $cfg->getProperty('checkstyleConfig');
+    if (defined $checkstyle && $checkstyle ne "")
     {
-        $cfg->setProperty( 'checkstyleConfigFile',
-                           confirmExists( $scriptData, $checkstyle ) );
+        $cfg->setProperty(
+            'checkstyleConfigFile', confirmExists($scriptData, $checkstyle));
     }
 }
 
 # pmdConfig
 {
-    my $pmd = $cfg->getProperty( 'pmdConfig' );
-    if ( defined $pmd && $pmd ne "" )
+    my $pmd = $cfg->getProperty('pmdConfig');
+    if (defined $pmd && $pmd ne "")
     {
-        $cfg->setProperty( 'pmdConfigFile',
-                           confirmExists( $scriptData, $pmd ) );
+        $cfg->setProperty(
+            'pmdConfigFile', confirmExists($scriptData, $pmd));
     }
 }
 
 # policyFile
 {
-    my $policy = $cfg->getProperty( 'policyFile' );
-    if ( defined $policy && $policy ne "" )
+    my $policy = $cfg->getProperty('policyFile');
+    if (defined $policy && $policy ne "")
     {
-        $cfg->setProperty( 'javaPolicyFile',
-                           confirmExists( $scriptData, $policy ) );
+        $cfg->setProperty(
+            'javaPolicyFile', confirmExists($scriptData, $policy));
     }
 }
 
@@ -379,34 +395,34 @@ setClassPatternIfNeeded('staticAnalysisExclude',
         $cfg->setProperty(
             'security.manager',
             'java.security.manager=net.sf.webcat.plugins.javatddplugin.'
-            . 'ProfilingSecurityManager' );
+            . 'ProfilingSecurityManager');
     }
 }
 
 # markupProperties
 {
-    my $markup = $cfg->getProperty( 'markupProperties' );
-    if ( defined $markup && $markup ne "" )
+    my $markup = $cfg->getProperty('markupProperties');
+    if (defined $markup && $markup ne "")
     {
-        $markupPropFile = confirmExists( $scriptData, $markup );
+        $markupPropFile = confirmExists($scriptData, $markup);
     }
 }
 
 
 # wantPDF
 {
-    my $p = $cfg->getProperty( 'wantPDF' );
-    if ( defined $p && $p !~ /false/i )
+    my $p = $cfg->getProperty('wantPDF');
+    if (defined $p && $p !~ /false/i)
     {
-        $cfg->setProperty( 'generatePDF', '1' );
-        $cfg->setProperty( 'PDF.dest', $pdfPrintout );
+        $cfg->setProperty('generatePDF', '1');
+        $cfg->setProperty('PDF.dest', $pdfPrintout);
     }
 }
 
 
 # timeout
-my $timeoutForOneRun = $cfg->getProperty( 'timeoutForOneRun', 30 );
-$cfg->setProperty( 'exec.timeout', $timeoutForOneRun * 1000 );
+my $timeoutForOneRun = $cfg->getProperty('timeoutForOneRun', 30);
+$cfg->setProperty('exec.timeout', $timeoutForOneRun * 1000);
 
 
 $cfg->save();
@@ -416,48 +432,48 @@ $cfg->save();
 # Script Startup
 #=============================================================================
 # Change to specified working directory and set up log directory
-chdir( $working_dir );
+chdir($workingDir);
 
 # try to deduce whether or not there is an extra level of subdirs
 # around this assignment
 {
     # Get a listing of all file/dir names, including those starting with
     # dot, then strip out . and ..
-    my @dirContents = grep(!/^(\.{1,2}|META-INF)$/, <* .*> );
+    my @dirContents = grep(!/^(\.{1,2}|META-INF)$/, <* .*>);
 
     # if this list contains only one entry that is a dir name != src, then
     # assume that the submission has been "wrapped" with an outter
     # dir that isn't actually part of the project structure.
-    if ( $#dirContents == 0 && -d $dirContents[0] && $dirContents[0] ne "src" )
+    if ($#dirContents == 0 && -d $dirContents[0] && $dirContents[0] ne "src")
     {
         # Strip non-alphanumeric symbols from dir name
         my $dir = $dirContents[0];
-        if ( $dir =~ s/[^a-zA-Z0-9_]//g )
+        if ($dir =~ s/[^a-zA-Z0-9_]//g)
         {
-            if ( $dir eq "" )
+            if ($dir eq "")
             {
                 $dir = "dir";
             }
-            rename( $dirContents[0], $dir );
+            rename($dirContents[0], $dir);
         }
-        $working_dir .= "/$dir";
-        chdir( $working_dir );
+        $workingDir .= "/$dir";
+        chdir($workingDir);
     }
 }
 
 # Screen out any temporary files left around by BlueJ
 {
     my @javaSrcs = < __SHELL*.java >;
-    foreach my $tempFile ( @javaSrcs )
+    foreach my $tempFile (@javaSrcs)
     {
-        unlink( $tempFile );
+        unlink($tempFile);
     }
 }
 
 
 if ($debug)
 {
-    print "working dir set to $working_dir\n";
+    print "working dir set to $workingDir\n";
     print "JAVA_HOME = ", $ENV{JAVA_HOME}, "\n";
     print "ANT_HOME  = ", $ENV{ANT_HOME}, "\n";
     print "PATH      = ", $ENV{PATH}, "\n\n";
@@ -465,22 +481,22 @@ if ($debug)
 
 # localFiles
 {
-    my $localFiles = $cfg->getProperty( 'localFiles' );
-    if ( defined $localFiles && $localFiles ne "" )
+    my $localFiles = $cfg->getProperty('localFiles');
+    if (defined $localFiles && $localFiles ne "")
     {
-        my $lf = confirmExists( $scriptData, $localFiles );
+        my $lf = confirmExists($scriptData, $localFiles);
         print "localFiles = $lf\n" if $debug;
-        if ( -d $lf )
+        if (-d $lf)
         {
             print "localFiles is a directory\n" if $debug;
-            copyHere( $lf, $lf, \@beautifierIgnoreFiles );
+            copyHere($lf, $lf, \@beautifierIgnoreFiles);
         }
         else
         {
             print "localFiles is a single file\n" if $debug;
             my $base = $lf;
             $base =~ s,/[^/]*$,,;
-            copyHere( $lf, $base, \@beautifierIgnoreFiles );
+            copyHere($lf, $base, \@beautifierIgnoreFiles);
         }
     }
 }
@@ -497,26 +513,26 @@ my $time1        = time;
 #my $testsErrored = 0;
 #my $testsPassed  = 0;
 
-if ( $callAnt )
+if ($callAnt)
 {
-    if ( $debug > 2 ) { $ANT .= " -d -v"; }
+    if ($debug > 2) { $ANT .= " -d -v"; }
     my $cmdline = $Web_CAT::Utilities::SHELL
-        . "$ANT -f \"$script_home/build.xml\" -l \"$antLog\" "
-        . "-propertyfile \"$propfile\" \"-Dbasedir=$working_dir\" "
+        . "$ANT -f \"$pluginHome/build.xml\" -l \"$antLog\" "
+        . "-propertyfile \"$propfile\" \"-Dbasedir=$workingDir\" "
         . "2>&1 > " . File::Spec->devnull;
 
-    print $cmdline, "\n" if ( $debug );
-    my ( $exitcode, $timeout_status ) = Proc::Background::timeout_system(
-        $timeout - $postProcessingTime, $cmdline );
-    if ( $timeout_status )
+    print $cmdline, "\n" if ($debug);
+    my ($exitcode, $timeout_status) = Proc::Background::timeout_system(
+        $timeout - $postProcessingTime, $cmdline);
+    if ($timeout_status)
     {
         $can_proceed = 0;
         $status{'antTimeout'} = 1;
         $buildFailed = 1;
         # FIXME: Move to end of $status{'feedback'} ...
         $status{'feedback'}->startFeedbackSection(
-            "Errors During Testing", ++$expSectionId );
-        $status{'feedback'}->print( <<EOF );
+            "Errors During Testing", ++$expSectionId);
+        $status{'feedback'}->print(<<EOF);
 p><b class="warn">Testing your solution exceeded the allowable time
 limit for this assignment.</b></p>
 <p>Most frequently, this is the result of <b>infinite recursion</b>--when
@@ -531,9 +547,9 @@ EOF
 }
 
 my $time2 = time;
-if ( $debug )
+if ($debug)
 {
-    print "\n", ( $time2 - $time1 ), " seconds\n";
+    print "\n", ($time2 - $time1), " seconds\n";
 }
 my $time3 = time;
 
@@ -545,34 +561,35 @@ my $time3 = time;
 
 #-----------------------------------------------
 # Generate a script warning
-sub adminLog {
-    open( SCRIPTLOG, ">>$scriptLog" ) ||
+sub adminLog
+{
+    open(SCRIPTLOG, ">>$scriptLog") ||
         die "Cannot open file for output '$scriptLog': $!";
-    print SCRIPTLOG join( "\n", @_ ), "\n";
-    close( SCRIPTLOG );
+    print SCRIPTLOG join("\n", @_), "\n";
+    close(SCRIPTLOG);
 }
 
 
 #-----------------------------------------------
-if ( $can_proceed )
+if ($can_proceed)
 {
-    open( ANTLOG, "$antLog" ) ||
+    open(ANTLOG, "$antLog") ||
         die "Cannot open file for input '$antLog': $!";
     $antLogOpen++;
 
     $_ = <ANTLOG>;
-    scanTo( qr/^(syntax-check|BUILD FAILED)/ );
-    $buildFailed++ if defined( $_ )  &&  m/^BUILD FAILED/;
+    scanTo(qr/^(syntax-check|BUILD FAILED)/);
+    $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
     $_ = <ANTLOG>;
-    scanThrough( qr/^\s*\[(?!javac\])/ );
-    scanThrough( qr/^\s*($|\[javac\](?!\s+Compiling))/ );
-    if ( !defined( $_ )  ||  $_ !~ m/^\s*\[javac\]\s+Compiling/ )
+    scanThrough(qr/^\s*\[(?!javac\])/);
+    scanThrough(qr/^\s*($|\[javac\](?!\s+Compiling))/);
+    if (!defined($_)  ||  $_ !~ m/^\s*\[javac\]\s+Compiling/)
     {
         # The student failed to include any source files!
         $status{'studentHasSrcs'} = 0;
         $status{'feedback'}->startFeedbackSection(
-            "Compilation Produced Errors", ++$expSectionId );
-        $status{'feedback'}->print( <<EOF );
+            "Compilation Produced Errors", ++$expSectionId);
+        $status{'feedback'}->print(<<EOF);
 <p>Your submission did not include any Java source files, so none
 were compiled.
 </p>
@@ -584,33 +601,33 @@ EOF
     {
         $status{'studentHasSrcs'} = 1;
         $_ = <ANTLOG>;
-        my $projdir  = $working_dir;
-        $projdir .= "/" if ( $projdir !~ m,/$, );
-        $projdir = filePattern( $projdir );
+        my $projdir  = $workingDir;
+        $projdir .= "/" if ($projdir !~ m,/$,);
+        $projdir = filePattern($projdir);
         my $compileMsgs    = "";
         my $compileErrs    = 0;
         my $firstFile      = "";
         my $collectingMsgs = 1;
         print "projdir = '$projdir'\n" if $debug;
-        while ( defined( $_ )  &&  s/^\s*\[javac\] //o )
+        while (defined($_)  &&  s/^\s*\[javac\] //o)
         {
             # print "msg: $_";
             my $wrap = 0;
-            if ( s/^$projdir//io )
+            if (s/^$projdir//io)
             {
                 # print "trimmed: $_";
-                if ( $firstFile eq "" && m/^([^:]*):/o )
+                if ($firstFile eq "" && m/^([^:]*):/o)
                 {
                     $firstFile = $1;
                     $firstFile =~ s,\\,\\\\,g;
                     # print "firstFile='$firstFile'\n";
                 }
-                elsif ( $_ !~ m/^$firstFile/ )
+                elsif ($_ !~ m/^$firstFile/)
                 {
                     # print "stopping collection: $_";
                     $collectingMsgs = 0;
                 }
-                elsif ( $_ =~ m/^$firstFile/ && !$collectingMsgs )
+                elsif ($_ =~ m/^$firstFile/ && !$collectingMsgs)
                 {
                     # print "restarting collection: $_";
                     $collectingMsgs = 1;
@@ -618,7 +635,7 @@ EOF
                 chomp;
                 $wrap = 1;
             }
-            if ( m/^[1-9][0-9]*\s.*error/o )
+            if (m/^[1-9][0-9]*\s.*error/o)
             {
                 # print "err: $_";
                 $compileErrs++;
@@ -626,10 +643,10 @@ EOF
                 $can_proceed = 0;
                 $buildFailed = 1;
             }
-            if ( $collectingMsgs )
+            if ($collectingMsgs)
             {
-                $_ = htmlEscape( $_ );
-                if ( $wrap )
+                $_ = htmlEscape($_);
+                if ($wrap)
                 {
                     $_ = "<b class=\"warn\">" . $_ . "</b>\n";
                 }
@@ -637,17 +654,16 @@ EOF
             }
             $_ = <ANTLOG>;
         }
-        if ( $compileMsgs ne "" )
+        if ($compileMsgs ne "")
         {
             $status{'feedback'}->startFeedbackSection(
-                ( $compileErrs )
+                ($compileErrs)
                 ? "Compilation Produced Errors"
                 : "Compilation Produced Warnings",
-                ++$expSectionId
-            );
-            $status{'feedback'}->print( "<pre>\n" );
-            $status{'feedback'}->print( $compileMsgs );
-            $status{'feedback'}->print( "</pre>\n" );
+                ++$expSectionId);
+            $status{'feedback'}->print("<pre>\n");
+            $status{'feedback'}->print($compileMsgs);
+            $status{'feedback'}->print("</pre>\n");
             $status{'feedback'}->endFeedbackSection;
         }
     }
@@ -656,17 +672,17 @@ EOF
 #=============================================================================
 # collect JUnit testing stats from instructor-provided tests
 #=============================================================================
-    if ( $can_proceed )
+    if ($can_proceed)
     {
-        scanTo( qr/^(compile-instructor-tests:|BUILD FAILED)/ );
-        $buildFailed++ if defined( $_ )  &&  m/^BUILD FAILED/;
+        scanTo(qr/^(compile-instructor-tests:|BUILD FAILED)/);
+        $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
         $_ = <ANTLOG>;
-        scanThrough( qr/^\s*($|\[javac\](?!\s+Compiling))/ );
-        if ( !defined( $_ )  ||  $_ !~ m/^\s*\[javac\]\s+Compiling/ )
+        scanThrough(qr/^\s*($|\[javac\](?!\s+Compiling))/);
+        if (!defined($_)  ||  $_ !~ m/^\s*\[javac\]\s+Compiling/)
         {
-            adminLog( "Failed to compile instructor test cases!\nCannot "
+            adminLog("Failed to compile instructor test cases!\nCannot "
                       . "find \"[javac] Compiling <n> source files\" ... "
-                      . "in line:\n$_" );
+                      . "in line:\n$_");
         }
         else
         {
@@ -675,66 +691,66 @@ EOF
         my $instrHints     = "";
         my %instrHintCollection = ();
         my $collectingMsgs = 0;
-        while ( defined( $_ )  &&  s/^\s*\[javac\] //o )
+        while (defined($_)  &&  s/^\s*\[javac\] //o)
         {
             # print "msg: $_\n";
             # print "tcp: $testCasePathPattern\n";
-            if ( /^$testCasePathPattern/o )
+            if (/^$testCasePathPattern/o)
             {
                 # print "    match\n";
                 $collectingMsgs++;
                 $_ =~ s/^\S*\s*//o;
             }
-            elsif ( /^location/o )
+            elsif (/^location/o)
             {
                 $_ = "";
             }
-            if ( m/^[1-9][0-9]*\s.*error/o )
+            if (m/^[1-9][0-9]*\s.*error/o)
             {
                 # print "err: $_";
                 $status{'compileErrs'}++;
 
             }
-            if ( m/^Compile failed;/o )
+            if (m/^Compile failed;/o)
             {
                 $collectingMsgs = 0;
             }
-            if ( $collectingMsgs )
+            if ($collectingMsgs)
             {
-                $status{'compileMsgs'} .= htmlEscape( $_ );
+                $status{'compileMsgs'} .= htmlEscape($_);
             }
             $_ = <ANTLOG>;
         }
 
-        scanTo( qr/^((instructor-)?test(.?):|BUILD FAILED)/ );
-        $buildFailed++ if defined( $_ )  &&  m/^BUILD FAILED/;
-        if ( m/^instructor-/ )
+        scanTo(qr/^((instructor-)?test(.?):|BUILD FAILED)/);
+        $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
+        if (m/^instructor-/)
         {
             # FIXME--anything to do here?
         }
     }
 
     $time3 = time;
-    if ( $debug )
+    if ($debug)
     {
-        print "\n", ( $time3 - $time2 ), " seconds\n";
+        print "\n", ($time3 - $time2), " seconds\n";
     }
 
 
 #=============================================================================
 # collect JUnit testing stats
 #=============================================================================
-    if ( $can_proceed )
+    if ($can_proceed)
     {
-        scanTo( qr/^(test:|BUILD FAILED)/ );
-        $buildFailed++ if defined( $_ )  &&  m/^BUILD FAILED/;
+        scanTo(qr/^(test:|BUILD FAILED)/);
+        $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
         # FIXME--anything to do here?
     }
 
-    if ( $can_proceed )
+    if ($can_proceed)
     {
-        scanTo( qr/^BUILD FAILED/ );
-        if ( defined( $_ )  &&  m/^BUILD FAILED/ )
+        scanTo(qr/^BUILD FAILED/);
+        if (defined($_)  &&  m/^BUILD FAILED/)
         {
             warn "ant BUILD FAILED unexpectedly.";
             $can_proceed = 0;
@@ -743,20 +759,20 @@ EOF
     }
 
     $status{'studentTestResults'} =
-        new Web_CAT::JUnitResultsReader( "$log_dir/student.inc" );
+        new Web_CAT::JUnitResultsReader("$resultDir/student.inc");
     $status{'instrTestResults'} =
-        new Web_CAT::JUnitResultsReader( "$log_dir/instr.inc" );
+        new Web_CAT::JUnitResultsReader("$resultDir/instr.inc");
 }
 
-if ( $antLogOpen )
+if ($antLogOpen)
 {
-    close( ANTLOG );
+    close(ANTLOG);
 }
 
 my $time4 = time;
-if ( $debug )
+if ($debug)
 {
-    print "\n", ( $time4 - $time3 ), " seconds\n";
+    print "\n", ($time4 - $time3), " seconds\n";
 }
 
 
@@ -765,14 +781,14 @@ if ( $debug )
 #=============================================================================
 
 # The configuration file for scoring tool messages
-my $ruleProps = Config::Properties::Simple->new( file => $markupPropFile );
+my $ruleProps = Config::Properties::Simple->new(file => $markupPropFile);
 
 # The message groups defined by the instructor
-my @groups = split( qr/,\s*/, $ruleProps->getProperty( "groups", "" ) );
+my @groups = split(qr/,\s*/, $ruleProps->getProperty("groups", ""));
 
 # The same list, but as a hash, initialized by this for loop
 my %groups = ();
-foreach my $group ( @groups )
+foreach my $group (@groups)
 {
     $groups{$group} = 1;
 }
@@ -788,7 +804,7 @@ foreach my $group ( @groups )
 my $messageStats = XML::Smart->new();
 
 # A hash of arrays of violation objects, keyed by file name (relative
-# to $working_dir, using forward slashes).  Each violation object is
+# to $workingDir, using forward slashes).  Each violation object is
 # a reference to an XML::Smart node:
 # ... was a hash like this, but now ...
 # {
@@ -807,7 +823,7 @@ my $messageStats = XML::Smart->new();
 my %messages = ();
 
 #-----------------------------------------------
-# ruleSetting( rule, prop [, default] )
+# ruleSetting(rule, prop [, default])
 #
 # Retrieves a rule parameter from the config file, tracing through the
 # default hierarchy if necessary.  Parameters:
@@ -829,38 +845,38 @@ my %messages = ();
 #
 sub ruleSetting
 {
-    croak "usage: ruleSetting( rule, prop [, default] )"
-        if ( $#_ < 1 || $#_ > 2 );
+    croak "usage: ruleSetting(rule, prop [, default])"
+        if ($#_ < 1 || $#_ > 2);
     my $rule    = shift;
     my $prop    = shift;
     my $default = shift;
 
-    my $val = $ruleProps->getProperty( "$rule.$prop" );
-    if ( !defined( $val ) )
+    my $val = $ruleProps->getProperty("$rule.$prop");
+    if (!defined($val))
     {
-        my $group = $ruleProps->getProperty( "$rule.group" );
-        if ( !defined( $group ) )
+        my $group = $ruleProps->getProperty("$rule.group");
+        if (!defined($group))
         {
-            $group = $ruleProps->getProperty( "ruleDefault.group" );
+            $group = $ruleProps->getProperty("ruleDefault.group");
         }
-        if ( defined( $group ) )
+        if (defined($group))
         {
-            if ( !defined( $groups{$group} ) )
+            if (!defined($groups{$group}))
             {
                 warn "group name '$group' not in groups property.\n";
             }
-            $val = $ruleProps->getProperty( "$group.ruleDefault.$prop" );
+            $val = $ruleProps->getProperty("$group.ruleDefault.$prop");
         }
-        if ( !defined( $val ) )
+        if (!defined($val))
         {
-            $val = $ruleProps->getProperty( "ruleDefault.$prop" );
+            $val = $ruleProps->getProperty("ruleDefault.$prop");
         }
-        if ( !defined( $val ) )
+        if (!defined($val))
         {
             $val = $default;
         }
     }
-    if ( defined( $val ) && $val eq '${maxDeduction}' )
+    if (defined($val) && $val eq '${maxDeduction}')
     {
         $val = $maxRuleDeduction;
     }
@@ -869,7 +885,7 @@ sub ruleSetting
 
 
 #-----------------------------------------------
-# groupSetting( group, prop [, default] )
+# groupSetting(group, prop [, default])
 #
 # Retrieves a group parameter from the config file, tracing through the
 # default hierarchy if necessary.  Parameters:
@@ -887,29 +903,29 @@ sub ruleSetting
 #
 sub groupSetting
 {
-    croak "usage: groupSetting( group, prop [, default] )"
-        if ( $#_ < 1 || $#_ > 2 );
+    croak "usage: groupSetting(group, prop [, default])"
+        if ($#_ < 1 || $#_ > 2);
     my $group   = shift;
     my $prop    = shift;
     my $default = shift;
 
-    if ( !defined( $groups{$group} ) )
+    if (!defined($groups{$group}))
     {
         carp "group name '$group' not in groups property.\n";
     }
-    my $val = $ruleProps->getProperty( "$group.group.$prop" );
-    if ( !defined( $val ) )
+    my $val = $ruleProps->getProperty("$group.group.$prop");
+    if (!defined($val))
     {
-        if ( !defined( $val ) )
+        if (!defined($val))
         {
-            $val = $ruleProps->getProperty( "groupDefault.$prop" );
+            $val = $ruleProps->getProperty("groupDefault.$prop");
         }
-        if ( !defined( $val ) )
+        if (!defined($val))
         {
             $val = $default;
         }
     }
-    if ( defined( $val ) && $val eq '${maxDeduction}' )
+    if (defined($val) && $val eq '${maxDeduction}')
     {
         $val = $maxRuleDeduction;
     }
@@ -918,18 +934,18 @@ sub groupSetting
 
 
 #-----------------------------------------------
-# markupSetting( prop [, default] )
+# markupSetting(prop [, default])
 #
 # Retrieves a top-level parameter from the config file.
 sub markupSetting
 {
-    croak "usage: markupSetting( prop [, default] )"
-        if ( $#_ < 0 || $#_ > 1 );
+    croak "usage: markupSetting(prop [, default])"
+        if ($#_ < 0 || $#_ > 1);
     my $prop    = shift;
     my $default = shift;
 
-    my $val = $ruleProps->getProperty( $prop, $default );
-    if ( defined( $val ) && $val eq '${maxDeduction}' )
+    my $val = $ruleProps->getProperty($prop, $default);
+    if (defined($val) && $val eq '${maxDeduction}')
     {
         $val = $maxRuleDeduction;
     }
@@ -938,7 +954,7 @@ sub markupSetting
 
 
 #-----------------------------------------------
-# countRemarks( listRef )
+# countRemarks(listRef)
 #
 # Counts the number of non-killed remarks in %messages for the
 # given file name.
@@ -947,9 +963,9 @@ sub countRemarks
 {
     my $list  = shift;
     my $count = 0;
-    foreach my $v ( @{ $list } )
+    foreach my $v (@{ $list })
     {
-        if ( $v->{kill}->null )
+        if ($v->{kill}->null)
         {
             $count++;
         }
@@ -966,14 +982,14 @@ sub countRemarks
 #       deduction           => ref ...,
 #       overLimit           => ref ...,
 #       fileName            => ...,
-#       violation           => ...  )
+#       violation           => ... )
 #
 sub trackMessageInstanceInContext
 {
     my %args = @_;
     my $context = $args{context};
 
-    if ( !( $context->{num}->null ) )
+    if (!($context->{num}->null))
     {
         $context->{num} += 1;
     }
@@ -983,55 +999,53 @@ sub trackMessageInstanceInContext
         $context->{pts}      = 0;
         $context->{collapse} = 0;
     }
-    if ( defined( $args{maxBeforeCollapsing} ) &&
-         $context->{num}->content > $args{maxBeforeCollapsing} )
+    if (defined($args{maxBeforeCollapsing}) &&
+         $context->{num}->content > $args{maxBeforeCollapsing})
     {
         $context->{collapse} = 1;
     }
     # check for pts in file overflow
-    if ( $context->{pts}->content + ${ $args{deduction} } >
-         $args{maxDeductions} )
+    if ($context->{pts}->content + ${ $args{deduction} } >
+         $args{maxDeductions})
     {
         ${ $args{overLimit} }++;
         ${ $args{deduction} } =
             $args{maxDeductions} - $context->{pts}->content;
-        if ( ${ $args{deduction} } < 0 )
+        if (${ $args{deduction} } < 0)
         {
             carp "deduction underflow, file ", $args{fileName}, ":\n",
-                $args{violation}->data_pointer( noheader  => 1,
-                                                nometagen => 1 );
+                $args{violation}->data_pointer(noheader  => 1, nometagen => 1);
         }
     }
-
 }
 
 
 #-----------------------------------------------
-# trackMessageInstance( rule, fileName, violation )
+# trackMessageInstance(rule, fileName, violation)
 #
 # Updates the $messageStats structure with the information for a given
 # rule violation.
 #
 #     rule:      the name of the rule violated
 #     fileName:  the source file name where the violation occurred
-#                (relative to $working_dir)
+#                (relative to $workingDir)
 #     violation: the XML::Smart structure referring to the violation
 #                (used for error message printing only)
 #
 sub trackMessageInstance
 {
-    croak "usage: recordPMDMessageStats( rule, fileName, violation )"
-        if ( $#_ != 2 );
+    croak "usage: recordPMDMessageStats(rule, fileName, violation)"
+        if ($#_ != 2);
     my $rule      = shift;
     my $fileName  = shift;
     my $violation = shift;
 
-    my $group     = ruleSetting( $rule, 'group', 'defaultGroup' );
-    my $deduction = ruleSetting( $rule, 'deduction', 0 )
+    my $group     = ruleSetting($rule, 'group', 'defaultGroup');
+    my $deduction = ruleSetting($rule, 'deduction', 0)
         * $toolDeductionScaleFactor;
     my $overLimit = 0;
 
-    if ( $debug > 1 )
+    if ($debug > 1)
     {
         print "tracking $group, $rule, $fileName, ",
         $violation->{line}->content, "\n";
@@ -1048,78 +1062,78 @@ sub trackMessageInstance
     # messageStats->group->rule->filename->{num, collapse} (pts later)
     trackMessageInstanceInContext(
             context           => $messageStats->{$group}->{$rule}->{$fileName},
-            maxBeforeCollapsing => ruleSetting( $rule, 'maxBeforeCollapsing',
-                                                $defaultMaxBeforeCollapsing ),
-            maxDeductions       => ruleSetting( $rule, 'maxDeductionsInFile',
-                                                $maxRuleDeduction ),
+            maxBeforeCollapsing => ruleSetting($rule, 'maxBeforeCollapsing',
+                                               $defaultMaxBeforeCollapsing),
+            maxDeductions       => ruleSetting($rule, 'maxDeductionsInFile',
+                                               $maxRuleDeduction),
             deduction           => \$deduction,
             overLimit           => \$overLimit,
             fileName            => $fileName,
             violation           => $violation
-        );
+       );
 
     # messageStats->group->rule->{num, collapse} (pts later)
     trackMessageInstanceInContext(
             context       => $messageStats->{$group}->{$rule},
-            maxDeductions => ruleSetting( $rule, 'maxDeductionsInAssignment',
-                                          $maxToolScore ),
+            maxDeductions => ruleSetting($rule, 'maxDeductionsInAssignment',
+                                         $maxToolScore),
             deduction     => \$deduction,
             overLimit     => \$overLimit,
             fileName      => $fileName,
             violation     => $violation
-        );
+       );
 
     # messageStats->group->file->filename->{num, collapse} (pts later)
     trackMessageInstanceInContext(
             context       => $messageStats->{$group}->{file}->{$fileName},
-            maxBeforeCollapsing => groupSetting( $group, 'maxBeforeCollapsing',
-                                                 $defaultMaxBeforeCollapsing ),
-            maxDeductions => groupSetting( $group, 'maxDeductionsInFile',
-                                           $maxToolScore ),
+            maxBeforeCollapsing => groupSetting($group, 'maxBeforeCollapsing',
+                                                $defaultMaxBeforeCollapsing),
+            maxDeductions => groupSetting($group, 'maxDeductionsInFile',
+                                          $maxToolScore),
             deduction     => \$deduction,
             overLimit     => \$overLimit,
             fileName      => $fileName,
             violation     => $violation
-        );
+       );
 
     # messageStats->group->{num, collapse} (pts later)
     trackMessageInstanceInContext(
             context       => $messageStats->{$group},
-            maxDeductions => groupSetting( $group, 'maxDeductionsInAssignment',
-                                           $maxToolScore ),
+            maxDeductions => groupSetting($group, 'maxDeductionsInAssignment',
+                                          $maxToolScore),
             deduction     => \$deduction,
             overLimit     => \$overLimit,
             fileName      => $fileName,
             violation     => $violation
-        );
+       );
 
     # messageStats->file->filename->{num, collapse} (pts later)
     trackMessageInstanceInContext(
             context       => $messageStats->{file}->{$fileName},
             maxBeforeCollapsing =>
-                markupSetting( 'maxBeforeCollapsing', 100000 ),
+                markupSetting('maxBeforeCollapsing', 100000),
             maxDeductions =>
-                markupSetting( 'maxDeductionsInAssignment', $maxToolScore ),
+                markupSetting('maxDeductionsInAssignment', $maxToolScore),
             deduction     => \$deduction,
             overLimit     => \$overLimit,
             fileName      => $fileName,
             violation     => $violation
-        );
+       );
 
     # messageStats->{num, collapse} (pts later)
     trackMessageInstanceInContext(
             context       => $messageStats,
             maxDeductions =>
-                markupSetting( 'maxDeductionsInAssignment', $maxToolScore ),
+                markupSetting('maxDeductionsInAssignment', $maxToolScore),
             deduction     => \$deduction,
             overLimit     => \$overLimit,
             fileName      => $fileName,
             violation     => $violation
-        );
+       );
 
     # Recover overLimit in messageStats for collapsed rules
-    if ( $overLimit &&
-         $messageStats->{$group}->{$rule}->{$fileName}->{collapse}->content )
+    if ($overLimit &&
+        $messageStats->{$group}->{$rule}->{$fileName}->{collapse}->content)
     {
         $messageStats->{$group}->{$rule}->{$fileName}->{overLimit} = 1;
     }
@@ -1127,15 +1141,13 @@ sub trackMessageInstance
     # Pts update in all locations:
     # ----------------------------
     #     messageStats->group->rule->filename->{pts}
-    $messageStats->{$group}->{$rule}->{$fileName}->{pts} +=
-        $deduction;
+    $messageStats->{$group}->{$rule}->{$fileName}->{pts} += $deduction;
 
     #     messageStats->group->rule->{pts}
     $messageStats->{$group}->{$rule}->{pts} += $deduction;
 
     #     messageStats->group->file->filename->{pts}
-    $messageStats->{$group}->{file}->{$fileName}->{pts} +=
-        $deduction;
+    $messageStats->{$group}->{file}->{$fileName}->{pts} += $deduction;
 
     #     messageStats->group->{pts}
     $messageStats->{$group}->{pts} += $deduction;
@@ -1146,57 +1158,57 @@ sub trackMessageInstance
     #     messageStats->{pts}
     $messageStats->{pts} += $deduction;
 
-    # print "before: ", $violation->data_pointer( noheader  => 1,
-    #                                           nometagen => 1 );
+    # print "before: ", $violation->data_pointer(noheader  => 1,
+    #                                           nometagen => 1);
     $violation->{deduction} = $deduction;
     $violation->{overLimit} = $overLimit;
     $violation->{group}     = $group;
-    $violation->{category}  = ruleSetting( $rule, 'category' );
-    $violation->{url}       = ruleSetting( $rule, 'URL'      );
-    if ( !defined( $messages{$fileName} ) )
+    $violation->{category}  = ruleSetting($rule, 'category');
+    $violation->{url}       = ruleSetting($rule, 'URL'     );
+    if (!defined($messages{$fileName}))
     {
         $messages{$fileName} = [ $violation ];
     }
     else
     {
-        push( @{ $messages{$fileName} }, $violation );
+        push(@{ $messages{$fileName} }, $violation);
     }
-    # print "after: ", $violation->data_pointer( noheader  => 1,
-    #                                          nometagen => 1 );
+    # print "after: ", $violation->data_pointer(noheader  => 1,
+    #                                          nometagen => 1);
     # print "messages for '$fileName' =\n\t",
-    #     join( "\n\t", @{ $messages{$fileName} } ), "\n";
+    #     join("\n\t", @{ $messages{$fileName} }), "\n";
 }
 
 
 #-----------------------------------------------
 # Some testing code left in place (but disabled  by the if test)
 #
-if ( 0 )    # For testing purposes only
+if (0)    # For testing purposes only
 {
     # Some tests for properties
     # -------
     print "ShortVariable.group                     = ",
-        ruleSetting( 'ShortVariable', 'group', 'zzz' ), "\n";
+        ruleSetting('ShortVariable', 'group', 'zzz'), "\n";
     print "ShortVariable.deduction                 = ",
-        ruleSetting( 'ShortVariable', 'deduction', 'zzz' ), "\n";
+        ruleSetting('ShortVariable', 'deduction', 'zzz'), "\n";
     print "ShortVariable.category                  = ",
-        ruleSetting( 'ShortVariable', 'category', 'zzz' ), "\n";
+        ruleSetting('ShortVariable', 'category', 'zzz'), "\n";
     print "ShortVariable.maxBeforeCollapsing       = ",
-        ruleSetting( 'ShortVariable', 'maxBeforeCollapsing', 'zzz' ), "\n";
+        ruleSetting('ShortVariable', 'maxBeforeCollapsing', 'zzz'), "\n";
     print "ShortVariable.maxDeductionsInFile       = ",
-        ruleSetting( 'ShortVariable', 'maxDeductionsInFile', 'zzz' ), "\n";
+        ruleSetting('ShortVariable', 'maxDeductionsInFile', 'zzz'), "\n";
     print "ShortVariable.maxDeductionsInAssignment = ",
-      ruleSetting( 'ShortVariable', 'maxDeductionsInAssignment', 'zzz' ), "\n";
+      ruleSetting('ShortVariable', 'maxDeductionsInAssignment', 'zzz'), "\n";
     print "ShortVariable.URL                       = ",
-        ruleSetting( 'ShortVariable', 'URL', 'zzz' ), "\n";
+        ruleSetting('ShortVariable', 'URL', 'zzz'), "\n";
 
     print "\n";
     print "naming.maxDeductionsInFile = ",
-        groupSetting( 'naming', 'maxDeductionsInFile', 'zzz' ), "\n";
+        groupSetting('naming', 'maxDeductionsInFile', 'zzz'), "\n";
     print "naming.maxDeductionsInAssignment = ",
-        groupSetting( 'naming', 'maxDeductionsInAssignment', 'zzz' ), "\n";
+        groupSetting('naming', 'maxDeductionsInAssignment', 'zzz'), "\n";
     print "naming.fooBar = ",
-        groupSetting( 'naming', 'fooBar', 'zzz' ), "\n";
+        groupSetting('naming', 'fooBar', 'zzz'), "\n";
 
 
     # Some tests for the messageStats structure
@@ -1207,28 +1219,27 @@ if ( 0 )    # For testing purposes only
     $messageStats->{documentation}->{JavaDocMethod}->{num} = 1;
     $messageStats->{documentation}->{JavaDocMethod}->{pts} = -1;
     $messageStats->{documentation}->{JavaDocMethod}->{collapse} = 0;
-    print $messageStats->data( noheader  => 1,
-                               nometagen => 1 );
+    print $messageStats->data(noheader  => 1, nometagen => 1);
     exit(0);
 }
 
 
 #-----------------------------------------------
 # A useful subroutine for processing the ant log
-if ( !$buildFailed ) # $can_proceed )
+if (!$buildFailed) # $can_proceed)
 {
-    my $checkstyleLog = "$log_dir/checkstyle_report.xml";
-    if ( -f $checkstyleLog )
+    my $checkstyleLog = "$resultDir/checkstyle_report.xml";
+    if (-f $checkstyleLog)
     {
-        my $cstyle = XML::Smart->new( $checkstyleLog );
-        foreach my $file ( @{ $cstyle->{checkstyle}->{file} } )
+        my $cstyle = XML::Smart->new($checkstyleLog);
+        foreach my $file (@{ $cstyle->{checkstyle}->{file} })
         {
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
-            $fileName =~ s,^\Q$working_dir/\E,,i;
-            if ( exists $file->{error} )
+            $fileName =~ s,^\Q$workingDir/\E,,i;
+            if (exists $file->{error})
             {
-                foreach my $violation ( @{ $file->{error} } )
+                foreach my $violation (@{ $file->{error} })
                 {
                     my $rule = $violation->{source}->content;
                     $rule =~
@@ -1236,69 +1247,67 @@ if ( !$buildFailed ) # $can_proceed )
                     $rule =~ s/Check$//o;
                     $violation->{rule} = $rule;
                     delete $violation->{source};
-                    trackMessageInstance( $violation->{rule}->content,
-                                          $fileName,
-                                          $violation );
+                    trackMessageInstance(
+                        $violation->{rule}->content, $fileName, $violation);
                 }
             }
         }
     }
 
-    my $pmdLog = "$log_dir/pmd_report.xml";
-    if ( -f $pmdLog )
+    my $pmdLog = "$resultDir/pmd_report.xml";
+    if (-f $pmdLog)
     {
-        my $pmd = XML::Smart->new( $pmdLog );
-        foreach my $file ( @{ $pmd->{pmd}->{file} } )
+        my $pmd = XML::Smart->new($pmdLog);
+        foreach my $file (@{ $pmd->{pmd}->{file} })
         {
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
-            $fileName =~ s,^\Q$working_dir/\E,,i;
-            if ( exists $file->{violation} )
+            $fileName =~ s,^\Q$workingDir/\E,,i;
+            if (exists $file->{violation})
             {
-                foreach my $violation ( @{ $file->{violation} } )
+                foreach my $violation (@{ $file->{violation} })
                 {
-                    trackMessageInstance( $violation->{rule}->content,
-                                          $fileName,
-                                          $violation );
+                    trackMessageInstance(
+                        $violation->{rule}->content, $fileName, $violation);
                 }
             }
         }
     }
 
-    if ( $debug > 1 )
+    if ($debug > 1)
     {
-        my $msg = $messageStats->data( noheader  => 1, nometagen => 1 );
+        my $msg = $messageStats->data(noheader  => 1, nometagen => 1);
         if (defined $msg)
         {
             print $msg;
         }
     }
-    foreach my $f ( keys %messages )
+    foreach my $f (keys %messages)
     {
-        print "$f:\n" if ( $debug > 1 );
-        foreach my $v ( @{ $messages{$f} } )
+        print "$f:\n" if ($debug > 1);
+        foreach my $v (@{ $messages{$f} })
         {
-            if ( $debug > 1 )
+            if ($debug > 1)
             {
                 print "\t", $v->{line}, ": -", $v->{deduction}, ": ",
                     $v->{rule}, " ol=", $v->{overLimit},
                     " kill=", $v->{kill}, "\n";
             }
-            if ( $messageStats->{ $v->{group} }->{ $v->{rule} }->{$f}
-                     ->{collapse}->content > 0 )
+            if ($messageStats->{ $v->{group} }->{ $v->{rule} }->{$f}
+                ->{collapse}->content > 0)
             {
-                if ( $debug > 1 )
+                if ($debug > 1)
                 {
                     print "$f(", $v->{line}, "): -", $v->{deduction}, ": ",
-                          $v->{rule}, ", collapsing\n";
+                        $v->{rule}, ", collapsing\n";
                 }
-                if ( $messageStats->{ $v->{group} }->{ $v->{rule} }->{$f}
-                         ->{kill}->null() )
+                if ($messageStats->{ $v->{group} }->{ $v->{rule} }->{$f}
+                    ->{kill}->null())
                 {
                     $v->{line} = 0;
-                    if ( !$v->{overLimit}->content &&
-                         !$messageStats->{ $v->{group} }->{ $v->{rule} }->{$f}
-                              ->{overLimit}->null )
+                    if (!$v->{overLimit}->content &&
+                        !$messageStats->{ $v->{group} }->{ $v->{rule} }->{$f}
+                            ->{overLimit}->null)
                     {
                         $v->{overLimit} = 1;
                     }
@@ -1324,7 +1333,7 @@ else
 
 # If no files were submitted at all, then no credit for static
 # analysis
-if ( !$status{'studentHasSrcs'} )
+if (!$status{'studentHasSrcs'})
 {
     $status{'toolDeductions'} = $maxToolScore;
 }
@@ -1333,10 +1342,10 @@ if ( !$status{'studentHasSrcs'} )
 #=============================================================================
 # translate html
 #=============================================================================
-my %cloveredClasses = ();
+my %cloveredClasses    = ();
 my %classToFileNameMap = ();
 my %classToMarkupNoMap = ();
-my %fileToMarkupNoMap = ();
+my %fileToMarkupNoMap  = ();
 
 #---------------------------------------------------------------------------
 # Translate one HTML file from clover markup to what Web-CAT expects
@@ -1350,10 +1359,10 @@ sub translateHTMLFile
     # Record class name
     my $className = $file;
     $className =~ s/\.html$//o;
-    $className =~ s,^$log_dir/clover/(default-pkg/)?,,o;
+    $className =~ s,^$resultDir/clover/(default-pkg/)?,,o;
     my $sourceName = $className . ".java";
     $className =~ s,/,.,go;
-    if ( defined( $classToFileNameMap{$className} ) )
+    if (defined($classToFileNameMap{$className}))
     {
         $sourceName = $classToFileNameMap{$className};
     }
@@ -1361,49 +1370,47 @@ sub translateHTMLFile
     $cloveredClasses{$className} = 1;
 
     my @comments = ();
-    if ( defined $messages{$sourceName} )
+    if (defined $messages{$sourceName})
     {
         @comments = sort { $b->{line}->content  <=>  $a->{line}->content }
             @{ $messages{$sourceName} };
     }
-    $messageStats->{file}->{$sourceName}->{remarks} =
-        countRemarks( \@comments );
-#    if ( defined( $classToMarkupNoMap{$className} ) )
+    $messageStats->{file}->{$sourceName}->{remarks} = countRemarks(\@comments);
+#    if (defined($classToMarkupNoMap{$className}))
 #    {
-#        $cfg->setProperty( 'codeMarkup' . $classToMarkupNoMap{$className}
+#        $cfg->setProperty('codeMarkup' . $classToMarkupNoMap{$className}
 #                           . '.remarks',
-#                $messageStats->{file}->{$sourceName}->{remarks}->content );
+#                $messageStats->{file}->{$sourceName}->{remarks}->content);
 #    }
 #    else
 #    {
 #       my $lcClassName = $className;
 #       $lcClassName =~ tr/A-Z/a-z/;
-#        if ( defined( $classToMarkupNoMap{$lcClassName} ) )
+#        if (defined($classToMarkupNoMap{$lcClassName}))
 #        {
-#            $cfg->setProperty( 'codeMarkup' . $classToMarkupNoMap{$lcClassName}
+#            $cfg->setProperty('codeMarkup' . $classToMarkupNoMap{$lcClassName}
 #                               . '.remarks',
-#                    $messageStats->{file}->{$sourceName}->{remarks}->content );
+#                    $messageStats->{file}->{$sourceName}->{remarks}->content);
 #        }
 #        else
 #        {
-#            print( STDERR "Cannot locate code markup number for $className "
-#               . "in $sourceName\n" );
+#            print(STDERR "Cannot locate code markup number for $className "
+#               . "in $sourceName\n");
 #        }
 #    }
-    if ( $debug > 1 )
+    if ($debug > 1)
     {
         print "$sourceName: ", $#comments + 1, "\n";
-        foreach my $c ( @comments )
+        foreach my $c (@comments)
         {
             print "\t", $c->{group}, " '", $c->{line}, "'\n";
         }
     }
 
-    open( HTML, $file ) ||
-        die "Cannot open file for input '$file': $!";
+    open(HTML, $file) || die "Cannot open file for input '$file': $!";
     my @html = <HTML>;  # Slurp in the whole file
-    close( HTML );
-    my $allHtml = join( "", @html );
+    close(HTML);
+    my $allHtml = join("", @html);
 
     # Look for @author tags
     my @partnerExcludePatterns = ();
@@ -1420,28 +1427,30 @@ sub translateHTMLFile
         push(@partnerExcludePatterns, $userName);
     }
     my $potentialPartners = $cfg->getProperty('grader.potentialpartners', "");
-    while ($allHtml =~ m/<span[^<>]*class="javadoc"[^<>]*>\@author<\/span>\s*([^<>]*)<\/span>/g)
+    while ($allHtml =~
+      m/<span[^<>]*class="javadoc"[^<>]*>\@author<\/span>\s*([^<>]*)<\/span>/g)
     {
         my $authors = $1;
         $authors =~ s/\@[a-zA-Z][a-zA-Z0-9\.]+[a-zA-Z]/ /g;
-        $authors =~ s/your-pid [\(]?and if in lab[,]? partner[']?s pid on same line[\)]?//;
+        $authors =~
+        s/your-pid [\(]?and if in lab[,]? partner[']?s pid on same line[\)]?//;
         $authors =~ s/Partner [1-9][' ]?s name [\(]?pid[\)]?//;
         $authors =~ s/[,;:\(\)\]\]\{\}=!\@#%^&\*<>\/\\\`'"]/ /g;
         foreach my $pat (@partnerExcludePatterns)
-	{
+        {
             $authors =~ s/(?<!\S)$pat(?!\S)//g;
-	}
+        }
         $authors =~ s/^\s+//;
         $authors =~ s/\s+$//;
         $authors =~ s/\s\s+/ /g;
         if ($authors ne "")
-	{
-	    if ($potentialPartners ne "")
-	    {
-		$potentialPartners .= " ";
-	    }
-	    $potentialPartners .= $authors;
-	}
+        {
+            if ($potentialPartners ne "")
+            {
+                $potentialPartners .= " ";
+            }
+            $potentialPartners .= $authors;
+        }
     }
     $cfg->setProperty('grader.potentialpartners', $potentialPartners);
 
@@ -1537,9 +1546,9 @@ sub translateHTMLFile
         $cloverData->{coverage}{project}{metrics}{statements} -=
             $simpleCatchBlocks;
 
-        foreach my $pkg ( @{ $cloverData->{coverage}{project}{package} } )
+        foreach my $pkg (@{ $cloverData->{coverage}{project}{package} })
         {
-            foreach my $file ( @{ $pkg->{file} } )
+            foreach my $file (@{ $pkg->{file} })
             {
                 my $fileName = $file->{name}->content;
                 if ($debug)
@@ -1548,7 +1557,7 @@ sub translateHTMLFile
                         "$sourceName\n";
                 }
                 $fileName =~ s,\\,/,go;
-                my $Uprojdir = $working_dir . "/";
+                my $Uprojdir = $workingDir . "/";
                 $fileName =~ s/^\Q$Uprojdir\E//io;
                 print "    ... pruned file name = $fileName\n" if ($debug);
                 if ($fileName eq $sourceName)
@@ -1578,9 +1587,8 @@ sub translateHTMLFile
     }
 
     my $reformatter = new Web_CAT::Clover::Reformatter(
-        \@comments, $stripEmptyCoverage, $allHtml
-        );
-    $reformatter->save( $file );
+        \@comments, $stripEmptyCoverage, $allHtml);
+    $reformatter->save($file);
 }
 
 
@@ -1594,45 +1602,45 @@ sub processCloverDir
 
     # print "processing $path, strip = $stripEmptyCoverage\n";
 
-    if ( -d $path )
+    if (-d $path)
     {
-        for my $file ( <$path/*> )
+        for my $file (<$path/*>)
         {
-            processCloverDir( $file, $stripEmptyCoverage, $cloverData );
+            processCloverDir($file, $stripEmptyCoverage, $cloverData);
         }
 
         # is the dir empty now?
-        my @files = ( <$path/*> );
-        if ( $#files < 0 )
+        my @files = (<$path/*>);
+        if ($#files < 0)
         {
             # print "deleting empty dir $path\n";
-            if ( !rmdir( $path ) )
+            if (!rmdir($path))
             {
-                adminLog( "cannot delete empty directory '$path': $!" );
+                adminLog("cannot delete empty directory '$path': $!");
             }
         }
     }
-    elsif ( $path !~ m/\.html$/io ||
-            $path =~ m/(^|\/)(all-classes|all-pkgs|index|pkg-classes|pkg(s?)-summary)\.html$/io )
+    elsif ($path !~ m/\.html$/io || $path =~
+    m/(^|\/)(all-classes|all-pkgs|index|pkg-classes|pkg(s?)-summary)\.html$/io)
     {
         # print "deleting $path\n";
-        if ( unlink( $path ) != 1 )
+        if (unlink($path) != 1)
         {
-            adminLog( "cannot delete file '$path': $!" );
+            adminLog("cannot delete file '$path': $!");
         }
     }
     else
     {
         # An HTML file to keep!
-        translateHTMLFile( $path, $stripEmptyCoverage, $cloverData );
+        translateHTMLFile($path, $stripEmptyCoverage, $cloverData);
     }
 }
 
 
 my $time5 = time;
-if ( $debug )
+if ($debug)
 {
-    print "\n", ( $time5 - $time4 ), " seconds\n";
+    print "\n", ($time5 - $time4), " seconds\n";
 }
 
 
@@ -1642,28 +1650,28 @@ if ( $debug )
 my $gradedElements        = 0;
 my $gradedElementsCovered = 0;
 my $runtimeScoreWithoutCoverage = 0;
-if ( defined $status{'instrTestResults'} && $status{'studentHasSrcs'} )
+if (defined $status{'instrTestResults'} && $status{'studentHasSrcs'})
 {
-    if ( $status{'compileErrs'} )
+    if ($status{'compileErrs'})
     {
         # If there was a compilation error, don't count any instructor
         # tests as passed to force an "unknown" result
         $status{'instrTestResults'}->addTestsExecuted(
-            -$status{'instrTestResults'}->testsExecuted );
+            -$status{'instrTestResults'}->testsExecuted);
     }
-    $runtimeScoreWithoutCoverage = $maxCorrectnessScore
-                   * $status{'instrTestResults'}->testPassRate;
+    $runtimeScoreWithoutCoverage =
+        $maxCorrectnessScore * $status{'instrTestResults'}->testPassRate;
 }
 
-print "score with ref tests: $runtimeScoreWithoutCoverage\n" if ( $debug > 2 );
+print "score with ref tests: $runtimeScoreWithoutCoverage\n" if ($debug > 2);
 
-if ( defined $status{'studentTestResults'}
-     && $status{'studentTestResults'}->testsExecuted > 0 )
+if (defined $status{'studentTestResults'}
+    && $status{'studentTestResults'}->testsExecuted > 0)
 {
     if ($studentsMustSubmitTests)
     {
-        if ( $allStudentTestsMustPass
-             && $status{'studentTestResults'}->testsFailed > 0 )
+        if ($allStudentTestsMustPass
+            && $status{'studentTestResults'}->testsFailed > 0)
         {
             $runtimeScoreWithoutCoverage = 0;
         }
@@ -1673,46 +1681,46 @@ if ( defined $status{'studentTestResults'}
                 $status{'studentTestResults'}->testPassRate;
         }
     }
-    $studentCasesPercent = int(
-        $status{'studentTestResults'}->testPassRate * 100.0 + 0.5 );
-    if ( $status{'studentTestResults'}->testsFailed > 0
-         && $studentCasesPercent == 100 )
+    $studentCasesPercent =
+        int($status{'studentTestResults'}->testPassRate * 100.0 + 0.5);
+    if ($status{'studentTestResults'}->testsFailed > 0
+        && $studentCasesPercent == 100)
     {
         # Don't show 100% if some cases failed
         $studentCasesPercent--;
     }
 }
-elsif ( $studentsMustSubmitTests )
+elsif ($studentsMustSubmitTests)
 {
     $runtimeScoreWithoutCoverage = 0;
 }
 
 print "score with student tests: $runtimeScoreWithoutCoverage\n"
-    if ( $debug > 2 );
+    if ($debug > 2);
 
 
 #=============================================================================
 # post-process generated HTML files
 #=============================================================================
-my $clover = XML::Smart->new("$log_dir/clover.xml");
-if ( !$buildFailed ) # $can_proceed )
+my $clover = XML::Smart->new("$resultDir/clover.xml");
+if (!$buildFailed) # $can_proceed)
 {
     # Figure out mapping from class names to file names
-    my $Uprojdir = $working_dir . "/";
-    foreach my $pkg ( @{ $clover->{coverage}{project}{package} } )
+    my $Uprojdir = $workingDir . "/";
+    foreach my $pkg (@{ $clover->{coverage}{project}{package} })
     {
         my $pkgName = $pkg->{name}->content;
         # print "package: ", $pkg->{name}->content, "\n";
-        foreach my $file ( @{ $pkg->{file} } )
+        foreach my $file (@{ $pkg->{file} })
         {
             # print "\tclass: ", $file->{class}->{name}->content, "\n";
             my $className = $file->{class}->{name}->content;
-            if ( !defined( $className ) || $className eq "" ) { next; }
+            if (!defined($className) || $className eq "") { next; }
             my $fqClassName = $className;
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
             $fileName =~ s/^\Q$Uprojdir\E//io;
-            if ( $pkgName ne "default-pkg" )
+            if ($pkgName ne "default-pkg")
             {
                 $fqClassName = $pkgName . ".$className";
             }
@@ -1721,37 +1729,37 @@ if ( !$buildFailed ) # $can_proceed )
     }
 
     # Delete unneeded files from the clover/ html dir
-    if ( -d "$log_dir/clover" )
+    if (-d "$resultDir/clover")
     {
-        processCloverDir("$log_dir/clover",
-            !defined( $status{'studentTestResults'} )
-            || !$status{'studentTestResults'}->hasResults
-            || !$status{'studentTestResults'}->testsExecuted,
+        processCloverDir("$resultDir/clover",
+            !defined($status{'studentTestResults'})
+                || !$status{'studentTestResults'}->hasResults
+                || !$status{'studentTestResults'}->testsExecuted,
             $clover);
     }
 
     # If any classes in the default package, move them to correct place
-    my $defPkgDir = "$log_dir/clover/default-pkg";
-    if ( -d $defPkgDir )
+    my $defPkgDir = "$resultDir/clover/default-pkg";
+    if (-d $defPkgDir)
     {
-        for my $file ( <$defPkgDir/*> )
+        for my $file (<$defPkgDir/*>)
         {
             my $newLoc = $file;
-            if ( $newLoc =~ s,/default-pkg/,/,o )
+            if ($newLoc =~ s,/default-pkg/,/,o)
             {
-                rename( $file, $newLoc );
+                rename($file, $newLoc);
             }
         }
-        if ( !rmdir( $defPkgDir ) )
+        if (!rmdir($defPkgDir))
         {
-            adminLog( "cannot delete empty directory '$defPkgDir': $!" );
+            adminLog("cannot delete empty directory '$defPkgDir': $!");
         }
     }
 
-    if ( $debug > 1 )
+    if ($debug > 1)
     {
         print "Clover'ed classes (from HTML):\n";
-        foreach my $class ( keys %cloveredClasses )
+        foreach my $class (keys %cloveredClasses)
         {
             print "\t$class\n";
         }
@@ -1760,85 +1768,85 @@ if ( !$buildFailed ) # $can_proceed )
 }
 
 my $time6 = time;
-if ( $debug )
+if ($debug)
 {
-    print "\n", ( $time6 - $time5 ), " seconds\n";
+    print "\n", ($time6 - $time5), " seconds\n";
 }
 
 
-if ( !$buildFailed ) # $can_proceed )
+if (!$buildFailed) # $can_proceed)
 {
-    my $numCodeMarkups = $cfg->getProperty( 'numCodeMarkups', 0 );
+    my $numCodeMarkups = $cfg->getProperty('numCodeMarkups', 0);
     my $ptsPerUncovered = 0.0;
-    if ( $runtimeScoreWithoutCoverage > 0 &&
-         $clover->{coverage}{project}{metrics}{methods} > 0 )
+    if ($runtimeScoreWithoutCoverage > 0 &&
+        $clover->{coverage}{project}{metrics}{methods} > 0)
     {
         my $topLevelGradedElements = 1;
-        if ( $coverageMetric == 1 )
+        if ($coverageMetric == 1)
         {
             $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{statements};
-            $cfg->setProperty( "statElementsLabel", "Statements Executed" );
+            $cfg->setProperty("statElementsLabel", "Statements Executed");
         }
-        elsif ( $coverageMetric == 2 )
+        elsif ($coverageMetric == 2)
         {
             $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{methods}
                 + $clover->{coverage}{project}{metrics}{conditionals};
-            $cfg->setProperty( "statElementsLabel",
-                               "Methods and Conditionals Executed" );
+            $cfg->setProperty("statElementsLabel",
+                              "Methods and Conditionals Executed");
         }
-        elsif ( $coverageMetric == 3 )
+        elsif ($coverageMetric == 3)
         {
             $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{statements}
                 + $clover->{coverage}{project}{metrics}{conditionals};
-            $cfg->setProperty( "statElementsLabel",
-                               "Statements and Conditionals Executed" );
+            $cfg->setProperty("statElementsLabel",
+                              "Statements and Conditionals Executed");
         }
-        elsif ( $coverageMetric == 4 )
+        elsif ($coverageMetric == 4)
         {
             $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{elements};
-            $cfg->setProperty( "statElementsLabel",
-                               "Methods/Statements/Conditionals Executed" );
+            $cfg->setProperty("statElementsLabel",
+                              "Methods/Statements/Conditionals Executed");
         }
         else
         {
             $topLevelGradedElements =
                 $clover->{coverage}{project}{metrics}{methods};
-            $cfg->setProperty( "statElementsLabel", "Methods Executed" );
+            $cfg->setProperty("statElementsLabel", "Methods Executed");
         }
 
-        if ( $studentsMustSubmitTests )
+        if ($studentsMustSubmitTests)
         {
             $ptsPerUncovered = -1.0 /
                 $topLevelGradedElements * $runtimeScoreWithoutCoverage;
         }
     }
-    my $Uprojdir = $working_dir . "/";
-    foreach my $pkg ( @{ $clover->{coverage}{project}{package} } )
+    my $Uprojdir = $workingDir . "/";
+    foreach my $pkg (@{ $clover->{coverage}{project}{package} })
     {
         my $pkgName = $pkg->{name}->content;
         # print "package: ", $pkg->{name}->content, "\n";
-        foreach my $file ( @{ $pkg->{file} } )
+        foreach my $file (@{ $pkg->{file} })
         {
             # print "\tclass: ", $file->{class}->{name}->content, "\n";
             my $className = $file->{class}->{name}->content;
-            if ( !defined( $className ) || $className eq "" ) { next; }
+            if (!defined($className) || $className eq "") { next; }
             my $fqClassName = $className;
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
             $fileName =~ s/^\Q$Uprojdir\E//io;
-            if ( $pkgName ne "default-pkg" )
+            if ($pkgName ne "default-pkg")
             {
                 $fqClassName = $pkgName . ".$className";
             }
-#           if ( !defined( delete( $cloveredClasses{$fqClassName} ) ) )
+#           if (!defined(delete($cloveredClasses{$fqClassName})))
 #           {
 #               # Instead of just an admin e-mail report, force grading
 #               # to halt until the problem is fixed.
-#               if ( $fqClassName ne "." )
+#               if ($fqClassName ne ".")
 #               {
 #                   print STDOUT
 #                   "clover stats for $fqClassName have no corresponding "
@@ -1850,56 +1858,56 @@ if ( !$buildFailed ) # $can_proceed )
             $numCodeMarkups++;
             $classToMarkupNoMap{$fqClassName} = $numCodeMarkups;
             $fileToMarkupNoMap{$fileName} = $numCodeMarkups;
-            if ( $pkgName ne "default-pkg" )
+            if ($pkgName ne "default-pkg")
             {
-                $cfg->setProperty( "codeMarkup${numCodeMarkups}.pkgName",
-                                   $pkgName );
+                $cfg->setProperty("codeMarkup${numCodeMarkups}.pkgName",
+                                  $pkgName);
             }
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.className",
-                               $className );
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.className",
+                              $className);
             my $metrics = $file->{metrics};
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.loc",
-                               $metrics->{loc}->content );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.ncloc",
-                               $metrics->{ncloc}->content );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.methods",
-                               $metrics->{methods}->content );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.methodsCovered",
-                               $metrics->{coveredmethods}->content );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.statements",
-                               $metrics->{statements}->content );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.statementsCovered",
-                               $metrics->{coveredstatements}->content );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.conditionals",
-                               $metrics->{conditionals}->content );
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.loc",
+                              $metrics->{loc}->content);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.ncloc",
+                              $metrics->{ncloc}->content);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.methods",
+                              $metrics->{methods}->content);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.methodsCovered",
+                              $metrics->{coveredmethods}->content);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.statements",
+                              $metrics->{statements}->content);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.statementsCovered",
+                              $metrics->{coveredstatements}->content);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.conditionals",
+                              $metrics->{conditionals}->content);
             $cfg->setProperty(
                 "codeMarkup${numCodeMarkups}.conditionalsCovered",
-                $metrics->{coveredconditionals}->content );
+                $metrics->{coveredconditionals}->content);
 
             my $element1Type = 'methods';
             my $element2Type;
-            if ( $coverageMetric == 1 )
+            if ($coverageMetric == 1)
             {
                 $element1Type = 'statements';
             }
-            elsif ( $coverageMetric == 2 )
+            elsif ($coverageMetric == 2)
             {
                 $element1Type = 'methods';
                 $element2Type = 'conditionals';
             }
-            elsif ( $coverageMetric == 3 )
+            elsif ($coverageMetric == 3)
             {
                 $element1Type = 'statements';
                 $element2Type = 'conditionals';
             }
-            elsif ( $coverageMetric == 4 )
+            elsif ($coverageMetric == 4)
             {
                 $element1Type = 'elements';
             }
             my $myElements = $metrics->{$element1Type}->content;
             my $myElementsCovered =
                 $metrics->{'covered' . $element1Type}->content;
-            if ( defined( $element2Type ) )
+            if (defined($element2Type))
             {
                 $myElements +=  $metrics->{$element2Type}->content;
                 $myElementsCovered +=
@@ -1908,26 +1916,25 @@ if ( !$buildFailed ) # $can_proceed )
             $gradedElements += $myElements;
             $gradedElementsCovered += $myElementsCovered;
 
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.elements",
-                               $myElements );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.elementsCovered",
-                               $myElementsCovered );
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.elements",
+                              $myElements);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.elementsCovered",
+                              $myElementsCovered);
             #my $fileName = $fqClassName;
             #$fileName =~ s,\.,/,go;
             #$fileName .= ".java";
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.souceFileName",
-                               $fileName );
-            $cfg->setProperty( "codeMarkup${numCodeMarkups}.deductions",
-                               ( $myElements - $myElementsCovered ) *
-                               $ptsPerUncovered
-                - $messageStats->{file}->{$fileName}->{pts}->content );
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.souceFileName",
+                              $fileName);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.deductions",
+                ($myElements - $myElementsCovered) * $ptsPerUncovered
+                - $messageStats->{file}->{$fileName}->{pts}->content);
         }
     }
 
     # Check that all HTML files were covered
-#    if ( 0 ) # $can_proceed )
+#    if (0) # $can_proceed)
 #    {
-#        foreach my $class ( keys %cloveredClasses )
+#        foreach my $class (keys %cloveredClasses)
 #        {
 #            # Instead of just an admin e-mail report, force grading
 #            # to halt until the problem is fixed.
@@ -1935,178 +1942,175 @@ if ( !$buildFailed ) # $can_proceed )
 #            "HTML file for $class has no corresponding clover stats!\n"
 #            . "This will result in incorrect scoring, so processing of this "
 #            . "submission is being paused.\n";
-#            $cfg->setProperty( "halt", 1 );
+#            $cfg->setProperty("halt", 1);
 #        }
 #    }
 #    else
 #    {
 #        # Force nasty grade?
 #        # $gradedElementsCovered = 0;
-#        foreach my $class ( keys %cloveredClasses )
+#        foreach my $class (keys %cloveredClasses)
 #        {
 #            $numCodeMarkups++;
 #            my $className = $class;
-#            if ( $class =~ m/^(.+)\.([^.])+$/o )
+#            if ($class =~ m/^(.+)\.([^.])+$/o)
 #            {
 #                my $pkgName = $1;
 #                $className = $2;
-#                $cfg->setProperty( "codeMarkup${numCodeMarkups}.pkgName",
-#                                   $pkgName );
+#                $cfg->setProperty("codeMarkup${numCodeMarkups}.pkgName",
+#                                   $pkgName);
 #            }
-#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.className",
-#                               $className );
-#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.elements",
-#                               1 );
-#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.elementsCovered",
-#                               0 );
+#            $cfg->setProperty("codeMarkup${numCodeMarkups}.className",
+#                               $className);
+#            $cfg->setProperty("codeMarkup${numCodeMarkups}.elements",
+#                               1);
+#            $cfg->setProperty("codeMarkup${numCodeMarkups}.elementsCovered",
+#                               0);
 #            my $fileName = $class;
 #            $fileName =~ s,\.,/,go;
 #            $fileName .= ".java";
-#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.deductions",
+#            $cfg->setProperty("codeMarkup${numCodeMarkups}.deductions",
 #                               $ptsPerUncovered
-#                - $messageStats->{file}->{$fileName}->{pts}->content );
-#            $cfg->setProperty( "codeMarkup${numCodeMarkups}.remarks",
-#                $messageStats->{file}->{$fileName}->{remarks}->content );
+#                - $messageStats->{file}->{$fileName}->{pts}->content);
+#            $cfg->setProperty("codeMarkup${numCodeMarkups}.remarks",
+#                $messageStats->{file}->{$fileName}->{remarks}->content);
 #        }
 #    }
-    $cfg->setProperty( "numCodeMarkups", $numCodeMarkups );
+    $cfg->setProperty("numCodeMarkups", $numCodeMarkups);
 
-    foreach my $file ( @{ $clover->{coverage}{project}{package}{file} })
+    foreach my $file (@{ $clover->{coverage}{project}{package}{file} })
     {
         my $fn = $file->{name}->content;
             $fn =~ s,\\,/,go;
             $fn =~ s/^\Q$Uprojdir\E//io;
-        $cfg->setProperty( 'codeMarkup' . $fileToMarkupNoMap{$fn}
-                           . '.remarks',
-               (0 + $messageStats->{file}->{$fn}->{remarks}->content ));
+        $cfg->setProperty(
+            'codeMarkup' . $fileToMarkupNoMap{$fn} . '.remarks',
+            (0 + $messageStats->{file}->{$fn}->{remarks}->content));
     }
 }
 
 my $time7 = time;
-if ( $debug )
+if ($debug)
 {
-    print "\n", ( $time7 - $time6 ), " seconds\n";
+    print "\n", ($time7 - $time6), " seconds\n";
 }
 
 
 #=============================================================================
 # generate HTML version of student testing results
 #=============================================================================
-if ( $status{'studentHasSrcs'}
-     && ( $studentsMustSubmitTests ||
-          ( defined $status{'studentTestResults'}
-            && $status{'studentTestResults'}->hasResults ) ) )
+if ($status{'studentHasSrcs'}
+    && ($studentsMustSubmitTests
+        || (defined $status{'studentTestResults'}
+            && $status{'studentTestResults'}->hasResults)))
 {
     my $sectionTitle = "Results from Running Your Tests ";
-    if ( !defined $status{'studentTestResults'} )
+    if (!defined $status{'studentTestResults'})
     {
         $sectionTitle .= "<b class=\"warn\">(No Test Results!)</b>";
     }
-    elsif ( $status{'studentTestResults'}->testsExecuted == 0 )
+    elsif ($status{'studentTestResults'}->testsExecuted == 0)
     {
-        $sectionTitle .=
-            "<b class=\"warn\">(No Tests Submitted!)</b>";
+        $sectionTitle .= "<b class=\"warn\">(No Tests Submitted!)</b>";
     }
-    elsif ( $status{'studentTestResults'}->allTestsPass )
+    elsif ($status{'studentTestResults'}->allTestsPass)
     {
         $sectionTitle .= "(100%)";
     }
     else
     {
-        $sectionTitle .=
-            "<b class=\"warn\">($studentCasesPercent%)</b>";
+        $sectionTitle .= "<b class=\"warn\">($studentCasesPercent%)</b>";
     }
 
     $status{'feedback'}->startFeedbackSection(
         $sectionTitle,
         ++$expSectionId,
-        $status{'studentTestResults'}->allTestsPass );
+        $status{'studentTestResults'}->allTestsPass);
 
-    if ( $allStudentTestsMustPass
-         && $status{'studentTestResults'}->testsFailed > 0 )
+    if ($allStudentTestsMustPass
+        && $status{'studentTestResults'}->testsFailed > 0)
     {
         $status{'feedback'}->print(
             "<p><b class=\"warn\">All of your tests "
-                . "must pass for you to get further feedback.</b>\n" );
+            . "must pass for you to get further feedback.</b>\n");
     }
 
     # Transform the plain text JUnit results to an interactive HTML view.
     JavaTddPlugin::transformTestResults("student_",
-        "$log_dir/student-results.txt",
-        "$log_dir/student-results.html");
+        "$resultDir/student-results.txt",
+        "$resultDir/student-results.html");
 
-    open(STUDENTRESULTS, "$log_dir/student-results.html");
+    open(STUDENTRESULTS, "$resultDir/student-results.html");
     my @lines = <STUDENTRESULTS>;
     close(STUDENTRESULTS);
-    if ( $#lines >= 0 )
+    if ($#lines >= 0)
     {
         $status{'feedback'}->print(<<EOF);
 <p>The results of running your own test cases are shown below. Click on a
 failed test to see the reason for the failure and an execution trace that
 shows where the error occurred.</p>
 EOF
-        $status{'feedback'}->print( @lines );
+        $status{'feedback'}->print(@lines);
     }
-    unlink "$log_dir/student-results.html";
+    unlink "$resultDir/student-results.html";
 
-    @lines = linesFromFile( "$log_dir/student-out.txt" );
-    if ( $#lines >= 0 )
+    @lines = linesFromFile("$resultDir/student-out.txt");
+    if ($#lines >= 0)
     {
         $status{'feedback'}->startFeedbackSection(
             "Output from Your Tests", ++$expSectionId, 1, 2,
-            "<pre>", "</pre>" );
-        $status{'feedback'}->print( @lines );
+            "<pre>", "</pre>");
+        $status{'feedback'}->print(@lines);
         $status{'feedback'}->endFeedbackSection;
     }
 
     $status{'feedback'}->endFeedbackSection;
 
-    if ( $gradedElements > 0 ||
-         ( defined $status{'studentTestResults'}
-           && $status{'studentTestResults'}->testsExecuted > 0 ) )
+    if ($gradedElements > 0
+        || (defined $status{'studentTestResults'}
+            && $status{'studentTestResults'}->testsExecuted > 0))
     {
-        $codeCoveragePercent = ( $gradedElements == 0 ) ? 0
-          : int( ( $gradedElementsCovered / $gradedElements ) * 100.0 + 0.5 );
-        if ( $gradedElementsCovered < $gradedElements
-             && $codeCoveragePercent == 100 )
+        $codeCoveragePercent = ($gradedElements == 0)
+            ? 0
+            : int(($gradedElementsCovered / $gradedElements) * 100.0 + 0.5);
+        if ($gradedElementsCovered < $gradedElements
+            && $codeCoveragePercent == 100)
         {
             # Don't show 100% if some cases failed
             $codeCoveragePercent--;
         }
 
         $sectionTitle = "Code Coverage from Your Tests ";
-        if ( $gradedElements == 0 )
+        if ($gradedElements == 0)
         {
             $sectionTitle .= "<b class=\"warn\">(No Coverage!)</b>";
         }
-        elsif ( $gradedElements == $gradedElementsCovered )
+        elsif ($gradedElements == $gradedElementsCovered)
         {
             $sectionTitle .= "(100%)";
         }
         else
         {
-            $sectionTitle .=
-                "<b class=\"warn\">($codeCoveragePercent%)</b>";
+            $sectionTitle .= "<b class=\"warn\">($codeCoveragePercent%)</b>";
         }
 
         $status{'feedback'}->startFeedbackSection(
-            $sectionTitle, ++$expSectionId, 1 );
+            $sectionTitle, ++$expSectionId, 1);
 
-        $status{'feedback'}->print( "<p><b>Code Coverage: " );
-        if ( $codeCoveragePercent < 100 )
+        $status{'feedback'}->print("<p><b>Code Coverage: ");
+        if ($codeCoveragePercent < 100)
         {
             $status{'feedback'}->print(
-                "<b class=\"warn\">$codeCoveragePercent%</b>" );
+                "<b class=\"warn\">$codeCoveragePercent%</b>");
         }
         else
         {
-            $status{'feedback'}->print( "$codeCoveragePercent%" );
+            $status{'feedback'}->print("$codeCoveragePercent%");
         }
-        my $descr =
-            $cfg->getProperty( "statElementsLabel", "Methods Executed" );
+        my $descr = $cfg->getProperty("statElementsLabel", "Methods Executed");
         $descr =~ tr/A-Z/a-z/;
         $descr =~ s/\s*executed\s*$//;
-        $status{'feedback'}->print( <<EOF );
+        $status{'feedback'}->print(<<EOF);
 </b> (percentage of $descr exercised by your tests)</p>
 <p>You can improve your testing by looking for any
 <span style="background-color:#F0C8C8">lines highlighted in this color</span>
@@ -2118,22 +2122,22 @@ EOF
     }
 }
 
-if ( defined $status{'studentTestResults'}
-     && $status{'studentTestResults'}->hasResults )
+if (defined $status{'studentTestResults'}
+    && $status{'studentTestResults'}->hasResults)
 {
     $status{'studentTestResults'}->saveToCfg($cfg, 'student.test');
 }
-if ( defined $status{'instrTestResults'}
-     && $status{'instrTestResults'}->hasResults )
+if (defined $status{'instrTestResults'}
+    && $status{'instrTestResults'}->hasResults)
 {
     $status{'instrTestResults'}->saveToCfg($cfg, 'instructor.test');
 }
-if ( defined $messageStats)
+if (defined $messageStats)
 {
     my $staticResults = '';
     foreach my $grp (keys %{$messageStats})
     {
-        if ($grp eq 'file'
+        if (   $grp eq 'file'
             || $grp eq 'num'
             || $grp eq 'pts'
             || $grp eq 'collapse')
@@ -2143,7 +2147,7 @@ if ( defined $messageStats)
 
         foreach my $rule (keys(%{$messageStats->{$grp}}))
         {
-            if ($rule eq 'file'
+            if (   $rule eq 'file'
                 || $rule eq 'num'
                 || $rule eq 'pts'
                 || $rule eq 'collapse')
@@ -2169,17 +2173,17 @@ if ( defined $messageStats)
     $cfg->setProperty('static.analysis.results', '(' . $staticResults . ')');
 }
 $cfg->setProperty('outcomeProperties',
-                  '("instructor.test.results", "student.test.results", '
-                  . '"static.analysis.results")');
+    '("instructor.test.results", "student.test.results", '
+    . '"static.analysis.results")');
 
 
 #=============================================================================
 # generate reference test results
 #=============================================================================
-if ( defined $status{'instrTestResults'} )
+if (defined $status{'instrTestResults'})
 {
     my $sectionTitle = "Estimate of Problem Coverage ";
-    if ( $status{'instrTestResults'}->testsExecuted == 0
+    if ($status{'instrTestResults'}->testsExecuted == 0
         || ($studentsMustSubmitTests
             && !$status{'studentTestResults'}->hasResults))
     {
@@ -2187,54 +2191,53 @@ if ( defined $status{'instrTestResults'} )
             "<b class=\"warn\">(Unknown!)</b>";
         $instructorCasesPercent = "unknown";
     }
-    elsif ( $status{'instrTestResults'}->allTestsPass )
+    elsif ($status{'instrTestResults'}->allTestsPass)
     {
         $sectionTitle .= "(100%)";
         $instructorCasesPercent = 100;
     }
     else
     {
-        $instructorCasesPercent = int(
-            $status{'instrTestResults'}->testPassRate * 100.0 + 0.5 );
-        if ( $instructorCasesPercent == 100 )
+        $instructorCasesPercent =
+            int($status{'instrTestResults'}->testPassRate * 100.0 + 0.5);
+        if ($instructorCasesPercent == 100)
         {
             # Don't show 100% if some cases failed
             $instructorCasesPercent--;
         }
-        $sectionTitle .=
-            "<b class=\"warn\">($instructorCasesPercent%)</b>";
+        $sectionTitle .= "<b class=\"warn\">($instructorCasesPercent%)</b>";
     }
 
     $status{'feedback'}->startFeedbackSection(
-        $sectionTitle, ++$expSectionId, ($instructorCasesPercent >= 100) );
-    $status{'feedback'}->print( "<p><b>Problem coverage: " );
-    if ( $instructorCasesPercent == 100 )
+        $sectionTitle, ++$expSectionId, ($instructorCasesPercent >= 100));
+    $status{'feedback'}->print("<p><b>Problem coverage: ");
+    if ($instructorCasesPercent == 100)
     {
-        $status{'feedback'}->print( "100%" );
+        $status{'feedback'}->print("100%");
     }
     else
     {
         $status{'feedback'}->print(
-            "<b class=\"warn\">$instructorCasesPercent" );
-        if ( $instructorCasesPercent ne "unknown" )
+            "<b class=\"warn\">$instructorCasesPercent");
+        if ($instructorCasesPercent ne "unknown")
         {
-            $status{'feedback'}->print( "%" );
+            $status{'feedback'}->print("%");
         }
-        $status{'feedback'}->print( "</b>" );
+        $status{'feedback'}->print("</b>");
     }
-    $status{'feedback'}->print( "</b></p>" );
+    $status{'feedback'}->print("</b></p>");
 
 
-    if ( $status{'compileErrs'} ) # $instructorCases == 0
+    if ($status{'compileErrs'}) # $instructorCases == 0
     {
-        $status{'feedback'}->print( <<EOF );
+        $status{'feedback'}->print(<<EOF);
 <p><b class="warn">Web-CAT was unable to assess your test
 cases.</b></p>
 <p>For this assignment, the proportion of the problem that is covered by your
 EOF
-        if ( $studentsMustSubmitTests )
+        if ($studentsMustSubmitTests)
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 test cases is being assessed by running a suite of reference tests against
 your solution, and comparing the results of the reference tests against the
 results produced by your tests.</p>
@@ -2242,11 +2245,11 @@ EOF
         }
         else
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 solution is being assessed by running a suite of reference tests.</p>
 EOF
         }
-        $status{'feedback'}->print( <<EOF );
+        $status{'feedback'}->print(<<EOF);
 <p><b class="warn">Your code failed to compile correctly against
 the reference tests.</b></p>
 <p>This is most likely because you have not named your class(es)
@@ -2255,36 +2258,36 @@ methods, or have failed to use the required signature for a method.</p>
 <p>Failure to follow these constraints will prevent the proper assessment
 of your solution and your tests.</p>
 EOF
-        if ( $status{'compileMsgs'} ne "" )
+        if ($status{'compileMsgs'} ne "")
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 <p>The following specific error(s) were discovered while compiling
 reference tests against your submission:</p>
 </p>
 <pre>
 EOF
-            $status{'feedback'}->print( $status{'compileMsgs'} );
-            $status{'feedback'}->print( "</pre>\n" );
+            $status{'feedback'}->print($status{'compileMsgs'});
+            $status{'feedback'}->print("</pre>\n");
         }
     }
     elsif ($studentsMustSubmitTests
         && !$status{'studentTestResults'}->hasResults)
     {
-        $status{'feedback'}->print( <<EOF );
+        $status{'feedback'}->print(<<EOF);
 <p><b class="warn">You are required to write your own software tests
 for this assignment.  You must provide your own tests
 to get further feedback.</b></p>
 EOF
     }
-    elsif ( $status{'instrTestResults'}->allTestsFail )
+    elsif ($status{'instrTestResults'}->allTestsFail)
     {
-        $status{'feedback'}->print( <<EOF );
+        $status{'feedback'}->print(<<EOF);
 <p><b class="warn">Your problem setup does not appear to be
 consistent with the assignment.</b></p>
 EOF
-        if ( $studentsMustSubmitTests )
+        if ($studentsMustSubmitTests)
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 <p>For this assignment, the proportion of the problem that is covered by your
 test cases is being assessed by running a suite of reference tests against
 your solution, and comparing the results of the reference tests against the
@@ -2293,13 +2296,13 @@ EOF
         }
         else
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 <p>For this assignment, the proportion of the problem that is covered by your
 solution is being assessed by running a suite of reference tests against
 your solution.</p>
 EOF
         }
-        $status{'feedback'}->print( <<EOF );
+        $status{'feedback'}->print(<<EOF);
 <p>In this case, <b>none of the reference tests pass</b> on your solution,
 which may mean that your solution (and your tests) make incorrect assumptions
 about some aspect of the required behavior.
@@ -2309,14 +2312,14 @@ of your solution or your test cases.</p>
 requested in the assignment in setting up your solution.</p>
 EOF
     }
-    elsif ( $status{'instrTestResults'}->allTestsPass )
+    elsif ($status{'instrTestResults'}->allTestsPass)
     {
-        $status{'feedback'}->print( <<EOF );
+        $status{'feedback'}->print(<<EOF);
 <p>Your solution appears to cover all required behavior for this assignment.
 EOF
-        if ( $studentsMustSubmitTests )
+        if ($studentsMustSubmitTests)
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 Make sure that your tests cover all of the behavior required.</p>
 <p>For this assignment, the proportion of the problem that is covered by your
 test cases is being assessed by running a suite of reference tests against
@@ -2326,7 +2329,7 @@ EOF
         }
         else
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 </p><p>For this assignment, the proportion of the problem that is covered by
 your solution is being assessed by running a suite of reference tests against
 your solution.</p>
@@ -2335,9 +2338,9 @@ EOF
     }
     else
     {
-        if ( $studentsMustSubmitTests )
+        if ($studentsMustSubmitTests)
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 <p>For this assignment, the proportion of the problem that is covered by your
 test cases is being assessed by running a suite of reference tests against
 your solution, and comparing the results of the reference tests against the
@@ -2355,7 +2358,7 @@ EOF
         }
         else
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 <p>For this assignment, the proportion of the problem that is covered by your
 solution is being assessed by running a suite of reference tests against
 your solution.</p>
@@ -2366,20 +2369,20 @@ Your code appears to cover
 of the behavior required for this assignment.</p>
 EOF
         }
-        $status{'feedback'}->print( <<EOF );
+        $status{'feedback'}->print(<<EOF);
 <p>Double check that you have carefully followed all initial conditions
 requested in the assignment in setting up your solution, and that you
 have also met all requirements for a complete solution in the final
 state of your program.</p>
 EOF
     }
-    if ( $hintsLimit != 0 )
+    if ($hintsLimit != 0)
     {
         if ($studentsMustSubmitTests
-               && $hasJUnitErrors
-               && $junitErrorsHideHints)
+            && $hasJUnitErrors
+            && $junitErrorsHideHints)
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 <p>Your JUnit test classes contain <b class="warn">problems that must be
 fixed</b> before you can receive any more specific feedback.  Be sure that
 all of your test classes contain test methods, and that all of your test
@@ -2392,7 +2395,7 @@ EOF
                 || $gradedElementsCovered / $gradedElements * 100.0 <
                    $minCoverageLevel))
         {
-            $status{'feedback'}->print( <<EOF );
+            $status{'feedback'}->print(<<EOF);
 <p>Your JUnit test cases <b class="warn">do not exercise enough of your
 solution</b> for you to receive any more specific feedback.  Improve your
 testing by writing more test cases that exercise more of your solution's
@@ -2405,14 +2408,14 @@ EOF
         {
             my $hints = $status{'instrTestResults'}->formatHints(
                 0, $hintsLimit);
-            if ( defined $hints && $hints ne "" )
+            if (defined $hints && $hints ne "")
             {
                 my $extra = "";
-                if ( $studentsMustSubmitTests )
+                if ($studentsMustSubmitTests)
                 {
                     $extra = "and your testing ";
                 }
-                $status{'feedback'}->print( <<EOF );
+                $status{'feedback'}->print(<<EOF);
 <p>The following hint(s) may help you locate some ways in which your solution
 $extra may be improved:</p>
 $hints
@@ -2428,41 +2431,41 @@ EOF
     # Generate staff-targeted info
     {
         $status{'instrFeedback'}->startFeedbackSection(
-            "Detailed Reference Test Results", ++$expSectionId, 1 );
-        my $hints = $status{'instrTestResults'}->formatHints( 2 );
-        if ( defined $hints && $hints ne "" )
+            "Detailed Reference Test Results", ++$expSectionId, 1);
+        my $hints = $status{'instrTestResults'}->formatHints(2);
+        if (defined $hints && $hints ne "")
         {
-            $status{'instrFeedback'}->print( $hints );
-            $status{'instrFeedback'}->print( "\n");
+            $status{'instrFeedback'}->print($hints);
+            $status{'instrFeedback'}->print("\n");
         }
 
         # Transform the plain text JUnit results into an interactive HTML
         # view.
         JavaTddPlugin::transformTestResults("instr_",
-            "$log_dir/instr-results.txt",
-            "$log_dir/instr-results.html");
+            "$resultDir/instr-results.txt",
+            "$resultDir/instr-results.html");
 
-        open(INSTRRESULTS, "$log_dir/instr-results.html");
+        open(INSTRRESULTS, "$resultDir/instr-results.html");
         my @lines = <INSTRRESULTS>;
         close(INSTRRESULTS);
-        if ( $#lines >= 0 )
+        if ($#lines >= 0)
         {
             $status{'instrFeedback'}->print(<<EOF);
 <p>The results of running the instructor's reference test cases are shown
 below. Click on a failed test to see the reason for the failure and an
 execution trace that shows where the error occurred.</p>
 EOF
-            $status{'instrFeedback'}->print( @lines );
+            $status{'instrFeedback'}->print(@lines);
         }
-        unlink "$log_dir/instr-results.html";
+        unlink "$resultDir/instr-results.html";
 
-        @lines = linesFromFile( "$log_dir/instr-out.txt" );
-        if ( $#lines >= 0 )
+        @lines = linesFromFile("$resultDir/instr-out.txt");
+        if ($#lines >= 0)
         {
             $status{'instrFeedback'}->startFeedbackSection(
                 "Output from Reference Tests", ++$expSectionId, 1, 2,
-                "<pre>", "</pre>" );
-            $status{'instrFeedback'}->print( @lines );
+                "<pre>", "</pre>");
+            $status{'instrFeedback'}->print(@lines);
             $status{'instrFeedback'}->endFeedbackSection;
         }
         $status{'instrFeedback'}->endFeedbackSection;
@@ -2475,7 +2478,7 @@ EOF
 #=============================================================================
 
 my $beautifier = new Web_CAT::Beautifier;
-$beautifier->beautifyCwd( $cfg, \@beautifierIgnoreFiles );
+$beautifier->beautifyCwd($cfg, \@beautifierIgnoreFiles);
 
 
 #=============================================================================
@@ -2487,9 +2490,9 @@ my $staticScore  = $maxToolScore - $status{'toolDeductions'};
 
 # Second, the coverage/testing/correctness component
 my $runtimeScore = $runtimeScoreWithoutCoverage;
-if ( $studentsMustSubmitTests )
+if ($studentsMustSubmitTests)
 {
-    if ( $gradedElements > 0 )
+    if ($gradedElements > 0)
     {
         $runtimeScore *= $gradedElementsCovered / $gradedElements;
     }
@@ -2500,27 +2503,27 @@ if ( $studentsMustSubmitTests )
 }
 
 print "score with coverage: $runtimeScore ($gradedElementsCovered "
-    . "elements / $gradedElements covered)\n" if ( $debug > 2 );
+    . "elements / $gradedElements covered)\n" if ($debug > 2);
 
 # Total them up
 # my $rawScore = $can_proceed
-#     ? ( $staticScore + $runtimeScore )
+#     ? ($staticScore + $runtimeScore)
 #     : 0;
 
 
 #=============================================================================
 # generate score explanation for student
 #=============================================================================
-if ( $can_proceed && $studentsMustSubmitTests )
+if ($can_proceed && $studentsMustSubmitTests)
 {
-    my $scoreToTenths = int( $runtimeScore * 10 + 0.5 ) / 10;
-    my $possible = int( $maxCorrectnessScore * 10 + 0.5 ) / 10;
+    my $scoreToTenths = int($runtimeScore * 10 + 0.5) / 10;
+    my $possible = int($maxCorrectnessScore * 10 + 0.5) / 10;
     $status{'feedback'}->startFeedbackSection(
         "Interpreting Your Correctness/Testing Score "
         . "($scoreToTenths/$possible)",
         ++$expSectionId,
-        1 );
-    $status{'feedback'}->print( <<EOF );
+        1);
+    $status{'feedback'}->print(<<EOF);
 <table style="border:none">
 <tr><td><b>Results from running your tests:</b></td>
 <td class="n">$studentCasesPercent%</td></tr>
@@ -2545,12 +2548,12 @@ EOF
 #=============================================================================
 # generate collapsible section for class diagrams
 #=============================================================================
-if ( -d $diagrams and scalar <$diagrams/*> )
+if (-d $diagrams && scalar <$diagrams/*>)
 {
     $status{'feedback'}->startFeedbackSection(
         "Graphical Representation of Your Class Design",
-        ++$expSectionId );
-    $status{'feedback'}->print( <<EOF );
+        ++$expSectionId);
+    $status{'feedback'}->print(<<EOF);
 <p>The images below present a graphical representation of your
 solution's class design. An arrow pointing from <b>B</b> to
 <b>A</b> means that <b>B</b> extends/implements <b>A</b>. These
@@ -2586,12 +2589,12 @@ EOF
 # -----------
 {
     my $rptFile = $status{'feedback'};
-    if ( defined $rptFile )
+    if (defined $rptFile)
     {
         $rptFile->close;
-        if ( $rptFile->hasContent )
+        if ($rptFile->hasContent)
         {
-            addReportFileWithStyle( $cfg, $rptFile->fileName, 'text/html', 1 );
+            addReportFileWithStyle($cfg, $rptFile->fileName, 'text/html', 1);
         }
         else
         {
@@ -2604,12 +2607,13 @@ EOF
 # -----------
 {
     my $rptFile = $status{'instrFeedback'};
-    if ( defined $rptFile )
+    if (defined $rptFile)
     {
         $rptFile->close;
-        if ( $rptFile->hasContent )
+        if ($rptFile->hasContent)
         {
-            addReportFileWithStyle( $cfg, $rptFile->fileName, 'text/html', 1, 'staff' );
+            addReportFileWithStyle(
+                $cfg, $rptFile->fileName, 'text/html', 1, 'staff');
         }
         else
         {
@@ -2620,7 +2624,7 @@ EOF
 
 # PDF printout
 # -----------
-if ( -f $pdfPrintout )
+if (-f $pdfPrintout)
 {
     addReportFileWithStyle(
         $cfg,
@@ -2629,29 +2633,29 @@ if ( -f $pdfPrintout )
         1,
         undef,
         "false",
-        "PDF code printout" );
+        "PDF code printout");
 }
 
 # Script log
 # ----------
-if ( -f $scriptLog && stat( $scriptLog )->size > 0 )
+if (-f $scriptLog && stat($scriptLog)->size > 0)
 {
-    addReportFileWithStyle( $cfg, $scriptLogRelative, "text/plain", 0, "admin" );
-    addReportFileWithStyle( $cfg, $antLogRelative,    "text/plain", 0, "admin" );
+    addReportFileWithStyle($cfg, $scriptLogRelative, "text/plain", 0, "admin");
+    addReportFileWithStyle($cfg, $antLogRelative,    "text/plain", 0, "admin");
 }
 
-$cfg->setProperty( 'score.correctness', $runtimeScore );
-$cfg->setProperty( 'score.tools',       $staticScore  );
-$cfg->setProperty( 'expSectionId',      $expSectionId );
+$cfg->setProperty('score.correctness', $runtimeScore);
+$cfg->setProperty('score.tools',       $staticScore );
+$cfg->setProperty('expSectionId',      $expSectionId);
 $cfg->save();
 
-if ( $debug )
+if ($debug)
 {
     my $lasttime = time;
-    print "\n", ( $lasttime - $time1 ), " seconds total\n";
+    print "\n", ($lasttime - $time1), " seconds total\n";
     print "\nFinal properties:\n-----------------\n";
     my $props = $cfg->getProperties();
-    while ( ( my $key, my $value ) = each %{$props} )
+    while ((my $key, my $value) = each %{$props})
     {
         print $key, " => ", $value, "\n";
     }
@@ -2659,5 +2663,5 @@ if ( $debug )
 
 
 #-----------------------------------------------------------------------------
-exit( 0 );
+exit(0);
 #-----------------------------------------------------------------------------

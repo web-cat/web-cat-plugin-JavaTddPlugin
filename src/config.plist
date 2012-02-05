@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 3;
     version.minor    = 4;
-    version.revision = 4;
-    version.date     = 20120116;
+    version.revision = 5;
+    version.date     = 20120205;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -11,9 +11,11 @@
     provider.url     = "http://web-cat.cs.vt.edu/updates";
     license          = "GNU Affero General Public License v.3";
     license.url      = "http://www.gnu.org/licenses/agpl.html";
-    copyright        = "(c) 2006-2010 Virginia Tech Department of Computer Science";
-    info.url         = "http://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin";
-    history.url      = "http://web-cat.cs.vt.edu/WCWiki/JavaTddPlugin/ChangeHistory";
+    copyright        =
+        "(c) 2006-2012 Virginia Tech Department of Computer Science";
+    info.url         = "http://wiki.web-cat.org/WCWiki/JavaTddPlugin";
+    history.url      =
+        "http://wiki.web-cat.org/WCWiki/JavaTddPlugin/ChangeHistory";
     executable = execute.pl;
     interpreter.prefix = "${PerlForPlugins.perl.exe}";
     author     = "Stephen Edwards (edwards@cs.vt.edu)";
@@ -88,9 +90,9 @@
                             { value = 1.4; },
                             { value = 1.5; },
                             { value = 1.6; } );
-            disabled = true;
+            disabled    = true;
             name        = "Java Source Compatibility";
-         category    = "Java Settings";
+            category    = "Java Settings";
             description =
   "The Java source compatibility version to use when compiling student code
   (used with <code>javac's -source</code> command line argument).";
