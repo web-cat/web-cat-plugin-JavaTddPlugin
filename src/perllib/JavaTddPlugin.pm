@@ -146,11 +146,21 @@ The path and filename to which the generated HTML will be written.
 
     $stats->{'passes'} = ($stats->{'runs'} - $stats->{'failed'}
         - $stats->{'errors'});
-    $stats->{'pass_rate'} = 100 * $stats->{'passes'} / $stats->{'runs'};
-    $stats->{'failure_rate'} = 100 * $stats->{'failed'} / $stats->{'runs'};
-    $stats->{'error_rate'} = 100 * $stats->{'errors'} / $stats->{'runs'};
-    $stats->{'all_passed'} = ($stats->{'failed'} + $stats->{'errors'} == 0) ?
-        1 : 0;
+    if ($stats->{'runs'} == 0)
+    {
+        $stats->{'pass_rate'}    = 0;
+        $stats->{'failure_rate'} = 0;
+        $stats->{'error_rate'}   = 0;
+        $stats->{'all_passed'}   = 0;
+    }
+    else
+    {
+        $stats->{'pass_rate'} = 100 * $stats->{'passes'} / $stats->{'runs'};
+        $stats->{'failure_rate'} = 100 * $stats->{'failed'} / $stats->{'runs'};
+        $stats->{'error_rate'} = 100 * $stats->{'errors'} / $stats->{'runs'};
+        $stats->{'all_passed'} =
+            ($stats->{'failed'} + $stats->{'errors'} == 0) ? 1 : 0;
+    }
 
     close TESTRESULTS;
 
