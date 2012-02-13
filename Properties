@@ -1,5 +1,5 @@
 #This file is automatically rewritten by ANT.  Hand-edits may be lost.
-#Sun Feb 05 17:08:54 EST 2012
+#Mon Feb 13 13:23:50 EST 2012
 version.minor=4
 timeoutMultiplier=2
 license.url="http\://www.gnu.org/licenses/agpl.html"
@@ -11,10 +11,10 @@ interpreter.prefix="${PerlForPlugins.perl.exe}"
 languages=( { name \= Java; version \= 1.4
 autoPublish=true
 version.major=3
-version.date=20120205
+version.date=20120213
 timeoutInternalPadding=400
 provider="Virginia Tech Computer Science"
 authorUid=edwards
 provider.url="http\://web-cat.cs.vt.edu/updates"
-version.revision=5
+version.revision=6
 name="JavaTddPlugin"
