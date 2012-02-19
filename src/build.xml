@@ -11,6 +11,8 @@
   <property name="checkstyleConfigFile"
             value="${scriptHome}/checkstyle.xml"/>
   <property name="clover.initstring"    value="${resultDir}/coverage.db"/>
+  <property name="clover.includes"      value="**"/>
+  <property name="clover.excludes"      value="none"/>
   <property name="defaultJars"          value="${scriptHome}/defaultJars"/>
   <property name="enableAssertions"     value="-ea"/>
   <property name="enscriptStyle"        value="msvc"/>
@@ -368,7 +370,12 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   <extendclasspath path="${clover.dir}"/>
   <taskdef resource="clovertasks" classpath="${clover.dir}/lib/clover.jar"/>
   <target name="with.clover">
-    <clover-setup initString="${clover.initstring}"/>
+    <clover-setup initString="${clover.initstring}">
+        <fileset dir="."
+                 includes="${clover.includes}"
+        	     excludes="${clover.excludes}"
+                 casesensitive="false"/>
+  	</clover-setup>
   </target>
 
   <target name="instrument-code"
