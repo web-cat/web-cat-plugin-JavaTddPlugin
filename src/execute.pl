@@ -494,6 +494,7 @@ if ($debug)
         else
         {
             print "localFiles is a single file\n" if $debug;
+            $lf =~ tr/\\/\//;
             my $base = $lf;
             $base =~ s,/[^/]*$,,;
             copyHere($lf, $base, \@beautifierIgnoreFiles);
@@ -1508,7 +1509,10 @@ sub translateHTMLFile
             (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
             Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
             [^<>]*"[^<>]*>
-            (\s*[a-zA-Z_][a-zA-Z0-9_]*\s*.\s*printStackTrace\s*\([^<>()]*\)\s*;)
+            (\s*([a-zA-Z_][a-zA-Z0-9_]*\s*.\s*printStackTrace\s*\([^<>()]*\)\|
+            <span\sclass="keyword">throw</span>\s+
+            <span\sclass="keyword">new</span>\s+
+            [A-Z][a-zA-Z0-9_]*\s*\([^<>()]*\))\s*;)
             \s*</a>
             |$1"line$11$12$13$14$15|ixsg);
     }
