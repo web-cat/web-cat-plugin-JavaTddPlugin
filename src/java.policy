@@ -49,6 +49,9 @@ grant {
     permission java.net.SocketPermission "courses.cs.vt.edu", "connect";
     permission java.net.SocketPermission "moodle.cs.vt.edu", "connect";
     permission java.net.SocketPermission "csgrad.cs.vt.edu", "connect";
+    permission java.net.SocketPermission "web-cat.cs.vt.edu", "connect";
+    permission java.net.SocketPermission "web-cat.org", "connect";
+    permission java.net.SocketPermission "wiki.web-cat.org", "connect";
 
     // "standard" properies that can be read by anyone
 
