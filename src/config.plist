@@ -206,9 +206,25 @@
             description =
   "When set, this option requires students to test all catch blocks, including
   simple try/catch statements that are provided purely for compiler compliance
-  and that simply print a stack trace.  If unchecked, catch blocks that
-  contain only a statement to print the stack trace are not counted in
+  and that simply print a stack trace or re-throw the exception.  If unchecked,
+  catch blocks that contain only a statement to print the stack trace or
+  re-throw a wrapped version of the exception are not counted in
   coverage measurements, and do not result in point deductions.";
+        },
+        {
+            property    = requireSimpleGetterSetterCoverage;
+            type        = boolean;
+            default     = false;
+            name        = "Require Coverage of Simple Getters and Setters";
+            category    = "Test Case Settings";
+            description =
+  "When set, this option requires students to test all simple getter and
+  setter methods.  A simple getter is a method whose name starts with
+  \"get\", and whose body simply returns a field value.  A simple setter is
+  a void method whose name starts with \"set\" accepting one parameter, and
+  whose body simply assigns that parameter to a field.  If unchecked,
+  simple getters and setters are not counted in coverage measurements, and
+  do not result in point deductions.";
         },
         {
             property    = "clover.includes";

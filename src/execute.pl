@@ -149,6 +149,10 @@ my $requireSimpleExceptionCoverage =
     $cfg->getProperty('requireSimpleExceptionCoverage', 0);
 $requireSimpleExceptionCoverage =
     ($requireSimpleExceptionCoverage =~ m/^(true|on|yes|y|1)$/i);
+my $requireSimpleGetterSetterCoverage =
+    $cfg->getProperty('requireSimpleGetterSetterCoverage', 0);
+$requireSimpleGetterSetterCoverage =
+    ($requireSimpleGetterSetterCoverage =~ m/^(true|on|yes|y|1)$/i);
 my $junitErrorsHideHints =
     $cfg->getProperty('junitErrorsHideHints', 0);
 $junitErrorsHideHints =
@@ -1491,6 +1495,21 @@ sub translateHTMLFile
         \s*</a>
         |$1"line$2$3$4$5$6|ixsg);
 
+    # Now, "unhighlight" all the preventative null checks that were only
+    # executed true
+    my $executedNullCheckCount = ($allHtml =~ s|(<tr>
+        <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
+        <a[^<>]*>([^<>]*)</a>
+        (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+        Hilight(">\s*)<a[^<>]*title="[^<>]*true\s[1-9][0-9]*\stime(s?),
+        \sfalse\s0\stimes[^<>]*"[^<>]*>
+        (((?!</a>)[^\?])*
+        ([a-zA-Z_][a-zA-Z0-9_\.]*)\s*!=\s*
+        <span\sclass="keyword">null</span>\s*\?\s*\g{-1}[a-zA-Z0-9_\.]*
+        \s*:\s*<span\sclass="keyword">null</span>
+        ((?!</a>)[^\?])*)</a>
+        |$1"line$2$3$4$5$7|ixsg);
+
     # Now, handle simple exception handlers, if needed.
     my $simpleCatchBlocks = 0;
     if (!$requireSimpleExceptionCoverage)
@@ -1517,15 +1536,115 @@ sub translateHTMLFile
             |$1"line$11$12$13$14$15|ixsg);
     }
 
+    my $simpleGetters = 0;
+    my $simpleSetters = 0;
+    if (!$requireSimpleGetterSetterCoverage)
+    {
+        # First, handle 3-line getters
+        $simpleGetters = ($allHtml =~ s|(<tr>((?!</tr>).)*
+            <td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*method\snot\sentered
+            [^<>]*"[^<>]*>
+            (\s*<span\sclass="keyword">public</span>\s+
+            (<span\sclass="keyword">[a-zA-Z]+</span>\|[A-Za-z][a-zA-Z0-9_]*)
+            (?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s+
+            (get[A-Z][a-zA-Z0-9_]*)\s*\(\s*\))(?:\s*</a>
+            (((?!</tr>).)*</tr>\s*<tr>((?!</tr>).)*{)\|(\s*{)\s*</a>)
+            (((?!</tr>).)*</tr>\s*<tr>\s*
+            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            [^<>]*"[^<>]*>
+            (\s*<span\sclass="keyword">return</span>\s+
+            (?:[A-Za-z_][A-Za-z0-9_\.]+\|
+            <span\sclass="string">"[^"]*"</span>\|
+            <span\sclass="keyword">new</span>\s+Parser\s*\[\]\s*{}
+            );)\s*</a>
+            ((((?!</tr>).)*</tr>\s*(<tr>((?!</tr>).)*))?
+            })|$1"line$3$4$5$6$7$10$13$14"line$16$17$18$19$20$21|ixsg);
+
+        # Now 1-line getters
+        $simpleGetters += ($allHtml =~ s|(<tr>((?!</tr>).)*
+            <td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*method\snot\sentered
+            [^<>]*"[^<>]*>
+            (\s*<span\sclass="keyword">public</span>\s+
+            (<span\sclass="keyword">[a-zA-Z]+</span>\|[A-Za-z][a-zA-Z0-9_]*)
+            (?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s+
+            (get[A-Z][a-zA-Z0-9_]*)\s*\(\s*\)\s*{
+            \s*<span\sclass="keyword">return</span>\s+
+            (?:[A-Za-z_][A-Za-z0-9_\.]+\|
+            <span\sclass="string">"[^"]*"</span>);\s*})\s*</a>
+            |$1"line$3$4$5$6$7|ixsg);
+
+        # Now 3-line setters
+        $simpleSetters = ($allHtml =~ s|(<tr>((?!</tr>).)*
+            <td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*method\snot\sentered
+            [^<>]*"[^<>]*>
+            (\s*<span\sclass="keyword">public</span>\s+
+            <span\sclass="keyword">void</span>\s+
+            (set[A-Z][a-zA-Z0-9_]*)\s*\(\s*
+            (<span\sclass="keyword">[a-zA-Z]+</span>\|[A-Za-z][a-zA-Z0-9_]*)
+            (?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s+
+            [a-zA-Z_][a-zA-Z0-9_]*\s*\))
+            (?:\s*</a>
+            (((?!</tr>).)*</tr>\s*<tr>((?!</tr>).)*{)\|(\s*{)\s*</a>)
+            (((?!</tr>).)*</tr>\s*<tr>\s*
+            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            [^<>]*"[^<>]*>
+            (\s*[A-Za-z_][A-Za-z0-9_\.]+\s*=\s*
+            [A-Za-z_][A-Za-z0-9_]+;)\s*</a>
+            ((((?!</tr>).)*</tr>\s*(<tr>((?!</tr>).)*))?
+            })
+            |$1"line$3$4$5$6$7$10$13$14"line$16$17$18$19$20$21|ixsg);
+
+        # Now 1-line setters
+        $simpleSetters += ($allHtml =~ s|(<tr>((?!</tr>).)*
+            <td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*method\snot\sentered
+            [^<>]*"[^<>]*>
+            (\s*<span\sclass="keyword">public</span>\s+
+            <span\sclass="keyword">void</span>\s+
+            (set[A-Z][a-zA-Z0-9_]*)\s*\(\s*
+            (<span\sclass="keyword">[a-zA-Z]+</span>\|[A-Za-z][a-zA-Z0-9_]*)
+            (?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s+
+            [a-zA-Z_][a-zA-Z0-9_]*\s*\)\s*{
+            \s*[A-Za-z_][A-Za-z0-9_\.]+\s*=\s*
+            [A-Za-z_][A-Za-z0-9_]+;\s*})\s*</a>
+            |$1"line$3$4$5$6$7|ixsg);
+    }
+
     if ($debug)
     {
         print "\tFound $conditionCount uncovered assertions, with ",
             "$executedConditionCount partially executed.\n";
         print "\tFound $unexecutedFailCount unexecuted fail() statements.\n";
         print "\tFound $simpleCatchBlocks simple catch blocks.\n";
+        print "\tFound $simpleGetters simple getters.\n";
+        print "\tFound $simpleSetters simple setters.\n";
     }
 
-    if ($conditionCount || $unexecutedFailCount || $simpleCatchBlocks)
+    if ($conditionCount || $unexecutedFailCount || $simpleCatchBlocks
+        || $simpleGetters || $simpleSetters || $executedNullCheckCount)
     {
         if ($debug)
         {
@@ -1540,6 +1659,15 @@ sub translateHTMLFile
         $cloverData->{coverage}{project}{metrics}{coveredelements} -=
             $executedConditionCount;
 
+        $cloverData->{coverage}{project}{metrics}{conditionals} -=
+            2 * $executedNullCheckCount;
+        $cloverData->{coverage}{project}{metrics}{coveredconditionals} -=
+            $executedNullCheckCount;
+        $cloverData->{coverage}{project}{metrics}{elements} -=
+            2 * $executedNullCheckCount;
+        $cloverData->{coverage}{project}{metrics}{coveredelements} -=
+            $executedNullCheckCount;
+
         $cloverData->{coverage}{project}{metrics}{elements} -=
             $unexecutedFailCount;
         $cloverData->{coverage}{project}{metrics}{statements} -=
@@ -1549,6 +1677,13 @@ sub translateHTMLFile
             $simpleCatchBlocks;
         $cloverData->{coverage}{project}{metrics}{statements} -=
             $simpleCatchBlocks;
+
+        $cloverData->{coverage}{project}{metrics}{elements} -=
+            2 * ($simpleGetters + $simpleSetters);
+        $cloverData->{coverage}{project}{metrics}{methods} -=
+            $simpleGetters + $simpleSetters;
+        $cloverData->{coverage}{project}{metrics}{statements} -=
+            $simpleGetters + $simpleSetters;
 
         foreach my $pkg (@{ $cloverData->{coverage}{project}{package} })
         {
@@ -1579,6 +1714,13 @@ sub translateHTMLFile
 
                     $file->{metrics}{elements} -= $simpleCatchBlocks;
                     $file->{metrics}{statements} -= $simpleCatchBlocks;
+
+                    $file->{metrics}{elements} -=
+                        2 * ($simpleGetters + $simpleSetters);
+                    $file->{metrics}{methods} -=
+                        $simpleGetters + $simpleSetters;
+                    $file->{metrics}{statements} -=
+                        $simpleGetters + $simpleSetters;
                 }
             }
         }
