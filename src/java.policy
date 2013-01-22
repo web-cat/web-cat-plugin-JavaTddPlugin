@@ -1,4 +1,3 @@
-
 // Standard extensions get all permissions by default
 
 grant codeBase "file:${java.home}/lib/ext/*" {
@@ -23,6 +22,10 @@ grant {
     permission java.io.FilePermission "${scriptHome}${/}-", "read";
     permission java.io.FilePermission "${assignmentClassDir}${/}-", "read";
     permission java.io.FilePermission "${instructorClassDir}${/}-", "read";
+    permission java.util.logging.LoggingPermission "control";
+
+    // for JES
+    permission java.io.FilePermission "${user.home}${/}JESConfig.txt", "read";
 };
 
 // default permissions granted to all domains
@@ -52,6 +55,8 @@ grant {
     permission java.net.SocketPermission "web-cat.cs.vt.edu", "connect";
     permission java.net.SocketPermission "web-cat.org", "connect";
     permission java.net.SocketPermission "wiki.web-cat.org", "connect";
+    permission java.net.SocketPermission "google.com", "connect";
+    permission java.net.SocketPermission "www.google.com", "connect";
 
     // "standard" properies that can be read by anyone
 

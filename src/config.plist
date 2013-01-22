@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 3;
     version.minor    = 4;
-    version.revision = 6;
-    version.date     = 20120217;
+    version.revision = 8;
+    version.date     = 20130122;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -119,6 +119,21 @@
   across several assignments.  If you have multiple jars to provide,
   place them all in the same directory in your Web-CAT file space and
   then select the whole directory.";
+        },
+        {
+            property    = useXvfb;
+            type        = boolean;
+            default     = false;
+            name        = "Enable Xvfb During Test Execution";
+            category    = "Test Case Settings";
+            description =
+  "This option is necessary for running GUI software tests on Linux servers.
+  It uses an instance of Xvfb, the X virtual frame buffer server, to run
+  unit tests so that GUI tests can render to a live X server.  Note that
+  enabling this option will slow down test execution, since it takes time to
+  start up an X server, but it is required for GUI testing on a linux
+  server.  Also, this option requires that Xvfb is already installed on
+  the server.";
         },
         {
             property    = policyFile;
@@ -316,6 +331,32 @@
   patterns you list here will not be treated as executable test cases.
   Patterns are case-insensitive.  Use * as a wildcard character (ANT-style
   pattern matching is used).";
+        },
+        {
+            property    = student.testingsupport.junit4.AdaptiveTimeout.ceiling;
+            advanced    = true;
+            type        = double;
+            name        = "Default Test Case Time Limit (in ms)";
+            category    = "Test Case Settings";
+            description =
+  "If you (or students) are using <code>student.TestCase</code>, it provides
+  built-in adaptive detection and termination of infinite loops during
+  individual test cases.  This setting controls the default timeout before a
+  single test case is judged as \"taking too long\".  The default if unset is
+  ten seconds (10000 ms).";
+        },
+        {
+            property    = student.testingsupport.junit4.AdaptiveTimeout.maximum;
+            advanced    = true;
+            type        = double;
+            name        = "Default Test Case Maximum Time (in ms)";
+            category    = "Test Case Settings";
+            description =
+  "If you (or students) are using <code>student.TestCase</code>, it provides
+  built-in adaptive detection and termination of infinite loops during
+  individual test cases.  This setting controls the maximum allowable timeout
+  before a single test case is judged as \"taking too long\".  The default if
+  unset is twenty seconds (20000 ms).";
         },
         {
             property    = checkstyleConfig;

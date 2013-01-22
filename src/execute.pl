@@ -136,6 +136,13 @@ my $coverageMetric    = $cfg->getProperty('coverageMetric', 0);
 my $minCoverageLevel =
     $cfg->getProperty('minCoverageLevel', 0.0);
 
+my $useXvfb =
+    $cfg->getProperty('useXvfb', 0);
+$useXvfb = ($useXvfb =~ m/^(true|on|yes|y|1)$/i);
+if ($useXvfb)
+{
+    $ANT = 'xvfb-run -a -s "-c -screen 0 1280x1024x24" ' . $ANT;
+}
 my $allStudentTestsMustPass =
     $cfg->getProperty('allStudentTestsMustPass', 0);
 $allStudentTestsMustPass =
@@ -538,7 +545,7 @@ if ($callAnt)
         $status{'feedback'}->startFeedbackSection(
             "Errors During Testing", ++$expSectionId);
         $status{'feedback'}->print(<<EOF);
-p><b class="warn">Testing your solution exceeded the allowable time
+<p><b class="warn">Testing your solution exceeded the allowable time
 limit for this assignment.</b></p>
 <p>Most frequently, this is the result of <b>infinite recursion</b>--when
 a recursive method fails to stop calling itself--or <b>infinite
@@ -1505,13 +1512,16 @@ sub translateHTMLFile
         \sfalse\s0\stimes[^<>]*"[^<>]*>
         (((?!</a>)[^\?])*
         ([a-zA-Z_][a-zA-Z0-9_\.]*)\s*!=\s*
-        <span\sclass="keyword">null</span>\s*\?\s*\g{-1}[a-zA-Z0-9_\.]*
+        <span\sclass="keyword">null</span>\s*\?
+#        \s*\g{-1}\.[a-zA-Z_][a-zA-Z0-9_\.]*
+        \s*[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_\.]*
         \s*:\s*<span\sclass="keyword">null</span>
         ((?!</a>)[^\?])*)</a>
         |$1"line$2$3$4$5$7|ixsg);
 
     # Now, handle simple exception handlers, if needed.
     my $simpleCatchBlocks = 0;
+    my $noViableAltBlocks = 0;
     if (!$requireSimpleExceptionCoverage)
     {
         $simpleCatchBlocks = ($allHtml =~ s|(<tr>
@@ -1534,6 +1544,33 @@ sub translateHTMLFile
             [A-Z][a-zA-Z0-9_]*\s*\([^<>()]*\))\s*;)
             \s*</a>
             |$1"line$11$12$13$14$15|ixsg);
+
+        $noViableAltBlocks += (
+        #if (
+        $allHtml =~ s|(<tr>
+            ((?!</tr>).)*(?:<span\sclass="keyword">else</span>\s*{\|
+            <span\sclass="keyword">default</span>\s*:)((?!</tr>).)*
+            </tr>\s*<tr>\s*
+            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            [^<>]*"[^<>]*>
+            (\s*NoViableAltException\s+nvae\s+=)\s*</a>
+            (((?!</tr>).)*</tr>\s*<tr>\s*((?!</tr>).)*
+            <span\sclass="keyword">new</span>\s+NoViableAltException
+            \([^\)]*\)\s*;
+            ((?!</tr>).)*</tr>\s*<tr>\s*((?!</tr>).)*</tr>\s*<tr>\s*
+            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
+            (CountHilight">\s*)
+            <a[^<>]*>([^<>]*)</a>
+            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
+            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            [^<>]*"[^<>]*>
+            (\s*<span\sclass="keyword">throw</span>\s+nvae;)
+            \s*</a>
+            |$1"line$4$5$6$7$8$9"line$14$15$16$17$18|ixsg);
     }
 
     my $simpleGetters = 0;
@@ -1563,7 +1600,8 @@ sub translateHTMLFile
             (\s*<span\sclass="keyword">return</span>\s+
             (?:[A-Za-z_][A-Za-z0-9_\.]+\|
             <span\sclass="string">"[^"]*"</span>\|
-            <span\sclass="keyword">new</span>\s+Parser\s*\[\]\s*{}
+            <span\sclass="keyword">new</span>\s+
+            [A-Z][a-zA-Z0-9_]*Parser\s*\[\]\s*{}
             );)\s*</a>
             ((((?!</tr>).)*</tr>\s*(<tr>((?!</tr>).)*))?
             })|$1"line$3$4$5$6$7$10$13$14"line$16$17$18$19$20$21|ixsg);
@@ -1641,10 +1679,12 @@ sub translateHTMLFile
         print "\tFound $simpleCatchBlocks simple catch blocks.\n";
         print "\tFound $simpleGetters simple getters.\n";
         print "\tFound $simpleSetters simple setters.\n";
+        print "\tFound $noViableAltBlocks NoViableAltException blocks.\n";
     }
 
     if ($conditionCount || $unexecutedFailCount || $simpleCatchBlocks
-        || $simpleGetters || $simpleSetters || $executedNullCheckCount)
+        || $simpleGetters || $simpleSetters || $executedNullCheckCount
+        || $noViableAltBlocks)
     {
         if ($debug)
         {
@@ -1669,9 +1709,9 @@ sub translateHTMLFile
             $executedNullCheckCount;
 
         $cloverData->{coverage}{project}{metrics}{elements} -=
-            $unexecutedFailCount;
+            $unexecutedFailCount + 2 * $noViableAltBlocks;
         $cloverData->{coverage}{project}{metrics}{statements} -=
-            $unexecutedFailCount;
+            $unexecutedFailCount + 2 * $noViableAltBlocks;
 
         $cloverData->{coverage}{project}{metrics}{elements} -=
             $simpleCatchBlocks;
@@ -1709,8 +1749,10 @@ sub translateHTMLFile
                     $file->{metrics}{coveredelements} -=
                         $executedConditionCount;
 
-                    $file->{metrics}{elements} -= $unexecutedFailCount;
-                    $file->{metrics}{statements} -= $unexecutedFailCount;
+                    $file->{metrics}{elements} -=
+                        $unexecutedFailCount + 2 * $noViableAltBlocks;
+                    $file->{metrics}{statements} -=
+                        $unexecutedFailCount + 2 * $noViableAltBlocks;
 
                     $file->{metrics}{elements} -= $simpleCatchBlocks;
                     $file->{metrics}{statements} -= $simpleCatchBlocks;

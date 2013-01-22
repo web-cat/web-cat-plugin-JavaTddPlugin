@@ -105,11 +105,11 @@
     message="These two if statements should be combined into one using
      &amp;amp;&amp;amp;."/>
 
-  <rule ref="rulesets/basic.xml/UselessOverridingMethod"
+  <!-- rule ref="rulesets/basic.xml/UselessOverridingMethod"
     message="The body of this overriding method does not add any
-    behavior--it only calls the inherited version.  If you want the
+    behavior--><!--it only calls the inherited version.  If you want the
     method to behave differently than in the parent class, change the
-    body.  Otherwise, remove it from the subclass."/>
+    body.  Otherwise, remove it from the subclass."/ -->
 
   <rule ref="rulesets/basic.xml/ClassCastExceptionWithToArray"/>
   <rule ref="rulesets/basic.xml/AvoidDecimalLiteralsInBigDecimalConstructor"/>
@@ -118,7 +118,7 @@
   <rule ref="rulesets/basic.xml/MisplacedNullCheck"
     message="The null check in this condition is in the wrong place;
     if the variable is null, there will be a NullPointerException.
-    Consider re-ordering the expressions in your condition."/> 
+    Consider re-ordering the expressions in your condition."/>
 
   <rule ref="rulesets/basic.xml/UnusedNullCheckInEquals"
     message="After checking an object reference for null, you should

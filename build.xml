@@ -108,6 +108,8 @@
       <zipfileset src="src/defaultJars/student.jar">
         <include name="student/*Test*.class"/>
         <include name="student/testingsupport/"/>
+        <include name="tester/"/>
+        <include name="org/junit/"/>
       </zipfileset>
     </jar>
     <delete file="webcat-support-${full.version}.jar"/>

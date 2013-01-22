@@ -60,8 +60,10 @@
   </condition>
 
   <path id="build.classpath">
+    <pathelement location="${scriptHome}/JavaTddPluginSupport.jar"/>
     <fileset dir="${scriptHome}" casesensitive="false">
       <include name="*.jar"/>
+      <exclude name="JavaTddPluginSupport.jar"/>
     </fileset>
     <pathelement location="${instructorBuild}"/>
     <pathelement location="${assignmentClassFiles}"/>
@@ -270,6 +272,12 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-Dstudent.TestCase.trimStackTraces=false"/>
       <jvmarg value="-Xms512m"/>
       <jvmarg value="-Xmx512m"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.ceiling=${student.testingsupport.junit4.AdaptiveTimeout.ceiling}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.maximum=${student.testingsupport.junit4.AdaptiveTimeout.maximum}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.minimum=${student.testingsupport.junit4.AdaptiveTimeout.minimum}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.threshold=${student.testingsupport.junit4.AdaptiveTimeout.threshold}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampup=${student.testingsupport.junit4.AdaptiveTimeout.rampup}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampdown=${student.testingsupport.junit4.AdaptiveTimeout.rampdown}"/>
       <formatter
         classname="net.sf.webcat.plugins.javatddplugin.HintingJUnitResultFormatter"
         extension=".inc"/>
@@ -328,8 +336,14 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-DworkingDir=${workingDir}"/>
       <jvmarg value="-DassignmentClassDir=${assignmentClassDir}"/>
       <jvmarg value="-DinstructorClassDir=${instructorClassDir}"/>
-        <jvmarg value="-Xms512m"/>
-        <jvmarg value="-Xmx512m"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.ceiling=${student.testingsupport.junit4.AdaptiveTimeout.ceiling}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.maximum=${student.testingsupport.junit4.AdaptiveTimeout.maximum}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.minimum=${student.testingsupport.junit4.AdaptiveTimeout.minimum}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.threshold=${student.testingsupport.junit4.AdaptiveTimeout.threshold}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampup=${student.testingsupport.junit4.AdaptiveTimeout.rampup}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampdown=${student.testingsupport.junit4.AdaptiveTimeout.rampdown}"/>
+      <jvmarg value="-Xms512m"/>
+      <jvmarg value="-Xmx512m"/>
       <formatter
         classname="net.sf.webcat.plugins.javatddplugin.PerlScoringJUnitResultFormatter"
         extension=".inc"/>
