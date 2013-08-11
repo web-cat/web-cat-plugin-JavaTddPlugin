@@ -12,7 +12,7 @@
     license          = "GNU Affero General Public License v.3";
     license.url      = "http://www.gnu.org/licenses/agpl.html";
     copyright        =
-        "(c) 2006-2012 Virginia Tech Department of Computer Science";
+        "(c) 2006-2013 Virginia Tech Department of Computer Science";
     info.url         = "http://wiki.web-cat.org/WCWiki/JavaTddPlugin";
     history.url      =
         "http://wiki.web-cat.org/WCWiki/JavaTddPlugin/ChangeHistory";
@@ -335,7 +335,7 @@
         {
             property    = student.testingsupport.junit4.AdaptiveTimeout.ceiling;
             advanced    = true;
-            type        = double;
+            type        = integer;
             name        = "Default Test Case Time Limit (in ms)";
             category    = "Test Case Settings";
             description =
@@ -348,7 +348,7 @@
         {
             property    = student.testingsupport.junit4.AdaptiveTimeout.maximum;
             advanced    = true;
-            type        = double;
+            type        = integer;
             name        = "Default Test Case Maximum Time (in ms)";
             category    = "Test Case Settings";
             description =
@@ -381,6 +381,15 @@
   "An XML file containing a set of PMD rules (see the
   <a href=\"http://pmd.sourceforge.net/\" target=\"_new\">PMD
   documentation</a>).";
+        },
+        {
+            property    = use.comtor;
+            type        = antBoolean;
+            name        = "Run COMTOR Comment Analyzer";
+            category    = "Static Analysis";
+            description =
+  "Set to true to run the COMTOR Comment Analyzer and include the results
+  as part of the overall feedback report.";
         },
         {
             property    = staticAnalysisInclude;

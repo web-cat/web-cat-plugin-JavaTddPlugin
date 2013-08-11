@@ -8,7 +8,7 @@ grant codeBase "file:${ant.home}/-" {
     permission java.security.AllPermission;
 };
 
-grant codeBase "file:${scriptHome}/-" {
+grant codeBase "file:${pluginHome}/-" {
     permission java.security.AllPermission;
 };
 
@@ -19,7 +19,7 @@ grant {
     permission java.io.FilePermission
         "${workingDir}${/}-", "read,write,delete";
     permission java.io.FilePermission "${workingDir}", "read,write";
-    permission java.io.FilePermission "${scriptHome}${/}-", "read";
+    permission java.io.FilePermission "${pluginHome}${/}-", "read";
     permission java.io.FilePermission "${assignmentClassDir}${/}-", "read";
     permission java.io.FilePermission "${instructorClassDir}${/}-", "read";
     permission java.util.logging.LoggingPermission "control";

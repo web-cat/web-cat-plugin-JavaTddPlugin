@@ -104,7 +104,7 @@ $ENV{PATH} =
     "$ENV{ANT_HOME}" . $Web_CAT::Utilities::FILE_SEPARATOR . "bin"
     . $Web_CAT::Utilities::PATH_SEPARATOR . $ENV{PATH};
 
-my $ANT                 = "ant";
+my $ANT                 = "ant -logger org.apache.tools.ant.listener.ProfileLogger";
 my $callAnt             = 1;
 my $antLogRelative      = "ant.log";
 my $antLog              = "$resultDir/$antLogRelative";
@@ -277,6 +277,39 @@ sub setClassPatternIfNeeded
             $cfg->setProperty($outProperty, $pattern);
         }
     }
+}
+
+
+#=============================================================================
+# Turn include/exclude class names into file patterns
+#=============================================================================
+
+{
+    my $cloverIncludes = $cfg->getProperty('clover.includes', '**');
+    my @files = split(/[,\s]+/, $cloverIncludes);
+    for (my $i = 0; $i <= $#files; $i++)
+    {
+        if ($files[$i] !~ /\*/)
+        {
+            $files[$i] = '**/' . $files[$i] . '.*';
+        }
+    }
+    $cloverIncludes = join(' ', @files);
+    $cfg->setProperty('clover.includes', $cloverIncludes);
+}
+
+{
+    my $cloverExcludes = $cfg->getProperty('clover.excludes', '**');
+    my @files = split(/[,\s]+/, $cloverExcludes);
+    for (my $i = 0; $i <= $#files; $i++)
+    {
+        if ($files[$i] !~ /\*/)
+        {
+            $files[$i] = '**/' . $files[$i] . '.*';
+        }
+    }
+    $cloverExcludes = join(' ', @files);
+    $cfg->setProperty('clover.excludes', $cloverExcludes);
 }
 
 
@@ -2729,6 +2762,39 @@ points possible = $scoreToTenths</p>
 <p>Full-precision (unrounded) percentages are used to calculate
 your score, not the rounded numbers shown above.</p>
 EOF
+    $status{'feedback'}->endFeedbackSection;
+}
+
+
+#=============================================================================
+# Include COMTOR results, if any
+#=============================================================================
+if (-f "$resultDir/comtor.html")
+{
+    open(COMTORRESULTS, "$resultDir/comtor.html");
+    my @lines = <COMTORRESULTS>;
+    close(COMTORRESULTS);
+#    my $inBody = 0;
+    $status{'feedback'}->startFeedbackSection(
+        "COMTOR Comment Analysis", ++$expSectionId, 1);
+    $status{'feedback'}->print('<div class="comtor">');
+    $status{'feedback'}->print(@lines);
+#    foreach my $line (@lines)
+#    {
+#        if ($line =~ s/^.*<body>//io)
+#        {
+#            $inBody = 1;
+#        }
+#        if ($inBody)
+#        {
+#            if ($line =~ s/<\/body>.*$//io)
+#            {
+#               $inBody = 0;
+#            }
+#            $status{'feedback'}->print($line);
+#        }
+#    }
+    $status{'feedback'}->print('</div>');
     $status{'feedback'}->endFeedbackSection;
 }
 

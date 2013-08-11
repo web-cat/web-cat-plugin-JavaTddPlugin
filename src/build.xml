@@ -6,24 +6,24 @@
 
   <property environment="env"/>
 
-  <property name="assignmentClassDir"   value="${scriptHome}/empty"/>
-  <property name="assignmentClassFiles" value="${scriptHome}/empty"/>
+  <property name="assignmentClassDir"   value="${pluginHome}/empty"/>
+  <property name="assignmentClassFiles" value="${pluginHome}/empty"/>
   <property name="checkstyleConfigFile"
-            value="${scriptHome}/checkstyle.xml"/>
+            value="${pluginHome}/checkstyle.xml"/>
   <property name="clover.initstring"    value="${resultDir}/coverage.db"/>
   <property name="clover.includes"      value="**"/>
   <property name="clover.excludes"      value="none"/>
-  <property name="defaultJars"          value="${scriptHome}/defaultJars"/>
+  <property name="defaultJars"          value="${pluginHome}/defaultJars"/>
   <property name="enableAssertions"     value="-ea"/>
   <property name="enscriptStyle"        value="msvc"/>
   <property name="instr.results.dir"    value="${resultDir}/instr.results"/>
   <property name="instructorBuild"      value="${resultDir}/instructorbin"/>
-  <property name="instructorClassDir"   value="${scriptHome}/empty"/>
-  <property name="instructorClassFiles" value="${scriptHome}/empty"/>
-  <property name="javaPolicyFile"       value="${scriptHome}/java.policy"/>
+  <property name="instructorClassDir"   value="${pluginHome}/empty"/>
+  <property name="instructorClassFiles" value="${pluginHome}/empty"/>
+  <property name="javaPolicyFile"       value="${pluginHome}/java.policy"/>
   <property name="javaSourceVersion"    value="1.5"/>
   <property name="PDF.dest"             value="${resultDir}/${userName}.pdf"/>
-  <property name="pmdConfigFile"        value="${scriptHome}/pmd.xml"/>
+  <property name="pmdConfigFile"        value="${pluginHome}/pmd.xml"/>
   <property name="psfile"               value="${resultDir}/${userName}.ps"/>
   <property name="security.manager"     value="java.security.manager"/>
   <property name="studentBuild"         value="${resultDir}/studentbin"/>
@@ -32,7 +32,7 @@
   <property name="diagrams.dir"         value="${publicDir}/diagrams"/>
 
   <!-- These are for reference tests -->
-  <property name="testCasePath"                 value="${scriptHome}/tests"/>
+  <property name="testCasePath"                 value="${pluginHome}/tests"/>
   <property name="testCasePattern"              value="**/*.java"/>
   <property name="refTestClassPattern"          value="**/*.class"/>
   <property name="refTestClassExclusionPattern" value="none"/>
@@ -60,8 +60,8 @@
   </condition>
 
   <path id="build.classpath">
-    <pathelement location="${scriptHome}/JavaTddPluginSupport.jar"/>
-    <fileset dir="${scriptHome}" casesensitive="false">
+    <pathelement location="${pluginHome}/JavaTddPluginSupport.jar"/>
+    <fileset dir="${pluginHome}" casesensitive="false">
       <include name="*.jar"/>
       <exclude name="JavaTddPluginSupport.jar"/>
     </fileset>
@@ -91,7 +91,7 @@
   </path>
 
   <path id="pmd.classpath">
-    <pathelement location="${scriptHome}"/>
+    <pathelement location="${pluginHome}"/>
     <fileset dir="${pmd.lib}" casesensitive="false">
       <include name="**/*.jar"/>
     </fileset>
@@ -199,7 +199,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
           if="generateDiagrams">
 
     <!-- Fill in the doxygen configuration template with the correct paths -->
-    <copy file="${scriptHome}/doxygen.config.template"
+    <copy file="${pluginHome}/doxygen.config.template"
           tofile="${basedir}/doxygen.config">
       <filterchain>
         <replacetokens>
@@ -266,6 +266,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-Dant.home=${ant.home}"/>
       <jvmarg value="-DresultDir=${resultDir}"/>
       <jvmarg value="-DscriptHome=${scriptHome}"/>
+      <jvmarg value="-DpluginHome=${pluginHome}"/>
       <jvmarg value="-DworkingDir=${workingDir}"/>
       <jvmarg value="-DassignmentClassDir=${assignmentClassDir}"/>
       <jvmarg value="-DinstructorClassDir=${instructorClassDir}"/>
@@ -333,6 +334,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-Dant.home=${ant.home}"/>
       <jvmarg value="-DresultDir=${resultDir}"/>
       <jvmarg value="-DscriptHome=${scriptHome}"/>
+      <jvmarg value="-DpluginHome=${pluginHome}"/>
       <jvmarg value="-DworkingDir=${workingDir}"/>
       <jvmarg value="-DassignmentClassDir=${assignmentClassDir}"/>
       <jvmarg value="-DinstructorClassDir=${instructorClassDir}"/>
@@ -465,6 +467,68 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
+  <taskdef name="httpmpost"
+    classname="net.sf.fikin.ant.httpclientanttask.AntMultipartPostMethod">
+    <classpath>
+      <pathelement location="${pluginHome}/fikin-ant-1.7.4.jar"/>
+      <pathelement location="${pluginHome}/commons-httpclient-3.1.jar"/>
+      <pathelement location="${pluginHome}/commons-codec-1.6.jar"/>
+      <pathelement location="${pluginHome}/commons-logging-1.1.1.jar"/>
+    </classpath>
+  </taskdef>
+
+
+  <macrodef name="comtor">
+    <attribute name="apiKey" description="The COMTOR web service API key"/>
+    <attribute name="destfile" description="The file to write the output to"/>
+    <attribute name="responseFormat"
+      default="html"
+      description="The format of output for COMTOR to generate"/>
+    <attribute name="userId" default=""
+      description="A unique identifier for the author of these files"/>
+    <attribute name="institution" default=""
+      description="A unique identifier for home institution of the author of the files"/>
+    <attribute name="violationsOnly" default="true"
+      description="Should the COMTOR report show violations only, or also successful checks"/>
+    <element name="files" implicit="true"/>
+    <sequential>
+      <jar destfile="${resultDir}/comtorupload.jar">
+        <files/>
+      </jar>
+      <httpmpost url="http://54.225.226.33:8080/apiServ/submit"
+        logFile="@{destfile}"
+        logLevel="content"
+        shutdown="true"
+        failOnError="false"
+        retryAttempts="2"
+        >
+        <postString name="apikey" value="@{apiKey}"/>
+        <postString name="response_type" value="http"/>
+        <postString name="response_format" value="@{responseFormat}"/>
+        <postString name="interface_client" value="webcat"/>
+        <postString name="webcat_uuid" value="@{userId}"/>
+        <postString name="webcat_institution" value="@{institution}"/>
+        <postString name="violations_only" value="@{violationsOnly}"/>
+        <postFile name="jarfile" file="${resultDir}/comtorupload.jar"
+          contentType="application/java-archive"/>
+      </httpmpost>
+      <delete file="${resultDir}/comtorupload.jar" failonerror="false"/>
+    </sequential>
+  </macrodef>
+
+
+  <target name="run.comtor" if="use.comtor">
+    <comtor
+      apiKey="378eca93ed0e950bc93b4cd04ced32159fd995a08253dd0088e53030f141b881"
+      destfile="${resultDir}/comtor.html"
+      userId="${userName}"
+      institution="${userInstitution}">
+      <fileset dir="src" includes="**/*.java"/>
+      <fileset dir="." includes="**/*.java" excludes="src/"/>
+    </comtor>
+  </target>
+
+
   <target name="final-clean"
           unless="doNotDelete"
           description="removes unnecessary derived files">
@@ -484,6 +548,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
   <target name="run"
           depends="clean, instructor-test, clover-report, checkstyle,
-                   pmd, generate-pdf, generate-diagrams, final-clean"/>
+                   pmd, run.comtor, generate-pdf, generate-diagrams,
+  	               final-clean"/>
 
 </project>

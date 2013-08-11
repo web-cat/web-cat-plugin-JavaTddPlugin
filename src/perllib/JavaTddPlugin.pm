@@ -15,6 +15,9 @@ getting too large.
 
 #========================================================================
 
+use Web_CAT::Utilities
+    qw(htmlEscape);
+
 #========================================================================
 #                      -----  PUBLIC METHODS -----
 #========================================================================
@@ -251,10 +254,11 @@ EOF
             if ($test->{'reason'})
             {
                 my $blockId = $prefix . "junit_test_" . $suite->{'name'} . "_" . $test->{'name'} . "_block";
+                my $reason = htmlEscape($test->{'reason'});
 
                 print HTML "<ul id=\"$blockId\" style=\"display: none\">\n";
                 print HTML "<li><img src=\"$resPath/junit-icons/exception.gif\"/>";
-                print HTML "<span class=\"junit-title junit-trace-reason\">$test->{'reason'}</span></li>\n";
+                print HTML "<span class=\"junit-title junit-trace-reason\">$reason</span></li>\n";
 
                 for my $trace (@{$test->{'trace'}})
                 {
@@ -269,6 +273,7 @@ EOF
                         print HTML "&nbsp;&nbsp;&nbsp;&nbsp;";
                     }
 
+                    $trace = htmlEscape($trace);
                     print HTML "<span class=\"junit-title\">$trace</span></li>\n";
                 }
 

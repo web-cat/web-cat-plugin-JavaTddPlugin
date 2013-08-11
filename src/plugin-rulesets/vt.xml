@@ -253,4 +253,36 @@
       </example>
       </rule>
 
+      <rule name="ProhibitedGreenfootImport"
+            message="Do not import greenfoot.* packages or classes, since they are not available under Android."
+            class="net.sourceforge.pmd.rules.XPathRule"
+        externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#ProhibitedGreenfootImport">
+        <description>
+        When using Greenfoot4Sofia, do not import any greenfoot.* packages
+        or classes, since these are not intended for use by user projects
+        and are completely unavailable under Android.
+        </description>
+        <properties>
+        <property name="xpath">
+            <value>
+  <![CDATA[
+    //ImportDeclaration/Name[starts-with(@Image, 'greenfoot.')]
+    [//ImportDeclaration/Name[starts-with(@Image, 'sofia.') or @Image='sofia']]
+  ]]>
+            </value>
+        </property>
+        </properties>
+        <priority>2</priority>
+
+      <example>
+  <![CDATA[
+  import greenfoot.sofiainternal.*;
+  public class FooClass
+  {
+      // ...
+  }
+  ]]>
+      </example>
+      </rule>
+
 </ruleset>
