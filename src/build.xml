@@ -10,9 +10,7 @@
   <property name="assignmentClassFiles" value="${pluginHome}/empty"/>
   <property name="checkstyleConfigFile"
             value="${pluginHome}/checkstyle.xml"/>
-  <property name="clover.initstring"    value="${resultDir}/coverage.db"/>
-  <property name="clover.includes"      value="**"/>
-  <property name="clover.excludes"      value="none"/>
+  <property name="jacoco.db"            value="${resultDir}/jacoco.db"/>
   <property name="defaultJars"          value="${pluginHome}/defaultJars"/>
   <property name="enableAssertions"     value="-ea"/>
   <property name="enscriptStyle"        value="msvc"/>
@@ -61,26 +59,23 @@
 
   <path id="build.classpath">
     <pathelement location="${pluginHome}/JavaTddPluginSupport.jar"/>
-    <fileset dir="${pluginHome}" casesensitive="false">
+    <fileset dir="${pluginHome}">
       <include name="*.jar"/>
       <exclude name="JavaTddPluginSupport.jar"/>
     </fileset>
     <pathelement location="${instructorBuild}"/>
     <pathelement location="${assignmentClassFiles}"/>
-    <fileset dir="${assignmentClassDir}" casesensitive="false">
+    <fileset dir="${assignmentClassDir}">
       <include name="**/*.jar"/>
     </fileset>
     <pathelement location="${instructorClassFiles}"/>
-    <fileset dir="${instructorClassDir}" casesensitive="false">
+    <fileset dir="${instructorClassDir}">
       <include name="**/*.jar"/>
     </fileset>
-    <fileset dir="${defaultJars}" casesensitive="false">
+    <fileset dir="${defaultJars}">
       <include name="**/*.jar"/>
     </fileset>
-    <pathelement location="${clover.dir}"/>
-    <fileset dir="${clover.dir}" casesensitive="false">
-      <include name="**/*.jar"/>
-    </fileset>
+    <fileset dir="${pluginHome}/jacoco" includes="jacocoagent.jar"/>
     <pathelement location="${studentBuild}"/>
     <pathelement location="${basedir}"/>
   </path>
@@ -127,14 +122,16 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     </echo>
   </target>
 
-  <target name="clean"
+
+  <target name="initial.clean"
           depends="debug.output"
           description="removes compiled classes">
     <delete includeEmptyDirs="true">
       <fileset dir="${resultDir}" casesensitive="false">
-        <include name="bin/"/>
-         <include name="clover_report/"/>
-        <include name="coverage.db*"/>
+        <include name="studentbin/"/>
+        <include name="studentbin.raw/"/>
+        <include name="instructorbin/"/>
+        <include name="jacoco*"/>
         <include name="pmd*"/>
         <include name="checkstyle*"/>
       </fileset>
@@ -146,7 +143,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     </delete>
   </target>
 
-  <target name="syntax-check"
+
+  <target name="compile"
           description="compiles all the student code using javac">
     <mkdir dir="${instructorBuild}"/>
     <mkdir dir="${studentBuild}"/>
@@ -154,99 +152,36 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            destdir="${studentBuild}"
            verbose="off"
            deprecation="on"
-           debug="on"
+           debug="true"
            debuglevel="lines,vars,source"
     	   includeAntRuntime="false"
       >
-      <!-- source="${javaSourceVersion}" -->
       <classpath refid="build.classpath"/>
       <compilerarg value="-Xlint:unchecked"/>
     </javac>
   </target>
 
-  <target name="generate-pdf"
-          description="generates a pdf printout of student's source code"
-          if="generatePDF">
-    <apply executable="enscript"
-           failonerror="false"
-           parallel="true"
-           skipemptyfilesets="true"
-           forwardslash="true">
-      <arg value="--fancy-header=enscript2"/>
-      <arg value="-C"/>
-      <arg value="--pretty-print"/>
-      <arg value="--style=${enscriptStyle}"/>
-      <arg value="--color"/>
-      <arg value="-H3"/>
-      <arg value="--mark-wrapped-lines=arrow"/>
-      <arg value="--continuous-page-numbers"/>
-      <arg value="--media=Letter"/>
-      <arg value="--header=user: ${userName}"/>
-      <arg value="-p${psfile}"/>
-      <fileset dir="." casesensitive="false">
-        <include name="**/*.java"/>
-      </fileset>
-    </apply>
-    <exec executable="bash" failonerror="false">
-      <arg value="ps2pdf"/>
-      <arg value="${psfile}"/>
-      <arg value="${PDF.dest}"/>
-    </exec>
-    <delete file="${psfile}"/>
-  </target>
 
-  <target name="generate-diagrams"
-          description="generates class diagrams from the student's source code"
-          if="generateDiagrams">
-
-    <!-- Fill in the doxygen configuration template with the correct paths -->
-    <copy file="${pluginHome}/doxygen.config.template"
-          tofile="${basedir}/doxygen.config">
-      <filterchain>
-        <replacetokens>
-          <token key="doxygenInputDir" value="${basedir}"/>
-          <token key="doxygenOutputDir" value="${basedir}/doxygen"/>
-          <token key="doxygenDotDir" value="${dotDir}"/>
-        </replacetokens>
-      </filterchain>
-    </copy>
-
-    <!-- Run the doxygen tool -->
-    <exec executable="${doxygenDir}/doxygen" failonerror="false">
-      <arg value="${basedir}/doxygen.config"/>
-    </exec>
-
-    <!-- Copy the generated class diagram images into the result dir -->
-    <mkdir dir="${diagrams.dir}"/>
-    <copy todir="${diagrams.dir}">
-      <fileset dir="${basedir}/doxygen/html" includes="inherit__graph__*.png"/>
-    </copy>
-
-    <!-- Delete the Doxygen generated files from the working dir so they
-         don't all get copied into the result dir -->
-    <delete dir="${basedir}/doxygen"/>
-  </target>
-
-  <target name="compile-instructor-tests"
-          depends="syntax-check"
+  <target name="compile.instructor.tests"
+          depends="compile"
           description="compile all of the instructor-provided unit tests">
     <javac srcdir="${testCasePath}"
            destdir="${instructorBuild}"
            verbose="off"
            failonerror="false"
-           debug="on"
+           debug="true"
            debuglevel="lines,vars,source"
            casesensitive="no"
            includes="${testCasePattern}"
            includeAntRuntime="false"
     	>
-    <!-- source="${javaSourceVersion}" -->
       <classpath refid="build.classpath"/>
     </javac>
   </target>
 
-  <target name="instructor-test"
-            depends="compile-instructor-tests"
+
+  <target name="instructor.test"
+            depends="compile.instructor.tests"
         description="runs all instructor-provided tests">
     <mkdir dir="${instr.results.dir}"/>
     <junit printsummary="off"
@@ -259,11 +194,11 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <classpath refid="build.classpath"/>
       <jvmarg value="${enableAssertions}"/>
       <jvmarg value="-D${security.manager}"/>
-        <!--jvmarg value="-Dabbot.robot.verify=false"/-->
-        <jvmarg value="-Dabbot.robot.mode=awt"/>
-        <!--jvmarg value="-Dabbot.robot.event_post_delay=200"/>
-        <jvmarg value="-Dabbot.robot.auto_delay=100"/>
-        <jvmarg value="-Dstudent.TestCase.trimStackTraces=false"/-->
+      <!--jvmarg value="-Dabbot.robot.verify=false"/-->
+      <jvmarg value="-Dabbot.robot.mode=awt"/>
+      <!--jvmarg value="-Dabbot.robot.event_post_delay=200"/>
+      <jvmarg value="-Dabbot.robot.auto_delay=100"/>
+      <jvmarg value="-Dstudent.TestCase.trimStackTraces=false"/-->
       <jvmarg value="-Djava.security.policy==file:${javaPolicyFile}"/>
       <jvmarg value="-DProfilingSecurityManager.output=${resultDir}/instr-permissions.txt"/>
       <jvmarg value="-Dant.home=${ant.home}"/>
@@ -274,7 +209,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-DassignmentClassDir=${assignmentClassDir}"/>
       <jvmarg value="-DinstructorClassDir=${instructorClassDir}"/>
       <jvmarg value="-Dstudent.TestCase.trimStackTraces=false"/>
-      <jvmarg value="-Xms512m"/>
+      <jvmarg value="-Xms128m"/>
       <jvmarg value="-Xmx512m"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.ceiling=${student.testingsupport.junit4.AdaptiveTimeout.ceiling}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.maximum=${student.testingsupport.junit4.AdaptiveTimeout.maximum}"/>
@@ -316,7 +251,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <delete dir="${instr.results.dir}"/>
   </target>
 
+
   <target name="test"
+    	  depends="instrument.code"
           description="runs all student tests">
     <mkdir dir="${student.results.dir}"/>
     <junit printsummary="off"
@@ -347,8 +284,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.threshold=${student.testingsupport.junit4.AdaptiveTimeout.threshold}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampup=${student.testingsupport.junit4.AdaptiveTimeout.rampup}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampdown=${student.testingsupport.junit4.AdaptiveTimeout.rampdown}"/>
-      <jvmarg value="-Xms512m"/>
+      <jvmarg value="-Xms128m"/>
       <jvmarg value="-Xmx512m"/>
+      <sysproperty key="jacoco-agent.destfile" file="${jacoco.db}"/>
       <formatter
         classname="net.sf.webcat.plugins.javatddplugin.PerlScoringJUnitResultFormatter"
         extension=".inc"/>
@@ -383,61 +321,47 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <delete dir="${student.results.dir}"/>
   </target>
 
-  <taskdef resource="com/cenqua/ant/antlib.xml"
-           classpath="${clover.dir}/etc/cenquatasks.jar"/>
-  <extendclasspath path="${clover.dir}/lib/clover.jar"/>
-  <extendclasspath path="${clover.dir}"/>
-  <taskdef resource="clovertasks" classpath="${clover.dir}/lib/clover.jar"/>
-  <target name="with.clover">
-    <clover-setup initString="${clover.initstring}">
-        <fileset dir="."
-                 includes="${clover.includes}"
-        	     excludes="${clover.excludes}"
-                 casesensitive="false"/>
-  	</clover-setup>
-  </target>
 
-  <target name="instrument-code"
-          depends="with.clover"
-          description="recompile code with clover instrumentation">
-    <mkdir dir="${studentBuild}"/>
-    <mkdir dir="${instructorBuild}"/>
-    <delete>
-      <fileset dir="${studentBuild}" includes="**/*"/>
-      <fileset dir="${instructorBuild}" includes="**/*"/>
+  <target name="instrument.code"
+          depends="compile"
+          description="add JaCoCo instrumentation to student code">
+    <delete includeemptydirs="true" quiet="true">
+      <fileset dir="${instructorBuild}/"/>
+      <fileset dir="${studentBuild}.raw/"/>
     </delete>
-    <javac srcdir="${basedir}"
-           destdir="${studentBuild}"
-           verbose="off"
-           debug="on"
-           debuglevel="lines,vars,source"
-           source="1.5"
-           includeAntRuntime="false"
-    	>
-      <classpath refid="build.classpath"/>
-      <compilerarg value="-Xlint:-options"/>
-    </javac>
+  	<move file="${studentBuild}" tofile="${studentBuild}.raw"/>
+    <mkdir dir="${studentBuild}"/>
+    <taskdef resource="org/jacoco/ant/antlib.xml">
+      <classpath path="${pluginHome}/jacoco/jacocoant.jar"/>
+    </taskdef>
+    <instrument destdir="${studentBuild}">
+      <fileset dir="${studentBuild}.raw" includes="**/*.class"/>
+    </instrument>
   </target>
 
-  <target name="clover-report"
-          depends="instrument-code, test"
-          description="generate clover coverage report">
-    <clover-report>
-      <current outfile="${resultDir}/clover"
-               title="clover report"
-               alwaysReport="true">
-        <format type="html"/>
-      </current>
-    </clover-report>
-    <clover-report>
-      <current outfile="${resultDir}/clover.xml"
-               title="clover report"
-               alwaysReport="true"/>
-    </clover-report>
+
+  <target name="jacoco.report"
+          depends="instrument.code, test"
+          description="generate JaCoCo coverage report">
+    <report>
+      <executiondata>
+        <file file="${jacoco.db}"/>
+      </executiondata>
+      <structure name="JaCoCo">
+        <classfiles>
+          <fileset dir="${studentBuild}.raw"/>
+        </classfiles>
+        <sourcefiles encoding="UTF-8">
+          <fileset dir="${basedir}"/>
+        </sourcefiles>
+      </structure>
+      <xml destfile="${resultDir}/jacoco.xml"/>
+    </report>
   </target>
+
 
   <target name="checkstyle"
-          depends="syntax-check">
+          depends="compile">
     <taskdef resource="checkstyletask.properties"
          classpathref="checkstyle.classpath"/>
     <checkstyle config="${checkstyleConfigFile}"
@@ -454,7 +378,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            style="checkstyle.xsl"/ -->
   </target>
 
-  <target name="pmd" depends="syntax-check">
+
+  <target name="pmd" depends="compile">
     <taskdef name="pmd"
              classname="net.sourceforge.pmd.ant.PMDTask"
              classpathref="pmd.classpath"/>
@@ -535,14 +460,80 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
-  <target name="final-clean"
+  <target name="generate.pdf"
+          description="generates a pdf printout of student's source code"
+          if="generatePDF">
+    <apply executable="enscript"
+           failonerror="false"
+           parallel="true"
+           skipemptyfilesets="true"
+           forwardslash="true">
+      <arg value="--fancy-header=enscript2"/>
+      <arg value="-C"/>
+      <arg value="--pretty-print"/>
+      <arg value="--style=${enscriptStyle}"/>
+      <arg value="--color"/>
+      <arg value="-H3"/>
+      <arg value="--mark-wrapped-lines=arrow"/>
+      <arg value="--continuous-page-numbers"/>
+      <arg value="--media=Letter"/>
+      <arg value="--header=user: ${userName}"/>
+      <arg value="-p${psfile}"/>
+      <fileset dir="." casesensitive="false">
+        <include name="**/*.java"/>
+      </fileset>
+    </apply>
+    <exec executable="bash" failonerror="false">
+      <arg value="ps2pdf"/>
+      <arg value="${psfile}"/>
+      <arg value="${PDF.dest}"/>
+    </exec>
+    <delete file="${psfile}"/>
+  </target>
+
+
+  <target name="generate.diagrams"
+          description="generates class diagrams from the student's source code"
+          if="generateDiagrams">
+
+    <!-- Fill in the doxygen configuration template with the correct paths -->
+    <copy file="${pluginHome}/doxygen.config.template"
+          tofile="${basedir}/doxygen.config">
+      <filterchain>
+        <replacetokens>
+          <token key="doxygenInputDir" value="${basedir}"/>
+          <token key="doxygenOutputDir" value="${basedir}/doxygen"/>
+          <token key="doxygenDotDir" value="${dotDir}"/>
+        </replacetokens>
+      </filterchain>
+    </copy>
+
+    <!-- Run the doxygen tool -->
+    <exec executable="${doxygenDir}/doxygen" failonerror="false">
+      <arg value="${basedir}/doxygen.config"/>
+    </exec>
+
+    <!-- Copy the generated class diagram images into the result dir -->
+    <mkdir dir="${diagrams.dir}"/>
+    <copy todir="${diagrams.dir}">
+      <fileset dir="${basedir}/doxygen/html" includes="inherit__graph__*.png"/>
+    </copy>
+
+    <!-- Delete the Doxygen generated files from the working dir so they
+         don't all get copied into the result dir -->
+    <delete dir="${basedir}/doxygen"/>
+  </target>
+
+
+  <target name="final.clean"
           unless="doNotDelete"
           description="removes unnecessary derived files">
-    <delete includeEmptyDirs="true">
+    <delete includeEmptyDirs="true" quiet="true">
       <fileset dir="${resultDir}" casesensitive="false">
         <include name="studentbin/"/>
+        <include name="studentbin.raw/"/>
         <include name="instructorbin/"/>
-        <include name="coverage.db*"/>
+        <include name="jacoco.db"/>
       </fileset>
     </delete>
   </target>
@@ -553,8 +544,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
        ============================================================ -->
 
   <target name="run"
-          depends="clean, instructor-test, clover-report, checkstyle,
-                   pmd, run.comtor, generate-pdf, generate-diagrams,
-  	               final-clean"/>
+          depends="initial.clean, instructor.test, jacoco.report,
+  	               checkstyle, pmd, run.comtor,
+  	               generate.pdf, generate.diagrams, final.clean"/>
 
 </project>
