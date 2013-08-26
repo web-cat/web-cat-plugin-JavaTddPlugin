@@ -409,7 +409,7 @@ public class HintOptions
         if ( hintPriority == null )
         {
             return ( parent == null )
-                ? 0
+                ? Integer.MAX_VALUE
                 : parent.hintPriority();
         }
         return hintPriority;
