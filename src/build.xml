@@ -156,6 +156,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            deprecation="on"
            debug="on"
            debuglevel="lines,vars,source"
+    	   includeAntRuntime="false"
       >
       <!-- source="${javaSourceVersion}" -->
       <classpath refid="build.classpath"/>
@@ -236,7 +237,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            debug="on"
            debuglevel="lines,vars,source"
            casesensitive="no"
-           includes="${testCasePattern}">
+           includes="${testCasePattern}"
+           includeAntRuntime="false"
+    	>
     <!-- source="${javaSourceVersion}" -->
       <classpath refid="build.classpath"/>
     </javac>
@@ -408,7 +411,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            verbose="off"
            debug="on"
            debuglevel="lines,vars,source"
-           source="1.5">
+           source="1.5"
+           includeAntRuntime="false"
+    	>
       <classpath refid="build.classpath"/>
       <compilerarg value="-Xlint:-options"/>
     </javac>
@@ -456,8 +461,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <pmd rulesetfiles="${pmdConfigFile}"
          failonerror="false"
          failOnRuleViolation="false"
-         targetjdk="1.5">
-      <classpath refid="pmd.classpath"/>
+    >
+      <sourceLanguage name="java" version="1.7"/>
+      <auxclasspath refid="build.classpath"/>
       <formatter type="xml" toFile="${resultDir}/pmd_report.xml"/>
       <fileset dir="${basedir}"
                casesensitive="false"
@@ -470,10 +476,10 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   <taskdef name="httpmpost"
     classname="net.sf.fikin.ant.httpclientanttask.AntMultipartPostMethod">
     <classpath>
-      <pathelement location="${pluginHome}/fikin-ant-1.7.4.jar"/>
-      <pathelement location="${pluginHome}/commons-httpclient-3.1.jar"/>
-      <pathelement location="${pluginHome}/commons-codec-1.6.jar"/>
-      <pathelement location="${pluginHome}/commons-logging-1.1.1.jar"/>
+      <fileset dir="${pluginHome}/fikin" casesensitive="false">
+        <include name="*.jar"/>
+      </fileset>
+      <pathelement location="${pluginHome}/defaultJars/commons-codec-1.6.jar"/>
     </classpath>
   </taskdef>
 
@@ -495,7 +501,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jar destfile="${resultDir}/comtorupload.jar">
         <files/>
       </jar>
-      <httpmpost url="http://54.225.226.33:8080/apiServ/submit"
+      <httpmpost url="http://dev.comtor.org:8080/apiServ/submit"
         logFile="@{destfile}"
         logLevel="content"
         shutdown="true"

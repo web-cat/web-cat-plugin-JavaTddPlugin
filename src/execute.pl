@@ -104,7 +104,7 @@ $ENV{PATH} =
     "$ENV{ANT_HOME}" . $Web_CAT::Utilities::FILE_SEPARATOR . "bin"
     . $Web_CAT::Utilities::PATH_SEPARATOR . $ENV{PATH};
 
-my $ANT                 = "ant -logger org.apache.tools.ant.listener.ProfileLogger";
+my $ANT                 = "ant";
 my $callAnt             = 1;
 my $antLogRelative      = "ant.log";
 my $antLog              = "$resultDir/$antLogRelative";
@@ -560,7 +560,14 @@ my $time1        = time;
 
 if ($callAnt)
 {
-    if ($debug > 2) { $ANT .= " -d -v"; }
+    if ($debug > 2)
+    {
+        $ANT .= " -d -v";
+        if ($debug > 5)
+        {
+            $ANT .= " -logger org.apache.tools.ant.listener.ProfileLogger";
+        }
+    }
     my $cmdline = $Web_CAT::Utilities::SHELL
         . "$ANT -f \"$pluginHome/build.xml\" -l \"$antLog\" "
         . "-propertyfile \"$propfile\" \"-Dbasedir=$workingDir\" "
@@ -1090,10 +1097,25 @@ sub trackMessageInstance
         * $toolDeductionScaleFactor;
     my $overLimit = 0;
 
+    if (!$violation->{line}->content
+      && $violation->{endline}->content)
+    {
+        print "missing line for $rule\n";
+        $violation->{line} = $violation->{endline}->content;
+    }
+
     if ($debug > 1)
     {
         print "tracking $group, $rule, $fileName, ",
-        $violation->{line}->content, "\n";
+            $violation->{line}->content, "\n";
+        print "line defined = ", (defined $violation->{line}), "\n";
+        print "content defined = ", (defined $violation->{line}->content),
+            " = '", $violation->{line}->content,
+            "'\n";
+        print "endline defined = ", (defined $violation->{endline}), "\n";
+        print "content defined = ", (defined $violation->{endline}->content),
+            " = '", $violation->{endline}->content,
+            "'\n";
     }
     if ($group eq "testing")
     {
@@ -1288,7 +1310,7 @@ if (!$buildFailed) # $can_proceed)
                 {
                     my $rule = $violation->{source}->content;
                     $rule =~
-                        s/^com\.puppycrawl\.tools\.checkstyle\.checks\.//o;
+                        s/^com\.puppycrawl\.tools\.checkstyle\.checks.*\.//o;
                     $rule =~ s/Check$//o;
                     $violation->{rule} = $rule;
                     delete $violation->{source};

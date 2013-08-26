@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <ruleset name="Virginia Tech Rules"
-    xmlns="http://pmd.sf.net/ruleset/1.0.0"
+    xmlns="http://pmd.sf.net/ruleset/2.0.0"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
-    xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+    xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
 
   <description>
     Contains custom PMD rules written at Virginia Tech, mostly
@@ -11,9 +10,11 @@
   </description>
 
     <rule name="JUnit3TestsHaveAssertions"
-          message="A test case method should use one or more 'assert...()' methods to check that the desired behavior is actually occurring."
-          class="net.sourceforge.pmd.rules.XPathRule"
-      externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnit3TestsHaveAssertions">
+          language="java"
+          message="A test case method should use one or more 'assert...()'
+          methods to check that the desired behavior is actually occurring."
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+      externalInfoURL="http://wiki.web-cat.org/WCWiki/PmdRules/VtRules#JUnit3TestsHaveAssertions">
       <description>
       All JUnit test methods should contain at least one assertion.
       </description>
@@ -28,12 +29,8 @@
           or @Image = 'fail' or contains(@Image,'.fail')] )]
 [ancestor::ClassOrInterfaceDeclaration[
     count( ExtendsList[
-        ClassOrInterfaceType/@Image='TestCase'
-        or ClassOrInterfaceType/@Image='GUITestCase'
-        or ClassOrInterfaceType/@Image='junit.framework.TestCase'
-        or ClassOrInterfaceType/@Image='student.TestCase'
-        or ClassOrInterfaceType/@Image='student.GUITestCase']
-    ) = 1
+        ClassOrInterfaceType[ends-with(@Image, 'TestCase')]]
+    ) > 0
     ]]
                 ]]>
             </value>
@@ -52,8 +49,9 @@
       </rule>
 
     <rule name="JUnit4TestsHaveAssertions"
+          language="java"
           message="A test case method should use one or more 'assert...()' methods to check that the desired behavior is actually occurring."
-          class="net.sourceforge.pmd.rules.XPathRule"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
       externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnit4TestsHaveAssertions">
       <description>
       All JUnit 4.x test methods should contain at least one assertion.
@@ -87,8 +85,11 @@
       </rule>
 
     <rule name="JUnit3ConstantAssertion"
-          message="This assertion uses only values known at compile time, so it cannot test any useful behavior exhibited by your code at run-time."
-          class="net.sourceforge.pmd.rules.XPathRule"
+          language="java"
+          message="This assertion uses only values known at compile time, so
+          it cannot test any useful behavior exhibited by your code at
+          run-time."
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
       externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
       <description>
       All assertEquals() or assertTrue() assertions in JUnit test methods
@@ -110,12 +111,8 @@
   PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryExpression/PrimaryPrefix[@Label='this'])]
   [ancestor::ClassOrInterfaceDeclaration[
     count( ExtendsList[
-        ClassOrInterfaceType/@Image='TestCase'
-        or ClassOrInterfaceType/@Image='GUITestCase'
-        or ClassOrInterfaceType/@Image='junit.framework.TestCase'
-        or ClassOrInterfaceType/@Image='student.TestCase'
-        or ClassOrInterfaceType/@Image='student.GUITestCase']
-    ) = 1
+        ClassOrInterfaceType[ends-with(@Image, 'TestCase')]]
+    ) > 0
     ]]
                 ]]>
             </value>
@@ -137,8 +134,11 @@
       </rule>
 
     <rule name="JUnit4ConstantAssertion"
-          message="This assertion uses only values known at compile time, so it cannot test any useful behavior exhibited by your code at run-time."
-          class="net.sourceforge.pmd.rules.XPathRule"
+          language="java"
+          message="This assertion uses only values known at compile time, so
+          it cannot test any useful behavior exhibited by your code at
+          run-time."
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
       externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitConstantAssertion">
       <description>
       All assertEquals() or assertTrue() assertions in JUnit 4.x test methods
@@ -183,8 +183,9 @@
       </rule>
 
     <rule name="JUnitTestClassNeedsTestCase"
+          language="java"
           message="This JUnit test class does not contain any actual tests."
-          class="net.sourceforge.pmd.rules.XPathRule"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
       externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#JUnitTestClassNeedsTestCase">
       <description>
       All JUnit test classes should contain a test method.
@@ -195,12 +196,8 @@
                 <![CDATA[
 //ClassOrInterfaceDeclaration[
     count( ExtendsList[
-        ClassOrInterfaceType/@Image='TestCase'
-        or ClassOrInterfaceType/@Image='GUITestCase'
-        or ClassOrInterfaceType/@Image='junit.framework.TestCase'
-        or ClassOrInterfaceType/@Image='student.TestCase'
-        or ClassOrInterfaceType/@Image='student.GUITestCase']
-    ) = 1
+        ClassOrInterfaceType[ends-with(@Image, 'TestCase')]]
+    ) > 0
     ][
   not(descendant::MethodDeclaration[
     starts-with(MethodDeclarator/@Image, 'test')])]
@@ -219,11 +216,13 @@
   }
   ]]>
       </example>
-      </rule>
+    </rule>
 
-      <rule name="FormalParametersNeedMeaningfulNames"
-            message="A formal parameter has been left with its auto-generated default name instead of a more meaningful name."
-            class="net.sourceforge.pmd.rules.XPathRule"
+    <rule name="FormalParametersNeedMeaningfulNames"
+          language="java"
+          message="A formal parameter has been left with its auto-generated
+          default name instead of a more meaningful name."
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
         externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#FormalParametersNeedMeaningfulNames">
         <description>
         When using a development environment that can auto-generate empty
@@ -251,11 +250,13 @@
   }
   ]]>
       </example>
-      </rule>
+    </rule>
 
-      <rule name="ProhibitedGreenfootImport"
-            message="Do not import greenfoot.* packages or classes, since they are not available under Android."
-            class="net.sourceforge.pmd.rules.XPathRule"
+    <rule name="ProhibitedGreenfootImport"
+          language="java"
+          message="Do not import greenfoot.* packages or classes, since
+          they are not available under Android."
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
         externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#ProhibitedGreenfootImport">
         <description>
         When using Greenfoot4Sofia, do not import any greenfoot.* packages
@@ -283,6 +284,6 @@
   }
   ]]>
       </example>
-      </rule>
+    </rule>
 
 </ruleset>

@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <ruleset name="JavaTddPlugin PMD Rules"
-     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="../etc/ruleset_xml_schema.xml">
+    xmlns="http://pmd.sf.net/ruleset/2.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
   <description>
 The JavaTddPlugin PMD Rules ruleset contains the full collection of
 checks we expect all of our students to follow at Virginia Tech.  It
@@ -23,11 +24,16 @@ rules.
   <rule ref="plugin-rulesets/braces.xml"/>
   <!-- clone.xml -->
   <rule ref="plugin-rulesets/codesize.xml"/>
+  <!--
   <rule ref="plugin-rulesets/controversial.xml"/>
+  -->
+  <rule ref="rulesets/java/controversial.xml/SuspiciousOctalEscape"/>
+  <rule ref="rulesets/java/controversial.xml/AvoidAccessibilityAlteration"/>
   <!-- coupling.xml -->
   <rule ref="plugin-rulesets/design.xml"/>
+  <rule ref="plugin-rulesets/empty.xml"/>
   <!-- favorites.xml -->
-  <rule ref="rulesets/finalizers.xml"/>
+  <!-- finalizers.xml" -->
   <rule ref="plugin-rulesets/imports.xml"/>
   <!-- j2ee.xml -->
   <!-- javabeans.xml -->
@@ -46,10 +52,10 @@ rules.
   <rule ref="plugin-rulesets/strictexception.xml"/>
   <rule ref="plugin-rulesets/strings.xml"/>
   <!-- sunsecure.xml -->
+  <rule ref="plugin-rulesets/unnecessary.xml"/>
   <rule ref="plugin-rulesets/unusedcode.xml"/>
   <!-- basic-jsp.xml -->
   <!-- basic-jsf.xml -->
   <rule ref="plugin-rulesets/vt.xml"/>
-  <rule ref="plugin-rulesets/dickinson.xml"/>
 
 </ruleset>
