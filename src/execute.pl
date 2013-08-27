@@ -26,7 +26,7 @@ use Web_CAT::Utilities
 use XML::Smart;
 #use Data::Dump qw(dump);
 
-my @beautifierIgnoreFiles = ('.java');
+my @beautifierIgnoreFiles = ();
 
 
 #=============================================================================
@@ -238,16 +238,16 @@ sub setClassPatternIfNeeded
     my $outExtension = $useJavaExtension ? ".java"  : ".class";
 
     my $value = $cfg->getProperty($inProperty);
-    if (defined $value && $value ne "")
+    if (defined $value && $value ne '')
     {
-        my $wantAllDirs = ($value !~ m,/,);
         my $pattern = undef;
         foreach my $include (split(/[,\s]+/, $value))
         {
-            if (defined($include) && $include ne "")
+            if (defined($include) && $include ne '')
             {
                 if ($include !~ m/^none$/io)
                 {
+                    $include =~ s,\\,/,go;
                     if ($include =~ /\./)
                     {
                         $include =~ s/\Q$inExtension\E$/$outExtension/i;
@@ -256,7 +256,7 @@ sub setClassPatternIfNeeded
                     {
                         $include .= $outExtension;
                     }
-                    if ($wantAllDirs)
+                    if (!$include =~ m,^\*\*/,o)
                     {
                         $include = "**/$include";
                     }
@@ -630,7 +630,7 @@ if ($can_proceed)
     $antLogOpen++;
 
     $_ = <ANTLOG>;
-    scanTo(qr/^(syntax-check|BUILD FAILED)/);
+    scanTo(qr/^(compile:|BUILD FAILED)/);
     $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
     $_ = <ANTLOG>;
     scanThrough(qr/^\s*\[(?!javac\])/);
@@ -726,7 +726,7 @@ EOF
 #=============================================================================
     if ($can_proceed)
     {
-        scanTo(qr/^(compile-instructor-tests:|BUILD FAILED)/);
+        scanTo(qr/^(compile\.instructor\.tests:|BUILD FAILED)/);
         $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
         $_ = <ANTLOG>;
         scanThrough(qr/^\s*($|\[javac\](?!\s+Compiling))/);
@@ -774,7 +774,7 @@ EOF
             $_ = <ANTLOG>;
         }
 
-        scanTo(qr/^((instructor-)?test(.?):|BUILD FAILED)/);
+        scanTo(qr/^((instructor\.)?test(.?):|BUILD FAILED)/);
         $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
         if (m/^instructor-/)
         {
@@ -1100,7 +1100,6 @@ sub trackMessageInstance
     if (!$violation->{line}->content
       && $violation->{endline}->content)
     {
-        print "missing line for $rule\n";
         $violation->{line} = $violation->{endline}->content;
     }
 
@@ -1409,7 +1408,7 @@ if (!$status{'studentHasSrcs'})
 #=============================================================================
 # translate html
 #=============================================================================
-my %cloveredClasses    = ();
+my %coveredClasses    = ();
 my %classToFileNameMap = ();
 my %classToMarkupNoMap = ();
 my %fileToMarkupNoMap  = ();
@@ -1434,7 +1433,7 @@ sub translateHTMLFile
         $sourceName = $classToFileNameMap{$className};
     }
     # print "class name = $className\n";
-    $cloveredClasses{$className} = 1;
+    $coveredClasses{$className} = 1;
 
     my @comments = ();
     if (defined $messages{$sourceName})
@@ -1945,70 +1944,86 @@ print "score with student tests: $runtimeScoreWithoutCoverage\n"
 #=============================================================================
 # post-process generated HTML files
 #=============================================================================
-my $clover = XML::Smart->new("$resultDir/clover.xml");
-if (!$buildFailed) # $can_proceed)
-{
-    # Figure out mapping from class names to file names
-    my $Uprojdir = $workingDir . "/";
-    foreach my $pkg (@{ $clover->{coverage}{project}{package} })
-    {
-        my $pkgName = $pkg->{name}->content;
-        # print "package: ", $pkg->{name}->content, "\n";
-        foreach my $file (@{ $pkg->{file} })
-        {
-            # print "\tclass: ", $file->{class}->{name}->content, "\n";
-            my $className = $file->{class}->{name}->content;
-            if (!defined($className) || $className eq "") { next; }
-            my $fqClassName = $className;
-            my $fileName = $file->{name}->content;
-            $fileName =~ s,\\,/,go;
-            $fileName =~ s/^\Q$Uprojdir\E//io;
-            if ($pkgName ne "default-pkg")
-            {
-                $fqClassName = $pkgName . ".$className";
-            }
-            $classToFileNameMap{$fqClassName} = $fileName;
-        }
-    }
+my $jacoco  = XML::Smart->new("$resultDir/jacoco.xml");
+# %codeMarkupIds is a map from file names to codeMarkup numbers
+my %codeMarkupIds = ();
 
-    # Delete unneeded files from the clover/ html dir
-    if (-d "$resultDir/clover")
-    {
-        processCloverDir("$resultDir/clover",
-            !defined($status{'studentTestResults'})
-                || !$status{'studentTestResults'}->hasResults
-                || !$status{'studentTestResults'}->testsExecuted,
-            $clover);
-    }
+# %codeMessages is a hash like this:
+# {
+#   filename1 => {
+#                  <line num> => {
+#                                   category => coverage,
+#                                   coverage => "...",
+#                                   message  => "..."
+#                                },
+#                  <line num> => { ...
+#                                },
+#                },
+#   filename2 => { ...
+#                },
+# }
+my %codeMessages = ();
+
+#if (!$buildFailed) # $can_proceed)
+#{
+#    # Figure out mapping from class names to file names
+#    my $Uprojdir = $workingDir . "/";
+#    foreach my $pkg (@{ $jacoco->{report}{package} })
+#    {
+#        my $pkgName = $pkg->{name}->content;
+#        print "package: ", $pkg->{name}->content, "\n";
+#        if ($pkgName ne '')
+#        {
+#            $pkgName =~ s,\\,/,go;
+#            $pkgName .= '/';
+#        }
+#        foreach my $file (@{ $pkg->{sourcefile} })
+#        {
+#            my $fileName = $pkgName . $file->{name}->content;
+##            $classToFileNameMap{$fqClassName} = $fileName;
+#             print "\tfile: $fileName\n";
+#        }
+#    }
+#    $buildFailed = 1;
+#
+#    # Delete unneeded files from the clover/ html dir
+#    if (-d "$resultDir/clover")
+#    {
+#        processCloverDir("$resultDir/clover",
+#            !defined($status{'studentTestResults'})
+#                || !$status{'studentTestResults'}->hasResults
+#                || !$status{'studentTestResults'}->testsExecuted,
+#            $jacoco);
+#    }
 
     # If any classes in the default package, move them to correct place
-    my $defPkgDir = "$resultDir/clover/default-pkg";
-    if (-d $defPkgDir)
-    {
-        for my $file (<$defPkgDir/*>)
-        {
-            my $newLoc = $file;
-            if ($newLoc =~ s,/default-pkg/,/,o)
-            {
-                rename($file, $newLoc);
-            }
-        }
-        if (!rmdir($defPkgDir))
-        {
-            adminLog("cannot delete empty directory '$defPkgDir': $!");
-        }
-    }
-
-    if ($debug > 1)
-    {
-        print "Clover'ed classes (from HTML):\n";
-        foreach my $class (keys %cloveredClasses)
-        {
-            print "\t$class\n";
-        }
-        print "\n";
-    }
-}
+#    my $defPkgDir = "$resultDir/clover/default-pkg";
+#    if (-d $defPkgDir)
+#    {
+#        for my $file (<$defPkgDir/*>)
+#        {
+#            my $newLoc = $file;
+#            if ($newLoc =~ s,/default-pkg/,/,o)
+#            {
+#                rename($file, $newLoc);
+#            }
+#        }
+#        if (!rmdir($defPkgDir))
+#        {
+#            adminLog("cannot delete empty directory '$defPkgDir': $!");
+#        }
+#    }
+#
+#    if ($debug > 1)
+#    {
+#        print "Clover'ed classes (from HTML):\n";
+#        foreach my $class (keys %coveredClasses)
+#        {
+#            print "\t$class\n";
+#        }
+#        print "\n";
+#    }
+#}
 
 my $time6 = time;
 if ($debug)
@@ -2021,45 +2036,60 @@ if (!$buildFailed) # $can_proceed)
 {
     my $numCodeMarkups = $cfg->getProperty('numCodeMarkups', 0);
     my $ptsPerUncovered = 0.0;
-    if ($runtimeScoreWithoutCoverage > 0 &&
-        $clover->{coverage}{project}{metrics}{methods} > 0)
+    my $methodCounter = $jacoco->{report}{counter}('type', 'eq', 'METHOD');
+    my $methods = 0 + $methodCounter->{missed}->content
+        + $methodCounter->{covered}->content;
+    if ($runtimeScoreWithoutCoverage > 0 && $methods > 0)
     {
         my $topLevelGradedElements = 1;
-        if ($coverageMetric == 1)
+        my $label = '';
+        if ($coverageMetric == 1
+            || $coverageMetric == 3 || $coverageMetric == 4)
         {
-            $topLevelGradedElements =
-                $clover->{coverage}{project}{metrics}{statements};
-            $cfg->setProperty("statElementsLabel", "Statements Executed");
+            my $counter = $jacoco->{report}{counter}(
+                'type', 'eq', 'LINE');
+            $topLevelGradedElements =  0 + $counter->{missed}->content
+                + $counter->{covered}->content;
+            $label = 'Lines';
+            if ($topLevelGradedElements == 0)
+            {
+                $counter = $jacoco->{report}{counter}(
+                    'type', 'eq', 'INSTRUCTION');
+                $topLevelGradedElements =  0 + $counter->{missed}->content
+                    + $counter->{covered}->content;
+                $label = 'Instructions';
+            }
         }
-        elsif ($coverageMetric == 2)
+        if ($coverageMetric == 2)
         {
-            $topLevelGradedElements =
-                $clover->{coverage}{project}{metrics}{methods}
-                + $clover->{coverage}{project}{metrics}{conditionals};
-            $cfg->setProperty("statElementsLabel",
-                              "Methods and Conditionals Executed");
+            my $counter = $jacoco->{report}{counter}(
+                'type', 'eq', 'COMPLEXITY');
+            $topLevelGradedElements =  0 + $counter->{missed}->content
+                + $counter->{covered}->content;
+            $label = 'Methods and Conditionals';
         }
         elsif ($coverageMetric == 3)
         {
-            $topLevelGradedElements =
-                $clover->{coverage}{project}{metrics}{statements}
-                + $clover->{coverage}{project}{metrics}{conditionals};
-            $cfg->setProperty("statElementsLabel",
-                              "Statements and Conditionals Executed");
+            my $counter = $jacoco->{report}{counter}(
+                'type', 'eq', 'BRANCH');
+            $topLevelGradedElements +=  0 + $counter->{missed}->content
+                + $counter->{covered}->content;
+            $label .= ' and Conditionals';
         }
         elsif ($coverageMetric == 4)
         {
-            $topLevelGradedElements =
-                $clover->{coverage}{project}{metrics}{elements};
-            $cfg->setProperty("statElementsLabel",
-                              "Methods/Statements/Conditionals Executed");
+            my $counter = $jacoco->{report}{counter}(
+                'type', 'eq', 'COMPLEXITY');
+            $topLevelGradedElements +=  0 + $counter->{missed}->content
+                + $counter->{covered}->content;
+            $label = "Methods/$label/Conditionals";
         }
-        else
+        elsif ($coverageMetric != 1)
         {
-            $topLevelGradedElements =
-                $clover->{coverage}{project}{metrics}{methods};
-            $cfg->setProperty("statElementsLabel", "Methods Executed");
+            $topLevelGradedElements = $methods;
+            $label = 'Methods';
         }
+        $cfg->setProperty("statElementsLabel", "$label Executed");
 
         if ($studentsMustSubmitTests)
         {
@@ -2068,94 +2098,157 @@ if (!$buildFailed) # $can_proceed)
         }
     }
     my $Uprojdir = $workingDir . "/";
-    foreach my $pkg (@{ $clover->{coverage}{project}{package} })
+    foreach my $pkg (@{ $jacoco->{report}{package} })
     {
         my $pkgName = $pkg->{name}->content;
-        # print "package: ", $pkg->{name}->content, "\n";
-        foreach my $file (@{ $pkg->{file} })
+        print "package: ", $pkg->{name}->content, "\n";
+        if ($pkgName ne '')
         {
-            # print "\tclass: ", $file->{class}->{name}->content, "\n";
-            my $className = $file->{class}->{name}->content;
-            if (!defined($className) || $className eq "") { next; }
-            my $fqClassName = $className;
-            my $fileName = $file->{name}->content;
-            $fileName =~ s,\\,/,go;
-            $fileName =~ s/^\Q$Uprojdir\E//io;
-            if ($pkgName ne "default-pkg")
-            {
-                $fqClassName = $pkgName . ".$className";
-            }
-#           if (!defined(delete($cloveredClasses{$fqClassName})))
-#           {
-#               # Instead of just an admin e-mail report, force grading
-#               # to halt until the problem is fixed.
-#               if ($fqClassName ne ".")
-#               {
-#                   print STDOUT
-#                   "clover stats for $fqClassName have no corresponding "
-#                   . "HTML file!\nTool comments for the student will not "
-#                   . "be merged into the HTML output as a result.\n";
-#               }
-#               next;
-#           }
+            $pkgName =~ s,\\,/,go;
+            $pkgName .= '/';
+        }
+        foreach my $file (@{ $pkg->{sourcefile} })
+        {
+            my $fileName = $pkgName . $file->{name}->content;
+            my $className = $file->{name}->content;
+            $className =~ s,\..*$,,o;
+            print "\tclass: ", $file->{class}->{name}->content, "\n";
+            my $fqClassName = $fileName;
+            $fqClassName =~ s,\..*$,,o;
+            $fqClassName =~ s,/,.,go;
             $numCodeMarkups++;
-            $classToMarkupNoMap{$fqClassName} = $numCodeMarkups;
-            $fileToMarkupNoMap{$fileName} = $numCodeMarkups;
-            if ($pkgName ne "default-pkg")
+            $codeMarkupIds{$fileName} = $numCodeMarkups;
+
+            # Save coverage data to %codeMessages
+            if (!defined $codeMessages{$fileName})
             {
+                $codeMessages{$fileName} = {};
+            }
+            my $msgs = $codeMessages{$fileName};
+            foreach my $line (@{ $file->{line} })
+            {
+                my $num = $line->{nr}->content;
+                if (0 + $line->{mb}->content > 0)
+                {
+                    $msgs->{$num} = {
+                        category => 'coverage',
+                        coverage => 'e'
+                    };
+                    if (0 + $line->{cb}->content > 0)
+                    {
+                        $msgs->{$num}->{message} =
+                            'The decision on this line always evaluated the '
+                            . 'same way.  Make sure you have separate tests '
+                            . 'where the decision is true, and where it is '
+                            . 'false.';
+                    }
+                    else
+                    {
+                        if (0 + $line->{mi}->content > 0)
+                        {
+                            if (0 + $line->{ci}->content > 0)
+                            {
+                                $msgs->{$num}->{message} =
+                                    'The decision(s) on this line were not '
+                                    . 'tested.  Make sure you have separate '
+                                    . 'tests where the decision is true, and '
+                                    . 'where it is false.';
+                            }
+                            else
+                            {
+                                $msgs->{$num}->{message} = 'This line was '
+                                    . 'never executed by your tests.';
+                            }
+                        }
+                        else
+                        {
+                            $msgs->{$num}->{message} = 'This line was '
+                                . 'never executed by your tests.';
+                        }
+                    }
+                }
+                elsif (0 + $line->{mi}->content > 0)
+                {
+                    $msgs->{$num} = {
+                        category => 'coverage',
+                        coverage => 'e'
+                    };
+                    if (0 + $line->{ci}->content > 0)
+                    {
+                        $msgs->{$num}->{message} =
+                            'Only part of this line was executed by your '
+                            . 'tests.  Add tests to exercise all of the line.';
+                    }
+                    else
+                    {
+                        $msgs->{$num}->{message} =
+                            'This line was never executed by your tests.';
+                    }
+                }
+            }
+
+            if ($pkgName ne '')
+            {
+                my $pkg = $pkgName;
+                $pkg =~ s,/$,,o;
+                $pkg =~ s,/,.,go;
                 $cfg->setProperty("codeMarkup${numCodeMarkups}.pkgName",
-                                  $pkgName);
+                                  $pkg);
             }
             $cfg->setProperty("codeMarkup${numCodeMarkups}.className",
                               $className);
-            my $metrics = $file->{metrics};
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.loc",
-                              $metrics->{loc}->content);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.ncloc",
-                              $metrics->{ncloc}->content);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.methods",
-                              $metrics->{methods}->content);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.methodsCovered",
-                              $metrics->{coveredmethods}->content);
+#            my $metrics = $file->{metrics};
+#            $cfg->setProperty("codeMarkup${numCodeMarkups}.loc",
+#                              $metrics->{loc}->content);
+#            $cfg->setProperty("codeMarkup${numCodeMarkups}.ncloc",
+#                              $metrics->{ncloc}->content);
+            my $counter = $file->{counter}('type', 'eq', 'LINE');
+            my $myElementsCovered = 0 + $counter->{covered}->content;
+            my $myElements = $myElementsCovered + $counter->{missed}->content;
+            if ($myElements == 0)
+            {
+                $counter = $file->{counter}('type', 'eq', 'INSTRUCTION');
+                $myElementsCovered = 0 + $counter->{covered}->content;
+                $myElements = $myElementsCovered + $counter->{missed}->content;
+            }
             $cfg->setProperty("codeMarkup${numCodeMarkups}.statements",
-                              $metrics->{statements}->content);
+                              $myElements);
             $cfg->setProperty("codeMarkup${numCodeMarkups}.statementsCovered",
-                              $metrics->{coveredstatements}->content);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.conditionals",
-                              $metrics->{conditionals}->content);
-            $cfg->setProperty(
-                "codeMarkup${numCodeMarkups}.conditionalsCovered",
-                $metrics->{coveredconditionals}->content);
+                              $myElementsCovered);
 
-            my $element1Type = 'methods';
-            my $element2Type;
-            if ($coverageMetric == 1)
+            $counter = $file->{counter}('type', 'eq', 'METHOD');
+            if ($coverageMetric == 2
+                || $coverageMetric < 1 || $coverageMetric > 4)
             {
-                $element1Type = 'statements';
-            }
-            elsif ($coverageMetric == 2)
-            {
-                $element1Type = 'methods';
-                $element2Type = 'conditionals';
-            }
-            elsif ($coverageMetric == 3)
-            {
-                $element1Type = 'statements';
-                $element2Type = 'conditionals';
+                $myElementsCovered = 0 + $counter->{covered}->content;
+                $myElements = $myElementsCovered + $counter->{missed}->content;
             }
             elsif ($coverageMetric == 4)
             {
-                $element1Type = 'elements';
+                $myElementsCovered += 0 + $counter->{covered}->content;
+                $myElements += 0 + $counter->{missed}->content
+                    + $counter->{covered}->content;
             }
-            my $myElements = $metrics->{$element1Type}->content;
-            my $myElementsCovered =
-                $metrics->{'covered' . $element1Type}->content;
-            if (defined($element2Type))
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.methods",
+                              0 + $counter->{missed}->content
+                              + $counter->{covered}->content);
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.methodsCovered",
+                              0 + $counter->{covered}->content);
+
+            $counter = $file->{counter}('type', 'eq', 'BRANCH');
+            if ($coverageMetric > 1)
             {
-                $myElements +=  $metrics->{$element2Type}->content;
-                $myElementsCovered +=
-                $metrics->{'covered' . $element2Type}->content;
+                $myElementsCovered += 0 + $counter->{covered}->content;
+                $myElements += 0 + $counter->{missed}->content
+                    + $counter->{covered}->content;
             }
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.conditionals",
+                              0 + $counter->{missed}->content
+                              + $counter->{covered}->content);
+            $cfg->setProperty(
+                "codeMarkup${numCodeMarkups}.conditionalsCovered",
+                0 + $counter->{covered}->content);
+
             $gradedElements += $myElements;
             $gradedElementsCovered += $myElementsCovered;
 
@@ -2163,73 +2256,18 @@ if (!$buildFailed) # $can_proceed)
                               $myElements);
             $cfg->setProperty("codeMarkup${numCodeMarkups}.elementsCovered",
                               $myElementsCovered);
-            #my $fileName = $fqClassName;
-            #$fileName =~ s,\.,/,go;
-            #$fileName .= ".java";
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.souceFileName",
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.sourceFileName",
                               $fileName);
             $cfg->setProperty("codeMarkup${numCodeMarkups}.deductions",
                 ($myElements - $myElementsCovered) * $ptsPerUncovered
                 - $messageStats->{file}->{$fileName}->{pts}->content);
+
+            $cfg->setProperty("codeMarkup${numCodeMarkups}.remarks",
+                (0 + $messageStats->{file}->{$fileName}->{remarks}->content));
         }
     }
 
-    # Check that all HTML files were covered
-#    if (0) # $can_proceed)
-#    {
-#        foreach my $class (keys %cloveredClasses)
-#        {
-#            # Instead of just an admin e-mail report, force grading
-#            # to halt until the problem is fixed.
-#            print STDOUT
-#            "HTML file for $class has no corresponding clover stats!\n"
-#            . "This will result in incorrect scoring, so processing of this "
-#            . "submission is being paused.\n";
-#            $cfg->setProperty("halt", 1);
-#        }
-#    }
-#    else
-#    {
-#        # Force nasty grade?
-#        # $gradedElementsCovered = 0;
-#        foreach my $class (keys %cloveredClasses)
-#        {
-#            $numCodeMarkups++;
-#            my $className = $class;
-#            if ($class =~ m/^(.+)\.([^.])+$/o)
-#            {
-#                my $pkgName = $1;
-#                $className = $2;
-#                $cfg->setProperty("codeMarkup${numCodeMarkups}.pkgName",
-#                                   $pkgName);
-#            }
-#            $cfg->setProperty("codeMarkup${numCodeMarkups}.className",
-#                               $className);
-#            $cfg->setProperty("codeMarkup${numCodeMarkups}.elements",
-#                               1);
-#            $cfg->setProperty("codeMarkup${numCodeMarkups}.elementsCovered",
-#                               0);
-#            my $fileName = $class;
-#            $fileName =~ s,\.,/,go;
-#            $fileName .= ".java";
-#            $cfg->setProperty("codeMarkup${numCodeMarkups}.deductions",
-#                               $ptsPerUncovered
-#                - $messageStats->{file}->{$fileName}->{pts}->content);
-#            $cfg->setProperty("codeMarkup${numCodeMarkups}.remarks",
-#                $messageStats->{file}->{$fileName}->{remarks}->content);
-#        }
-#    }
     $cfg->setProperty("numCodeMarkups", $numCodeMarkups);
-
-    foreach my $file (@{ $clover->{coverage}{project}{package}{file} })
-    {
-        my $fn = $file->{name}->content;
-            $fn =~ s,\\,/,go;
-            $fn =~ s/^\Q$Uprojdir\E//io;
-        $cfg->setProperty(
-            'codeMarkup' . $fileToMarkupNoMap{$fn} . '.remarks',
-            (0 + $messageStats->{file}->{$fn}->{remarks}->content));
-    }
 }
 
 my $time7 = time;
@@ -2635,6 +2673,7 @@ EOF
         }
         elsif ($studentsMustSubmitTests
             && (!$status{'studentTestResults'}->hasResults
+                || $gradedElements == 0
                 || $gradedElementsCovered / $gradedElements * 100.0 <
                    $minCoverageLevel))
         {
@@ -2721,7 +2760,12 @@ EOF
 #=============================================================================
 
 my $beautifier = new Web_CAT::Beautifier;
-$beautifier->beautifyCwd($cfg, \@beautifierIgnoreFiles);
+$beautifier->setCountLoc(1);
+$beautifier->beautifyCwd($cfg,
+    \@beautifierIgnoreFiles,
+    \%codeMarkupIds,
+    \%codeMessages
+    );
 
 
 #=============================================================================

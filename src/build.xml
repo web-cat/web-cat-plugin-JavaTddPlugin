@@ -360,8 +360,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
-  <target name="checkstyle"
-          depends="compile">
+  <target name="checkstyle" depends="compile" unless="disableCheckstyle">
     <taskdef resource="checkstyletask.properties"
          classpathref="checkstyle.classpath"/>
     <checkstyle config="${checkstyleConfigFile}"
@@ -379,7 +378,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
-  <target name="pmd" depends="compile">
+  <target name="pmd" depends="compile" unless="disablePmd">
     <taskdef name="pmd"
              classname="net.sourceforge.pmd.ant.PMDTask"
              classpathref="pmd.classpath"/>

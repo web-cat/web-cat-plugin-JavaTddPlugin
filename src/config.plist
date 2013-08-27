@@ -1,11 +1,11 @@
 {
     name             = "JavaTddPlugin";
-    version.major    = 3;
-    version.minor    = 4;
-    version.revision = 8;
-    version.date     = 20130122;
+    version.major    = 4;
+    version.minor    = 0;
+    version.revision = 0;
+    version.date     = 20130826;
     autoPublish      = true;
-    requires         = ( ANTForPlugins, PerlForPlugins, CloverForPlugins,
+    requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
     provider         = "Virginia Tech Computer Science";
     provider.url     = "http://web-cat.cs.vt.edu/updates";
@@ -22,7 +22,8 @@
     authorUid  = edwards;
     languages  = ( { name = Java; version = 1.4; },
                    { name = Java; version = 1.5; },
-                   { name = Java; version = 1.6; } );
+                   { name = Java; version = 1.6; },
+                   { name = Java; version = 1.7; } );
     description = "This \"all-in-one\" plug-in is designed to provide full
         processing and feedback generation for Java assignments where
         students write their own JUnit test cases.
@@ -203,15 +204,16 @@
             description = "Choose the criterion used to measure how thoroughly
                            a student's tests cover the corresponding code.";
             choices     = ( { label = "Methods executed"; value = 0; },
-                            { label = "Statements executed"; value = 1; },
+                            { label = "Lines executed"; value = 1; },
                             { label = "Methods + decisions executed";
                               value = 2; },
-                            { label = "Statements + decisions executed";
+                            { label = "Lines + decisions executed";
                               value = 3; },
-                         { label = "Methods + statements + decisions executed";
+                         { label = "Methods + lines + decisions executed";
                               value = 4; }
                           );
         },
+/*
         {
             property    = requireSimpleExceptionCoverage;
             type        = boolean;
@@ -271,6 +273,7 @@
   matching is used).  Use \"none\" if you do not wish to use any
   exclusion patterns.";
         },
+*/
         {
             property    = studentTestInclude;
             type        = shortText;
@@ -359,6 +362,15 @@
   unset is twenty seconds (20000 ms).";
         },
         {
+            property    = disableCheckstyle;
+            type        = antBoolean;
+            name        = "Turn Checkstyle Off";
+            category    = "Static Analysis";
+            description =
+  "Disable Checkstyle for static analysis entirely (no need to upload a
+  separate configuration file to turn it off).";
+        },
+        {
             property    = checkstyleConfig;
             advanced    = true;
             type        = file;
@@ -368,7 +380,16 @@
             description =
   "An XML file containing a Checkstyle rule configuration (see the
   <a href=\"http://checkstyle.sourceforge.net/\" target=\"_new\">Checksyle
-  documentation</a>).";
+  documentation</a>).  This plug-in uses Checkstyle v5.6.";
+        },
+        {
+            property    = disablePmd;
+            type        = antBoolean;
+            name        = "Turn PMD Off";
+            category    = "Static Analysis";
+            description =
+  "Disable PMD for static analysis entirely (no need to upload a
+  separate configuration file to turn it off).";
         },
         {
             property    = pmdConfig;
@@ -380,8 +401,9 @@
             description =
   "An XML file containing a set of PMD rules (see the
   <a href=\"http://pmd.sourceforge.net/\" target=\"_new\">PMD
-  documentation</a>).";
+  documentation</a>).  This plug-in uses PMD v5.0.5";
         },
+/*
         {
             property    = use.comtor;
             type        = antBoolean;
@@ -391,6 +413,7 @@
   "Set to true to run the COMTOR Comment Analyzer and include the results
   as part of the overall feedback report.";
         },
+*/
         {
             property    = staticAnalysisInclude;
             type        = shortText;
@@ -525,7 +548,7 @@
   <code>ps2pdf</code> as external commands, and requires these programs to
   be correctly installed and configured.";
         },
-    {
+        {
             property    = enscriptStyle;
             type        = shortText;
             size        = 15;
