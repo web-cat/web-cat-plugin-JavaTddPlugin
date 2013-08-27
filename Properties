@@ -1,5 +1,5 @@
 #This file is automatically rewritten by ANT.  Hand-edits may be lost.
-#Mon Aug 26 22:24:22 EDT 2013
+#Mon Aug 26 22:47:55 EDT 2013
 version.minor=0
 timeoutMultiplier=2
 license.url="http\://www.gnu.org/licenses/agpl.html"
@@ -16,5 +16,5 @@ timeoutInternalPadding=400
 provider="Virginia Tech Computer Science"
 authorUid=edwards
 provider.url="http\://web-cat.cs.vt.edu/updates"
-version.revision=0
 name="JavaTddPlugin"
+version.revision=0
