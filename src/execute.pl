@@ -2101,7 +2101,7 @@ if (!$buildFailed) # $can_proceed)
     foreach my $pkg (@{ $jacoco->{report}{package} })
     {
         my $pkgName = $pkg->{name}->content;
-        print "package: ", $pkg->{name}->content, "\n";
+        # print "package: ", $pkg->{name}->content, "\n";
         if ($pkgName ne '')
         {
             $pkgName =~ s,\\,/,go;
@@ -2112,7 +2112,7 @@ if (!$buildFailed) # $can_proceed)
             my $fileName = $pkgName . $file->{name}->content;
             my $className = $file->{name}->content;
             $className =~ s,\..*$,,o;
-            print "\tclass: ", $file->{class}->{name}->content, "\n";
+            # print "\tclass: ", $file->{class}->{name}->content, "\n";
             my $fqClassName = $fileName;
             $fqClassName =~ s,\..*$,,o;
             $fqClassName =~ s,/,.,go;
