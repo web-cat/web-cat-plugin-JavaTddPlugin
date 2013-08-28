@@ -319,6 +319,11 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
                casesensitive="false"/>
     </concat>
     <delete dir="${student.results.dir}"/>
+    <condition property="no.coverage.data">
+      <not>
+        <available file="${jacoco.db}"/>
+      </not>
+    </condition>
   </target>
 
 
@@ -342,6 +347,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
   <target name="jacoco.report"
           depends="instrument.code, test"
+  	      unless="no.coverage.data"
           description="generate JaCoCo coverage report">
     <report>
       <executiondata>
@@ -453,7 +459,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       destfile="${resultDir}/comtor.html"
       userId="${userName}"
       institution="${userInstitution}">
-      <fileset dir="src" includes="**/*.java"/>
+      <fileset dir="src" erroronmissingdir="false" includes="**/*.java"/>
       <fileset dir="." includes="**/*.java" excludes="src/"/>
     </comtor>
   </target>
