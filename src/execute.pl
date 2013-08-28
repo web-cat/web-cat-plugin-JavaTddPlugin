@@ -24,7 +24,7 @@ use Web_CAT::Utilities
     qw(confirmExists filePattern copyHere htmlEscape addReportFile scanTo
        scanThrough linesFromFile addReportFileWithStyle);
 use XML::Smart;
-#use Data::Dump qw(dump);
+use Data::Dump qw(dump);
 
 my @beautifierIgnoreFiles = ();
 
@@ -243,6 +243,7 @@ sub setClassPatternIfNeeded
         my $pattern = undef;
         foreach my $include (split(/[,\s]+/, $value))
         {
+            # print "processing class pattern: '$include'\n";
             if (defined($include) && $include ne '')
             {
                 if ($include !~ m/^none$/io)
@@ -256,7 +257,7 @@ sub setClassPatternIfNeeded
                     {
                         $include .= $outExtension;
                     }
-                    if (!$include =~ m,^\*\*/,o)
+                    if ($include !~ m,^\*\*/,o)
                     {
                         $include = "**/$include";
                     }
@@ -271,6 +272,7 @@ sub setClassPatternIfNeeded
                     $pattern = $include;
                 }
             }
+            # print "new pattern: '$pattern'\n";
         }
         if (defined $pattern)
         {
@@ -855,7 +857,27 @@ foreach my $group (@groups)
 # messageStats->file->filename->{num, pts, collapse}
 my $messageStats = XML::Smart->new();
 
-# A hash of arrays of violation objects, keyed by file name (relative
+# %codeMessages is a hash like this:
+# {
+#   filename1 => {
+#                  <line num> => {
+#                                   category => coverage,
+#                                   coverage => "...",
+#                                   message  => "...",
+#                                   violations => [ ... ]
+#                                },
+#                  <line num> => { ...
+#                                },
+#                },
+#   filename2 => { ...
+#                },
+# }
+#
+# If the line number entry has a category => coverage, it is a
+# coverage highlight request (but it might not have one).
+#
+# If the line number entry for a file has a violations key, it
+# is a ref to an array of violation objects, keyed by file name (relative
 # to $workingDir, using forward slashes).  Each violation object is
 # a reference to an XML::Smart node:
 # ... was a hash like this, but now ...
@@ -872,7 +894,8 @@ my $messageStats = XML::Smart->new();
 # Both the "to" and "fileName" fields are omitted, since "to" is
 # always "all" and the fileName is the key mapping to (a list of)
 # these.
-my %messages = ();
+
+my %codeMessages = ();
 
 #-----------------------------------------------
 # ruleSetting(rule, prop [, default])
@@ -1107,14 +1130,6 @@ sub trackMessageInstance
     {
         print "tracking $group, $rule, $fileName, ",
             $violation->{line}->content, "\n";
-        print "line defined = ", (defined $violation->{line}), "\n";
-        print "content defined = ", (defined $violation->{line}->content),
-            " = '", $violation->{line}->content,
-            "'\n";
-        print "endline defined = ", (defined $violation->{endline}), "\n";
-        print "content defined = ", (defined $violation->{endline}->content),
-            " = '", $violation->{endline}->content,
-            "'\n";
     }
     if ($group eq "testing")
     {
@@ -1231,13 +1246,23 @@ sub trackMessageInstance
     $violation->{group}     = $group;
     $violation->{category}  = ruleSetting($rule, 'category');
     $violation->{url}       = ruleSetting($rule, 'URL'     );
-    if (!defined($messages{$fileName}))
+    if (!defined($codeMessages{$fileName}))
     {
-        $messages{$fileName} = [ $violation ];
+        $codeMessages{$fileName} = {};
+    }
+    if (!defined($codeMessages{$fileName}{$violation->{line}->content}))
+    {
+        $codeMessages{$fileName}{$violation->{line}->content} = {};
+    }
+    if (!defined($codeMessages{$fileName}{$violation->{line}->content}{violations}))
+    {
+        $codeMessages{$fileName}{$violation->{line}->content}{violations} =
+            [ $violation ];
     }
     else
     {
-        push(@{ $messages{$fileName} }, $violation);
+        push(@{ $codeMessages{$fileName}{$violation->{line}->content}{violations} },
+            $violation);
     }
     # print "after: ", $violation->data_pointer(noheader  => 1,
     #                                          nometagen => 1);
@@ -1292,6 +1317,7 @@ if (0)    # For testing purposes only
 
 #-----------------------------------------------
 # A useful subroutine for processing the ant log
+my %fileNames = ();
 if (!$buildFailed) # $can_proceed)
 {
     my $checkstyleLog = "$resultDir/checkstyle_report.xml";
@@ -1303,6 +1329,7 @@ if (!$buildFailed) # $can_proceed)
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
             $fileName =~ s,^\Q$workingDir/\E,,i;
+            $fileNames{$fileName} = $fileName;
             if (exists $file->{error})
             {
                 foreach my $violation (@{ $file->{error} })
@@ -1329,6 +1356,7 @@ if (!$buildFailed) # $can_proceed)
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
             $fileName =~ s,^\Q$workingDir/\E,,i;
+            $fileNames{$fileName} = $fileName;
             if (exists $file->{violation})
             {
                 foreach my $violation (@{ $file->{violation} })
@@ -1348,10 +1376,18 @@ if (!$buildFailed) # $can_proceed)
             print $msg;
         }
     }
-    foreach my $f (keys %messages)
+    foreach my $f (keys %codeMessages)
     {
         print "$f:\n" if ($debug > 1);
-        foreach my $v (@{ $messages{$f} })
+        if ($messageStats->{file}->{$f}->{remarks}->null)
+        {
+            $messageStats->{file}->{$f}->{remarks} = 0;
+        }
+        foreach my $line (keys %{$codeMessages{$f}})
+        {
+            if (defined $codeMessages{$f}->{$line}{violations})
+            {
+        foreach my $v (@{ $codeMessages{$f}->{$line}{violations} })
         {
             if ($debug > 1)
             {
@@ -1388,6 +1424,13 @@ if (!$buildFailed) # $can_proceed)
                     $v->{kill} = 1;
                 }
             }
+            if ($v->{kill}->null)
+            {
+                $messageStats->{file}->{$f}->{remarks} =
+                    $messageStats->{file}->{$f}->{remarks}->content + 1;
+            }
+        }
+            }
         }
     }
     $status{'toolDeductions'} = $messageStats->{pts}->content;
@@ -1408,10 +1451,10 @@ if (!$status{'studentHasSrcs'})
 #=============================================================================
 # translate html
 #=============================================================================
-my %coveredClasses    = ();
-my %classToFileNameMap = ();
-my %classToMarkupNoMap = ();
-my %fileToMarkupNoMap  = ();
+my %coveredClasses     = ();
+#my %classToFileNameMap = ();
+#my %classToMarkupNoMap = ();
+#my %fileToMarkupNoMap  = ();
 
 #---------------------------------------------------------------------------
 # Translate one HTML file from clover markup to what Web-CAT expects
@@ -1428,18 +1471,26 @@ sub translateHTMLFile
     $className =~ s,^$resultDir/clover/(default-pkg/)?,,o;
     my $sourceName = $className . ".java";
     $className =~ s,/,.,go;
-    if (defined($classToFileNameMap{$className}))
-    {
-        $sourceName = $classToFileNameMap{$className};
-    }
+#    if (defined($classToFileNameMap{$className}))
+#    {
+#        $sourceName = $classToFileNameMap{$className};
+#    }
     # print "class name = $className\n";
     $coveredClasses{$className} = 1;
 
     my @comments = ();
-    if (defined $messages{$sourceName})
+    if (defined $codeMessages{$sourceName})
     {
+        foreach my $line (keys %{$codeMessages{$sourceName}})
+        {
+            if (defined $codeMessages{$sourceName}->{$line}{violations})
+            {
+                 @comments = (@comments,
+                     @{ $codeMessages{$sourceName}->{$line}{violations} });
+            }
+        }
         @comments = sort { $b->{line}->content  <=>  $a->{line}->content }
-            @{ $messages{$sourceName} };
+            @comments;
     }
     $messageStats->{file}->{$sourceName}->{remarks} = countRemarks(\@comments);
 #    if (defined($classToMarkupNoMap{$className}))
@@ -1944,25 +1995,11 @@ print "score with student tests: $runtimeScoreWithoutCoverage\n"
 #=============================================================================
 # post-process generated HTML files
 #=============================================================================
-my $jacoco  = XML::Smart->new("$resultDir/jacoco.xml");
+my $jacoco  = (-f "$resultDir/jacoco.xml")
+    ? XML::Smart->new("$resultDir/jacoco.xml")
+    : undef;
 # %codeMarkupIds is a map from file names to codeMarkup numbers
 my %codeMarkupIds = ();
-
-# %codeMessages is a hash like this:
-# {
-#   filename1 => {
-#                  <line num> => {
-#                                   category => coverage,
-#                                   coverage => "...",
-#                                   message  => "..."
-#                                },
-#                  <line num> => { ...
-#                                },
-#                },
-#   filename2 => { ...
-#                },
-# }
-my %codeMessages = ();
 
 #if (!$buildFailed) # $can_proceed)
 #{
@@ -2034,6 +2071,8 @@ if ($debug)
 
 if (!$buildFailed) # $can_proceed)
 {
+    if (defined $jacoco)
+    {
     my $numCodeMarkups = $cfg->getProperty('numCodeMarkups', 0);
     my $ptsPerUncovered = 0.0;
     my $methodCounter = $jacoco->{report}{counter}('type', 'eq', 'METHOD');
@@ -2116,6 +2155,25 @@ if (!$buildFailed) # $can_proceed)
             my $fqClassName = $fileName;
             $fqClassName =~ s,\..*$,,o;
             $fqClassName =~ s,/,.,go;
+
+            # Try to match against longer file names from checkstyle/pmd
+            my $bestMatch = undef;
+            for my $longName (keys %fileNames)
+            {
+                if ($longName =~ m,/\Q$fileName\E$,)
+                {
+                    if (!defined $bestMatch
+                        || length($longName) < length($bestMatch))
+                    {
+                        $bestMatch = $longName;
+                    }
+                }
+            }
+            if (defined $bestMatch)
+            {
+                $fileName = $bestMatch;
+            }
+
             $numCodeMarkups++;
             $codeMarkupIds{$fileName} = $numCodeMarkups;
 
@@ -2130,10 +2188,12 @@ if (!$buildFailed) # $can_proceed)
                 my $num = $line->{nr}->content;
                 if (0 + $line->{mb}->content > 0)
                 {
-                    $msgs->{$num} = {
-                        category => 'coverage',
-                        coverage => 'e'
-                    };
+                    if (!defined $msgs->{$num})
+                    {
+                        $msgs->{$num} = {};
+                    }
+                    $msgs->{$num}{category} = 'coverage';
+                    $msgs->{$num}{coverage} = 'e';
                     if (0 + $line->{cb}->content > 0)
                     {
                         $msgs->{$num}->{message} =
@@ -2169,10 +2229,12 @@ if (!$buildFailed) # $can_proceed)
                 }
                 elsif (0 + $line->{mi}->content > 0)
                 {
-                    $msgs->{$num} = {
-                        category => 'coverage',
-                        coverage => 'e'
-                    };
+                    if (!defined $msgs->{$num})
+                    {
+                        $msgs->{$num} = {};
+                    }
+                    $msgs->{$num}{category} = 'coverage';
+                    $msgs->{$num}{coverage} = 'e';
                     if (0 + $line->{ci}->content > 0)
                     {
                         $msgs->{$num}->{message} =
@@ -2261,13 +2323,13 @@ if (!$buildFailed) # $can_proceed)
             $cfg->setProperty("codeMarkup${numCodeMarkups}.deductions",
                 ($myElements - $myElementsCovered) * $ptsPerUncovered
                 - $messageStats->{file}->{$fileName}->{pts}->content);
-
             $cfg->setProperty("codeMarkup${numCodeMarkups}.remarks",
                 (0 + $messageStats->{file}->{$fileName}->{remarks}->content));
         }
     }
 
     $cfg->setProperty("numCodeMarkups", $numCodeMarkups);
+    }
 }
 
 my $time7 = time;
@@ -2416,7 +2478,11 @@ if (defined $status{'instrTestResults'}
 if (defined $messageStats)
 {
     my $staticResults = '';
-    foreach my $grp (keys %{$messageStats})
+    # For some reason, iteration in $messageStats is broken here, so
+    # simply convert to text and back to get it back into shape.
+    $messageStats =
+        XML::Smart->new($messageStats->data(tree => $messageStats))->{root};
+    foreach my $grp ($messageStats->('@keys'))
     {
         if (   $grp eq 'file'
             || $grp eq 'num'
@@ -2426,7 +2492,7 @@ if (defined $messageStats)
             next;
         }
 
-        foreach my $rule (keys(%{$messageStats->{$grp}}))
+        foreach my $rule ($messageStats->{$grp}('@keys'))
         {
             if (   $rule eq 'file'
                 || $rule eq 'num'
@@ -2759,6 +2825,37 @@ EOF
 # generate HTML versions of any other source files
 #=============================================================================
 
+if ($debug > 3)
+{
+foreach my $ff (keys %codeMessages)
+{
+    print "file $ff:\n";
+    foreach my $line (keys %{$codeMessages{$ff}})
+    {
+        print "file $ff: line $line:\n";
+        if (defined $codeMessages{$ff}->{$line}{violations})
+        {
+            my @comments =
+                sort { $b->{line}->content  <=>  $a->{line}->content }
+                @{ $codeMessages{$ff}->{$line}{violations} };
+            print "file $ff: line $line: total comments = ",
+                $#comments + 1, "\n";
+            foreach my $c (@comments)
+            {
+                 my $message = $c->{message}->content;
+                 if (!defined $message || $message eq '')
+                 {
+                     $message = $c->content;
+                 }
+                 # print "comment = ", $c->data(tree => $c), "\n";
+                 print 'group = ', $c->{group}->content, ', line = ',
+                     $c->{line}->content, ', message = ',
+                     $message, "\n";
+            }
+        }
+    }
+}
+}
 my $beautifier = new Web_CAT::Beautifier;
 $beautifier->setCountLoc(1);
 $beautifier->beautifyCwd($cfg,
