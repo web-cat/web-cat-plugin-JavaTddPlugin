@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 4;
     version.minor    = 0;
-    version.revision = 0;
-    version.date     = 20130826;
+    version.revision = 1;
+    version.date     = 20130827;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -77,11 +77,9 @@
         }
     );
     optionCategories = (
-        "Java Settings",
-        "Test Case Settings",
-        "Static Analysis",
-        "Feedback Settings",
-        "Script Developer"
+        "Basic Settings",
+        "Advanced Settings",
+        "Developer Settings"
     );
     options = (
         {
@@ -89,7 +87,7 @@
             type        = boolean;
             default     = true;
             name        = "Use Java Assertions";
-            category    = "Java Settings";
+            category    = "Basic Settings";
             description =
   "Enable Java assertions during execution.  When set to false, assertions
   in student or instructor-provided code will be treated as non-executable
@@ -99,11 +97,11 @@
             property    = useDefaultJar;
             type        = boolean;
             default     = true;
-            name        = "Use Built-in Jar";
-            category    = "Java Settings";
+            name        = "Use Built-in Jars";
+            category    = "Basic Settings";
             description =
   "Set to true to have a set of built-in jars containing Virginia Tech
-  cs1705/cs1706 classes placed on the classpath for assignments.  Set to
+  CS 1/CS 2 classes placed on the classpath for assignments.  Set to
   false to omit these jars from the classpath.";
         },
         {
@@ -111,7 +109,7 @@
             type        = fileOrDir;
             fileTypes   = ( jar );
             name        = "Predefined Classes";
-            category    = "Java Settings";
+            category    = "Basic Settings";
             description =
   "A jar file (or a directory of class files in subdirs reflecting their
   package structure, or a directory of multiple jar files) containing
@@ -126,7 +124,7 @@
             type        = boolean;
             default     = false;
             name        = "Enable Xvfb During Test Execution";
-            category    = "Test Case Settings";
+            category    = "Advanced Settings";
             description =
   "This option is necessary for running GUI software tests on Linux servers.
   It uses an instance of Xvfb, the X virtual frame buffer server, to run
@@ -142,7 +140,7 @@
             type        = file;
             fileTypes   = ( policy );
             name        = "Java Security Policy";
-            category    = "Java Settings";
+            category    = "Advanced Settings";
             description =
   "A Java security policy file used to limit actions on student programs at
   run-time.  Leave unset to use the built-in default, which plugs most
@@ -155,7 +153,7 @@
             type        = shortText;
             size        = 40;
             name        = "Partner Name Exclude Patterns";
-            category    = "Java Settings";
+            category    = "Basic Settings";
             description =
   "The plug-in will automatically scan <b>@author</b> tags in source code
   to try to identify the user names of partners when partners are allowed
@@ -169,7 +167,7 @@
             type        = boolean;
             default     = false;
             name        = "All Student Tests Must Pass";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "If you are truly following test-driven development practices, then no code
   is ever released until all of its unit tests pass.  If this option is set to
@@ -184,7 +182,7 @@
             type        = boolean;
             default     = true;
             name        = "Students Must Submit Tests";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "When set, this option requires all students to submit test cases for their
   own code.  Submissions without test cases will received feedback to that
@@ -199,7 +197,7 @@
             advanced    = true;
             type        = radioChoice;
             name        = "Test Coverage Metric";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             default     = 0;
             description = "Choose the criterion used to measure how thoroughly
                            a student's tests cover the corresponding code.";
@@ -219,7 +217,7 @@
             type        = boolean;
             default     = false;
             name        = "Require Coverage of Simple Catch Blocks";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "When set, this option requires students to test all catch blocks, including
   simple try/catch statements that are provided purely for compiler compliance
@@ -233,7 +231,7 @@
             type        = boolean;
             default     = false;
             name        = "Require Coverage of Simple Getters and Setters";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "When set, this option requires students to test all simple getter and
   setter methods.  A simple getter is a method whose name starts with
@@ -249,7 +247,7 @@
             size        = 40;
             default     = "**";
             name        = "Classes to Include in Coverage Measures";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "Specify the Java file names that should be included in Clover coverage
   analysis.  Only student class files with names that match the patterns you
@@ -263,7 +261,7 @@
             size        = 40;
             default     = "none";
             name        = "Classes to Exclude from Coverage Measures";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "Specify Java file names that should <b>not</b> be processed by
   Clover.  Any classes that match the \"Classes to Include in Coverage
@@ -280,7 +278,7 @@
             size        = 40;
             default     = "*test *tests";
             name        = "Students Test Class Patterns";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "Specify the Java class names that should be treated as JUnit-style
   test cases.  Only student classes with names that match the patterns you
@@ -293,7 +291,7 @@
             size        = 40;
             default     = "abstract* *$*";
             name        = "Students Test Class Exclusion Patterns";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "Specify Java class names that should <b>not</b> be treated as JUnit-style
   test cases.  Any classes that match the \"Student Test Class Patterns\"
@@ -308,7 +306,7 @@
             size        = 40;
             default     = "*";
             name        = "Reference Test Class Patterns";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "Specify the Java class names that should be treated as JUnit-style
   test cases when selected as reference tests by an instructor.  This
@@ -324,7 +322,7 @@
             size        = 40;
             default     = "abstract* *$*";
             name        = "Reference Test Class Exclusion Patterns";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
   "Specify Java class names that should <b>not</b> be treated as JUnit-style
   test cases when selected as reference tests by an instructor.  This
@@ -340,32 +338,32 @@
             advanced    = true;
             type        = integer;
             name        = "Default Test Case Time Limit (in ms)";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
-  "If you (or students) are using <code>student.TestCase</code>, it provides
-  built-in adaptive detection and termination of infinite loops during
-  individual test cases.  This setting controls the default timeout before a
-  single test case is judged as \"taking too long\".  The default if unset is
-  ten seconds (10000 ms).";
+  "This plug-in provides built-in adaptive detection and termination of
+  infinite loops that occur within individual test methods.  This setting
+  controls the default timeout before a single test case method is judged as
+  \"taking too long\", although this amount will be gradually increased up
+  to a higher maximum value if test methods terminate but come close to
+  this limit.  The default if unset is ten seconds (10000 ms).";
         },
         {
             property    = student.testingsupport.junit4.AdaptiveTimeout.maximum;
             advanced    = true;
             type        = integer;
             name        = "Default Test Case Maximum Time (in ms)";
-            category    = "Test Case Settings";
+            category    = "Basic Settings";
             description =
-  "If you (or students) are using <code>student.TestCase</code>, it provides
-  built-in adaptive detection and termination of infinite loops during
-  individual test cases.  This setting controls the maximum allowable timeout
-  before a single test case is judged as \"taking too long\".  The default if
-  unset is twenty seconds (20000 ms).";
+  "This plug-in provides built-in adaptive detection and termination of
+  infinite loops that occur within individual test methods.  This setting
+  controls the maximum allowable timeout before a single test case is judged
+  as \"taking too long\".  The default if unset is twenty seconds (20000 ms).";
         },
         {
             property    = disableCheckstyle;
             type        = antBoolean;
             name        = "Turn Checkstyle Off";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "Disable Checkstyle for static analysis entirely (no need to upload a
   separate configuration file to turn it off).";
@@ -376,17 +374,19 @@
             type        = file;
             fileTypes   = ( xml );
             name        = "Checkstyle Configuration";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "An XML file containing a Checkstyle rule configuration (see the
   <a href=\"http://checkstyle.sourceforge.net/\" target=\"_new\">Checksyle
-  documentation</a>).  This plug-in uses Checkstyle v5.6.";
+  documentation</a>).  This plug-in uses Checkstyle v5.6.  If you would
+  like to turn off all Checkstyle checks entirely, use the \"Turn
+  Checkstyle Off\" option instead.";
         },
         {
             property    = disablePmd;
             type        = antBoolean;
             name        = "Turn PMD Off";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "Disable PMD for static analysis entirely (no need to upload a
   separate configuration file to turn it off).";
@@ -397,18 +397,19 @@
             type        = file;
             fileTypes   = ( xml );
             name        = "PMD Configuration";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "An XML file containing a set of PMD rules (see the
   <a href=\"http://pmd.sourceforge.net/\" target=\"_new\">PMD
-  documentation</a>).  This plug-in uses PMD v5.0.5";
+  documentation</a>).  This plug-in uses PMD v5.0.5.  If you owuld like to
+  turn off all PMD checks entirely, use the \"Turn PMD Off\" options instead.";
         },
 /*
         {
             property    = use.comtor;
             type        = antBoolean;
             name        = "Run COMTOR Comment Analyzer";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "Set to true to run the COMTOR Comment Analyzer and include the results
   as part of the overall feedback report.";
@@ -420,7 +421,7 @@
             size        = 40;
             default     = "*";
             name        = "Classes to Analyze";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "Specify the Java class names that should be included in Checkstyle and
   PMD analysis.  Only student classes with names that match the patterns you
@@ -434,7 +435,7 @@
             size        = 40;
             default     = "none";
             name        = "Classes to Exclude from Analysis";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "Specify Java class names that should <b>not</b> be processed by
   Checkstyle or PMD.  Any classes that match the \"Classes to Analyze\"
@@ -450,7 +451,7 @@
             type        = file;
             fileTypes   = ( properties );
             name        = "Static Analysis Scoring Scheme";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "A Java properties file containing the point deductions and limits to
   use for messages generated by Checkstyle or PMD.  The point deductions
@@ -465,7 +466,7 @@
             advanced    = true;
             type        = double;
             name        = "Static Analysis Deduction Scaling Factor";
-            category    = "Static Analysis";
+            category    = "Basic Settings";
             description =
   "The <b>Static Analysis Scoring Scheme</b> above defines the point deductions
   and limits to use for messages generated by Checkstyle or PMD in a generic
@@ -479,7 +480,7 @@
             type        = integer;
             default     = 3;
             name        = "Hints Limit";
-            category    = "Feedback Settings";
+            category    = "Basic Settings";
             description =
   "Maximum number of hints the student will receive from failed reference
   tests.";
@@ -488,7 +489,7 @@
             property    = minCoverageLevel;
             type        = double;
             name        = "Minimum Test Coverage for Hints";
-            category    = "Feedback Settings";
+            category    = "Basic Settings";
             description =
   "If students are required to submit tests, this value is a minimum test
   coverage threshold that must be achieved in order for any hints to be
@@ -500,7 +501,7 @@
             type        = boolean;
             default     = false;
             name        = "Clean JUnit Tests Required for Hints";
-            category    = "Feedback Settings";
+            category    = "Basic Settings";
             description =
   "If students are required to submit tests, this option requires all test
   case classes to be free of PMD-based JUnit style errors, such as failing
@@ -514,7 +515,7 @@
             type        = integer;
             default     = 0;
             name        = "Hide Hints X Days Before Deadline";
-            category    = "Feedback Settings";
+            category    = "Basic Settings";
             description =
   "Suppress all hints from failed reference tests for submissions within this
   many days of the deadline (set to zero for hints to always be visible).
@@ -527,7 +528,7 @@
             type        = integer;
             default     = 0;
             name        = "Show Hints X Days Before Deadline";
-            category    = "Feedback Settings";
+            category    = "Basic Settings";
             description =
   "Show hints (up to the <i>Hints Limit</i>) from failed reference tests for
   submissions within this many days of the deadline (only useful when <i>Hide
@@ -539,7 +540,7 @@
             type        = boolean;
             default     = false;
             name        = "Generate PDF Printouts";
-            category    = "Feedback Settings";
+            category    = "Basic Settings";
             description =
   "Set to true if you wish for a single PDF file containing a pretty-printed
   source code printout to be generated from the student's code.  The printout
@@ -548,13 +549,14 @@
   <code>ps2pdf</code> as external commands, and requires these programs to
   be correctly installed and configured.";
         },
+/*
         {
             property    = enscriptStyle;
             type        = shortText;
             size        = 15;
             default     = "msvc";
             name        = "PDF Formatting Style (for Enscript)";
-            category    = "Feedback Settings";
+            category    = "Basic Settings";
             description =
   "If you are generating PDF printouts, you can specify the formatting style
   used by <code>enscript</code>.  This name will be passed to
@@ -566,12 +568,13 @@
   own custom formatting definitions to your enscript installation and then
   use your own style name here as well.";
         },
+*/
         {
             property    = wantClassDiagrams;
             type        = boolean;
             default     = true;
             name        = "Generate Class Diagrams";
-            category    = "Feedback Settings";
+            category    = "Basic Settings";
             description =
   "Set to true if you wish to generate class diagrams from students' code.
   The diagrams will be viewable by students, and accessible by TAs during
@@ -586,7 +589,7 @@
             advanced    = true;
             default     = 0;
             name        = "Debug Level";
-            category    = "Script Developer";
+            category    = "Developer Settings";
             description =
   "Set to a non-zero value for the script to produce debugging output (the
   larger the number, the greater the detail, up to about 5).  Debugging output
@@ -597,7 +600,7 @@
             type        = antBoolean;
             advanced    = true;
             name        = "Preserve Derived Files";
-            category    = "Script Developer";
+            category    = "Developer Settings";
             description =
   "Set to true to prevent the plug-in from deleting the derived files it
   creates during the build/test process for each submission.  Normally, these
