@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 4;
     version.minor    = 0;
-    version.revision = 1;
-    version.date     = 20130827;
+    version.revision = 2;
+    version.date     = 20130828;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
