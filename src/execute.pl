@@ -1316,8 +1316,12 @@ if (0)    # For testing purposes only
 
 
 #-----------------------------------------------
+# %codeMarkupIds is a map from file names to codeMarkup numbers
+my $numCodeMarkups = $cfg->getProperty('numCodeMarkups', 0);
+my %codeMarkupIds = ();
+
+#-----------------------------------------------
 # A useful subroutine for processing the ant log
-my %fileNames = ();
 if (!$buildFailed) # $can_proceed)
 {
     my $checkstyleLog = "$resultDir/checkstyle_report.xml";
@@ -1329,7 +1333,10 @@ if (!$buildFailed) # $can_proceed)
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
             $fileName =~ s,^\Q$workingDir/\E,,i;
-            $fileNames{$fileName} = $fileName;
+            if (!defined $codeMarkupIds{$fileName})
+            {
+                $codeMarkupIds{$fileName} = ++$numCodeMarkups;
+            }
             if (exists $file->{error})
             {
                 foreach my $violation (@{ $file->{error} })
@@ -1353,10 +1360,14 @@ if (!$buildFailed) # $can_proceed)
         my $pmd = XML::Smart->new($pmdLog);
         foreach my $file (@{ $pmd->{pmd}->{file} })
         {
+            next if ($file->{name}->null);
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
             $fileName =~ s,^\Q$workingDir/\E,,i;
-            $fileNames{$fileName} = $fileName;
+            if (!defined $codeMarkupIds{$fileName})
+            {
+                $codeMarkupIds{$fileName} = ++$numCodeMarkups;
+            }
             if (exists $file->{violation})
             {
                 foreach my $violation (@{ $file->{violation} })
@@ -1383,6 +1394,7 @@ if (!$buildFailed) # $can_proceed)
         {
             $messageStats->{file}->{$f}->{remarks} = 0;
         }
+        my $codeMarkupNo = $codeMarkupIds{$f};
         foreach my $line (keys %{$codeMessages{$f}})
         {
             if (defined $codeMessages{$f}->{$line}{violations})
@@ -1431,6 +1443,10 @@ if (!$buildFailed) # $can_proceed)
             }
         }
             }
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.deductions",
+                (0 - $messageStats->{file}->{$f}->{pts}->content));
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.remarks",
+                (0 + $messageStats->{file}->{$f}->{remarks}->content));
         }
     }
     $status{'toolDeductions'} = $messageStats->{pts}->content;
@@ -1998,8 +2014,6 @@ print "score with student tests: $runtimeScoreWithoutCoverage\n"
 my $jacoco  = (-f "$resultDir/jacoco.xml")
     ? XML::Smart->new("$resultDir/jacoco.xml")
     : undef;
-# %codeMarkupIds is a map from file names to codeMarkup numbers
-my %codeMarkupIds = ();
 
 #if (!$buildFailed) # $can_proceed)
 #{
@@ -2073,7 +2087,6 @@ if (!$buildFailed) # $can_proceed)
 {
     if (defined $jacoco)
     {
-    my $numCodeMarkups = $cfg->getProperty('numCodeMarkups', 0);
     my $ptsPerUncovered = 0.0;
     my $methodCounter = $jacoco->{report}{counter}('type', 'eq', 'METHOD');
     my $methods = 0 + $methodCounter->{missed}->content
@@ -2158,7 +2171,7 @@ if (!$buildFailed) # $can_proceed)
 
             # Try to match against longer file names from checkstyle/pmd
             my $bestMatch = undef;
-            for my $longName (keys %fileNames)
+            for my $longName (keys %codeMarkupIds)
             {
                 if ($longName =~ m,/\Q$fileName\E$,)
                 {
@@ -2174,8 +2187,16 @@ if (!$buildFailed) # $can_proceed)
                 $fileName = $bestMatch;
             }
 
-            $numCodeMarkups++;
-            $codeMarkupIds{$fileName} = $numCodeMarkups;
+            my $codeMarkupNo;
+            if (defined $codeMarkupIds{$fileName})
+            {
+                $codeMarkupNo = $codeMarkupIds{$fileName};
+            }
+            else
+            {
+                $codeMarkupNo = ++$numCodeMarkups;
+                $codeMarkupIds{$fileName} = $codeMarkupNo;
+            }
 
             # Save coverage data to %codeMessages
             if (!defined $codeMessages{$fileName})
@@ -2254,10 +2275,10 @@ if (!$buildFailed) # $can_proceed)
                 my $pkg = $pkgName;
                 $pkg =~ s,/$,,o;
                 $pkg =~ s,/,.,go;
-                $cfg->setProperty("codeMarkup${numCodeMarkups}.pkgName",
+                $cfg->setProperty("codeMarkup${codeMarkupNo}.pkgName",
                                   $pkg);
             }
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.className",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.className",
                               $className);
 #            my $metrics = $file->{metrics};
 #            $cfg->setProperty("codeMarkup${numCodeMarkups}.loc",
@@ -2273,9 +2294,9 @@ if (!$buildFailed) # $can_proceed)
                 $myElementsCovered = 0 + $counter->{covered}->content;
                 $myElements = $myElementsCovered + $counter->{missed}->content;
             }
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.statements",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.statements",
                               $myElements);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.statementsCovered",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.statementsCovered",
                               $myElementsCovered);
 
             $counter = $file->{counter}('type', 'eq', 'METHOD');
@@ -2291,10 +2312,10 @@ if (!$buildFailed) # $can_proceed)
                 $myElements += 0 + $counter->{missed}->content
                     + $counter->{covered}->content;
             }
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.methods",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.methods",
                               0 + $counter->{missed}->content
                               + $counter->{covered}->content);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.methodsCovered",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.methodsCovered",
                               0 + $counter->{covered}->content);
 
             $counter = $file->{counter}('type', 'eq', 'BRANCH');
@@ -2304,33 +2325,32 @@ if (!$buildFailed) # $can_proceed)
                 $myElements += 0 + $counter->{missed}->content
                     + $counter->{covered}->content;
             }
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.conditionals",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.conditionals",
                               0 + $counter->{missed}->content
                               + $counter->{covered}->content);
             $cfg->setProperty(
-                "codeMarkup${numCodeMarkups}.conditionalsCovered",
+                "codeMarkup${codeMarkupNo}.conditionalsCovered",
                 0 + $counter->{covered}->content);
 
             $gradedElements += $myElements;
             $gradedElementsCovered += $myElementsCovered;
 
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.elements",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.elements",
                               $myElements);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.elementsCovered",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.elementsCovered",
                               $myElementsCovered);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.sourceFileName",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.sourceFileName",
                               $fileName);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.deductions",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.deductions",
                 ($myElements - $myElementsCovered) * $ptsPerUncovered
                 - $messageStats->{file}->{$fileName}->{pts}->content);
-            $cfg->setProperty("codeMarkup${numCodeMarkups}.remarks",
+            $cfg->setProperty("codeMarkup${codeMarkupNo}.remarks",
                 (0 + $messageStats->{file}->{$fileName}->{remarks}->content));
         }
     }
-
-    $cfg->setProperty("numCodeMarkups", $numCodeMarkups);
     }
 }
+$cfg->setProperty("numCodeMarkups", $numCodeMarkups);
 
 my $time7 = time;
 if ($debug)
@@ -2480,8 +2500,14 @@ if (defined $messageStats)
     my $staticResults = '';
     # For some reason, iteration in $messageStats is broken here, so
     # simply convert to text and back to get it back into shape.
-    $messageStats =
-        XML::Smart->new($messageStats->data(tree => $messageStats))->{root};
+    print "about to reframe message stats\n" if ($debug);
+    print $messageStats->data(tree=>$messageStats) if ($debug);
+    if (!$messageStats->{file}->null)
+    {
+        $messageStats = XML::Smart->new(
+            $messageStats->data(tree => $messageStats))->{root};
+    }
+    print "reframed message stats\n" if ($debug);
     foreach my $grp ($messageStats->('@keys'))
     {
         if (   $grp eq 'file'
