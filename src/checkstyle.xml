@@ -444,11 +444,15 @@
     <property name="message" value="Please write your own descriptive comment."/>
   </module>
   <module name="RegexpSingleline">
+    <property name="format" value="^\s*\*\s*Replace this.*with your own\.\s*$"/>
+    <property name="message" value="Please write your own descriptive comment."/>
+  </module>
+  <module name="RegexpSingleline">
     <property name="format" value="^\s*\*\s*@author\s+Partner( [1-9])?'s\s+name"/>
     <property name="message" value="Place your partner's name (and user name) after the @author tag, if you have a partner (or delete the comment, if you do not)."/>
   </module>
   <module name="RegexpSingleline">
-    <property name="format" value="^\s*\*\s*@author\s+your(-|\s+)(pid|username)"/>
+    <property name="format" value="^\s*\*\s*@author\s+.*\byour(-|\s+)(name|pid|username)"/>
     <property name="message" value="Place your own name (and user name) after the @author tag.  If you are working with a partner, place each person's name (and user name) in a separate @author tag on a separate line."/>
   </module>
   <module name="RegexpSingleline">
