@@ -1330,6 +1330,7 @@ if (!$buildFailed) # $can_proceed)
         my $cstyle = XML::Smart->new($checkstyleLog);
         foreach my $file (@{ $cstyle->{checkstyle}->{file} })
         {
+            next if ($file->{name}->null);
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
             $fileName =~ s,^\Q$workingDir/\E,,i;
