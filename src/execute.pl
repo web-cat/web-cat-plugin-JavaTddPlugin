@@ -15,6 +15,7 @@ use File::Basename;
 use File::Copy;
 use File::Spec;
 use File::stat;
+use File::Glob qw (bsd_glob);
 use Proc::Background;
 use Web_CAT::Beautifier;
 use Web_CAT::Clover::Reformatter;
@@ -485,7 +486,8 @@ chdir($workingDir);
 {
     # Get a listing of all file/dir names, including those starting with
     # dot, then strip out . and ..
-    my @dirContents = grep(!/^(\.{1,2}|META-INF)$/, <* .*>);
+    my @dirContents = grep(!/^(\.{1,2}|META-INF|__MACOSX)$/,
+        (bsd_glob("*"), bsd_glob(".*")));
 
     # if this list contains only one entry that is a dir name != src, then
     # assume that the submission has been "wrapped" with an outter
@@ -1914,13 +1916,13 @@ sub processCloverDir
 
     if (-d $path)
     {
-        for my $file (<$path/*>)
+        for my $file (bsd_glob("$path/*"))
         {
             processCloverDir($file, $stripEmptyCoverage, $cloverData);
         }
 
         # is the dir empty now?
-        my @files = (<$path/*>);
+        my @files = bsd_glob("$path/*");
         if ($#files < 0)
         {
             # print "deleting empty dir $path\n";
@@ -2052,7 +2054,7 @@ my $jacoco  = (-f "$resultDir/jacoco.xml")
 #    my $defPkgDir = "$resultDir/clover/default-pkg";
 #    if (-d $defPkgDir)
 #    {
-#        for my $file (<$defPkgDir/*>)
+#        for my $file (bsd_glob("$defPkgDir/*"))
 #        {
 #            my $newLoc = $file;
 #            if ($newLoc =~ s,/default-pkg/,/,o)
