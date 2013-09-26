@@ -211,6 +211,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-Dstudent.TestCase.trimStackTraces=false"/>
       <jvmarg value="-Xms128m"/>
       <jvmarg value="-Xmx512m"/>
+      <jvmarg value="-XX:ErrorFile=${resultDir}/instr-jvm-error.log"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.ceiling=${student.testingsupport.junit4.AdaptiveTimeout.ceiling}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.maximum=${student.testingsupport.junit4.AdaptiveTimeout.maximum}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.minimum=${student.testingsupport.junit4.AdaptiveTimeout.minimum}"/>
@@ -286,6 +287,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampdown=${student.testingsupport.junit4.AdaptiveTimeout.rampdown}"/>
       <jvmarg value="-Xms128m"/>
       <jvmarg value="-Xmx512m"/>
+      <jvmarg value="-XX:ErrorFile=${resultDir}/student-jvm-error.log"/>
       <sysproperty key="jacoco-agent.destfile" file="${jacoco.db}"/>
       <formatter
         classname="net.sf.webcat.plugins.javatddplugin.PerlScoringJUnitResultFormatter"
