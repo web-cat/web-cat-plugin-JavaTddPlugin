@@ -44,6 +44,7 @@
   <!-- These are for static analysis filtering -->
   <property name="staticAnalysisSrcPattern"          value="**/*.java"/>
   <property name="staticAnalysisSrcExclusionPattern" value="none"/>
+  <property name="instrumentExclusionPattern"        value="none"/>
 
   <condition property="isDebugging">
     <matches string="${debug}" pattern="[3-9]"/>
@@ -148,6 +149,17 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
           description="compiles all the student code using javac">
     <mkdir dir="${instructorBuild}"/>
     <mkdir dir="${studentBuild}"/>
+    <apply executable="${PerlForPlugins.perl.exe}"
+      failonerror="true"
+      parallel="true"
+      skipemptyfilesets="true"
+      forwardslash="true"
+      >
+      <arg value="${pluginHome}/ensureUTF8.pl"/>
+      <fileset dir="${basedir}" casesensitive="no">
+        <include name="**/*.java"/>
+      </fileset>
+  	</apply>
     <javac srcdir="${basedir}"
            destdir="${studentBuild}"
            verbose="off"
@@ -155,6 +167,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            debug="true"
            debuglevel="lines,vars,source"
     	   includeAntRuntime="false"
+    	   encoding="UTF-8"
       >
       <classpath refid="build.classpath"/>
       <compilerarg value="-Xlint:unchecked"/>
@@ -165,6 +178,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   <target name="compile.instructor.tests"
           depends="compile"
           description="compile all of the instructor-provided unit tests">
+  	<!-- TODO: need to handle non-UTF-8 reference tests here -->
     <javac srcdir="${testCasePath}"
            destdir="${instructorBuild}"
            verbose="off"
@@ -175,6 +189,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            includes="${testCasePattern}"
            includeAntRuntime="false"
     	>
+    	<!-- Should include:, but not until we have a viable UTF-8-ifier
+           encoding="UTF-8"
+    	-->
       <classpath refid="build.classpath"/>
     </javac>
   </target>
@@ -218,6 +235,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.threshold=${student.testingsupport.junit4.AdaptiveTimeout.threshold}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampup=${student.testingsupport.junit4.AdaptiveTimeout.rampup}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampdown=${student.testingsupport.junit4.AdaptiveTimeout.rampdown}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.logfile=${resultDir}/instr-timeout.csv"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.user=${userInstitution},${semester},${course},${CRN},${assignment},${userName},${submissionNo}"/>
       <formatter
         classname="net.sf.webcat.plugins.javatddplugin.HintingJUnitResultFormatter"
         extension=".inc"/>
@@ -285,12 +304,14 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.threshold=${student.testingsupport.junit4.AdaptiveTimeout.threshold}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampup=${student.testingsupport.junit4.AdaptiveTimeout.rampup}"/>
       <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.rampdown=${student.testingsupport.junit4.AdaptiveTimeout.rampdown}"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.logfile=${resultDir}/student-timeout.csv"/>
+      <jvmarg value="-Dstudent.testingsupport.junit4.AdaptiveTimeout.user=${userInstitution},${semester},${course},${CRN},${assignment},${userName},${submissionNo}"/>
       <jvmarg value="-Xms128m"/>
       <jvmarg value="-Xmx512m"/>
       <jvmarg value="-XX:ErrorFile=${resultDir}/student-jvm-error.log"/>
       <sysproperty key="jacoco-agent.destfile" file="${jacoco.db}"/>
       <formatter
-        classname="net.sf.webcat.plugins.javatddplugin.PerlScoringJUnitResultFormatter"
+        classname="net.sf.webcat.plugins.javatddplugin.PlistJUnitResultFormatter"
         extension=".inc"/>
       <formatter
         classname="net.sf.webcat.plugins.javatddplugin.BasicJUnitResultFormatter"
@@ -338,11 +359,17 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     </delete>
   	<move file="${studentBuild}" tofile="${studentBuild}.raw"/>
     <mkdir dir="${studentBuild}"/>
+    <copy todir="${studentBuild}">
+      <fileset dir="${studentBuild}.raw"
+        includes="${instrumentExclusionPattern}"/>
+  	</copy>
     <taskdef resource="org/jacoco/ant/antlib.xml">
       <classpath path="${pluginHome}/jacoco/jacocoant.jar"/>
     </taskdef>
     <instrument destdir="${studentBuild}">
-      <fileset dir="${studentBuild}.raw" includes="**/*.class"/>
+      <fileset dir="${studentBuild}.raw"
+        includes="**/*.class"
+        excludes="${instrumentExclusionPattern}"/>
     </instrument>
   </target>
 
@@ -357,7 +384,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       </executiondata>
       <structure name="JaCoCo">
         <classfiles>
-          <fileset dir="${studentBuild}.raw"/>
+          <fileset dir="${studentBuild}.raw" excludes="${instrumentExclusionPattern}"/>
         </classfiles>
         <sourcefiles encoding="UTF-8">
           <fileset dir="${basedir}"/>
