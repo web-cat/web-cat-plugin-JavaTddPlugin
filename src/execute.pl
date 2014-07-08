@@ -153,6 +153,10 @@ my $studentsMustSubmitTests =
 $studentsMustSubmitTests =
     ($studentsMustSubmitTests =~ m/^(true|on|yes|y|1)$/i);
 if (!$studentsMustSubmitTests) { $allStudentTestsMustPass = 0; }
+my $includeTestSuitesInCoverage =
+    $cfg->getProperty('includeTestSuitesInCoverage', 0);
+$includeTestSuitesInCoverage =
+    ($includeTestSuitesInCoverage =~ m/^(true|on|yes|y|1)$/i);
 my $requireSimpleExceptionCoverage =
     $cfg->getProperty('requireSimpleExceptionCoverage', 0);
 $requireSimpleExceptionCoverage =
@@ -357,6 +361,8 @@ setClassPatternIfNeeded('studentTestExclude',
 setClassPatternIfNeeded('staticAnalysisInclude', 'staticAnalysisSrcPattern', 1);
 setClassPatternIfNeeded('staticAnalysisExclude',
     'staticAnalysisSrcExclusionPattern', 1);
+setClassPatternIfNeeded('staticAnalysisExclude',
+    'instrumentExclusionPattern');
 
 
 # useDefaultJar
@@ -627,6 +633,7 @@ sub adminLog
 
 
 #-----------------------------------------------
+my %suites = ();
 if ($can_proceed)
 {
     open(ANTLOG, "$antLog") ||
@@ -818,6 +825,23 @@ EOF
         new Web_CAT::JUnitResultsReader("$resultDir/student.inc");
     $status{'instrTestResults'} =
         new Web_CAT::JUnitResultsReader("$resultDir/instr.inc");
+    foreach my $class ($status{'studentTestResults'}->suites)
+    {
+        my $pkg = "";
+        my $simpleClassName = $class;
+        if ($class =~ m/^(.+)\.([^\.]+)/o)
+        {
+            $pkg = $1;
+            $simpleClassName = $2;
+        }
+        $simpleClassName =~ s/\$.*$//o;
+        if (!defined $suites{$pkg})
+        {
+            $suites{$pkg} = {};
+        }
+        $suites{$pkg}->{$simpleClassName} = $class;
+        print "suite: $pkg -> $simpleClassName -> $class\n" if ($debug > 2);
+    }
 }
 
 if ($antLogOpen)
@@ -2012,6 +2036,191 @@ print "score with student tests: $runtimeScoreWithoutCoverage\n"
 
 
 #=============================================================================
+# Scan source file(s) to find code where coverage isn't required
+#=============================================================================
+my @partnerExcludePatterns = ();
+my $partnerExcludePatterns_raw =
+    $cfg->getProperty('grader.partnerExcludePatterns', '');
+if ($partnerExcludePatterns_raw ne '')
+{
+    @partnerExcludePatterns = split(/(?<!\\),/, $partnerExcludePatterns_raw);
+}
+my $userName = $cfg->getProperty('userName', '');
+if ($userName ne '')
+{
+    push(@partnerExcludePatterns, $userName);
+}
+my $potentialPartners = $cfg->getProperty('grader.potentialpartners', '');
+
+sub extractExemptLines
+{
+    my $fileName    = shift;
+    my $exemptLines = shift;
+
+    if (-d $fileName)
+    {
+        foreach my $f (bsd_glob("$fileName/*"))
+        {
+            extractExemptLines($f, $exemptLines);
+        }
+    }
+    elsif ($fileName =~ m/\.java$/io)
+    {
+        if (open(SRCFILE, $fileName))
+        {
+            my @lines = <SRCFILE>;
+            close(SRCFILE);
+                @lines = map {
+                    $_ =~ s/\r\n/\n/go;
+                    $_ =~ s/\r/\r\n/go;
+                    map { $_ =~ s/\r//go; $_ } split(/(?<=\r\n)/, $_)
+                } @lines;
+            my $fullText = join('', @lines);
+
+            # Look for @author tags
+            while ($fullText =~ m/^[\s\*]*\@author\s*(.*)$/gmo)
+            {
+                my $authors = $1;
+                $authors =~ s/\@[a-zA-Z][a-zA-Z0-9\.]+[a-zA-Z]/ /g;
+                $authors =~
+        s/your-pid [\(]?and if in lab[,]? partner[']?s pid on same line[\)]?//;
+                $authors =~ s/Partner [1-9][' ]?s name [\(]?pid[\)]?//;
+                $authors =~ s/[,;:\(\)\]\]\{\}=!\@#%^&\*<>\/\\\`'"]/ /g;
+                foreach my $pat (@partnerExcludePatterns)
+                {
+                    $authors =~ s/(?<!\S)$pat(?!\S)//g;
+                }
+                $authors =~ s/^\s+//;
+                $authors =~ s/\s+$//;
+                $authors =~ s/\s\s+/ /g;
+                if ($authors ne '')
+                {
+                    if ($potentialPartners ne '')
+                    {
+                        $potentialPartners .= ' ';
+                    }
+                    $potentialPartners .= $authors;
+                }
+            }
+            $cfg->setProperty('grader.potentialpartners', $potentialPartners);
+
+
+            if (! defined $exemptLines->{$fileName})
+            {
+                $exemptLines->{$fileName} = {};
+            }
+
+            my $simpleGetters = 0;
+            my $simpleSetters = 0;
+            if (!$requireSimpleGetterSetterCoverage)
+            {
+                # First, handle getters
+                while ($fullText =~ m/((?<=\n)[^\S\n]*)
+                    ((public|protected)?\s+
+                    ([a-zA-Z]+|[A-Za-z][a-zA-Z0-9_]*)
+                    (?:\s*\[\s*\])*\s+
+                    (get[A-Z][a-zA-Z0-9_]*)\s*\(\s*\)
+                    \s*{\s*
+                    return\s+
+                    (?:[A-Za-z_][A-Za-z0-9_\.]+|
+                    "[^"]*"|
+                    new\s+[A-Z][a-zA-Z0-9_]*Parser\s*\[\]\s*{}
+                    );\s*})/ixsgp)
+                {
+                    my $pre = ${^PREMATCH};
+                    my $getter = $2;
+                    my $line1 = ($pre =~ tr/\n//) + 1;
+                    my $lines = ($getter =~ tr/\n//) + 1;
+                    # print "found getter: $getter\n";
+                    # print " start line = $line1; lines = $lines\n";
+                    if (!defined $exemptLines->{$fileName}->{method})
+                    {
+                        $exemptLines->{$fileName}->{method} = [];
+                    }
+                    push(@{$exemptLines->{$fileName}->{method}},
+                        [$line1, $line1 + $lines - 1, 0]);
+                    for (my $i = $line1; $i < $line1 + $lines; $i++)
+                    {
+                        $exemptLines->{$fileName}->{$i} = -1;
+                    }
+                }
+
+                # Now setters
+                while ($fullText =~ m/((?<=\n)[^\S\n]*)
+                    ((public|protected)?\s+void\s+
+                    (set[A-Z][a-zA-Z0-9_]*)\s*\(\s*
+                    ([a-zA-Z]+|[A-Za-z][a-zA-Z0-9_]*)\s*
+                        [a-zA-Z_][a-zA-Z0-9_]*\s*\)
+                    \s*{\s*
+                    [A-Za-z_][A-Za-z0-9_\.]+\s*=\s*[A-Za-z_][A-Za-z0-9_]+;
+                    \s*})/ixsgp)
+                {
+                    my $pre = ${^PREMATCH};
+                    my $setter = $2;
+                    my $line1 = ($pre =~ tr/\n//) + 1;
+                    my $lines = ($setter =~ tr/\n//) + 1;
+                    # print "found setter: $setter\n";
+                    # print " start line = $line1; lines = $lines\n";
+                    if (!defined $exemptLines->{$fileName}->{method})
+                    {
+                        $exemptLines->{$fileName}->{method} = [];
+                    }
+                    push(@{$exemptLines->{$fileName}->{method}},
+                        [$line1, $line1 + $lines - 1, 0]);
+                    for (my $i = $line1; $i < $line1 + $lines; $i++)
+                    {
+                        $exemptLines->{$fileName}->{$i} = -1;
+                    }
+                }
+            }
+
+            # Now, handle simple exception handlers, if needed.
+            my $simpleCatchBlocks = 0;
+            my $noViableAltBlocks = 0;
+            if (!$requireSimpleExceptionCoverage)
+            {
+                while ($fullText =~ m/((?<=\n)[^\S\n]*(}[^\S\n]*)?)
+                    (catch[\s\n]*
+                    \(\s*[A-Z][a-zA-Z0-9_]*\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)
+                    [\s\n]*{[\s\n]*
+                    (([a-zA-Z_][a-zA-Z0-9_]*\s*\.\s*
+                    printStackTrace\s*\([^()]*\)|
+                    throw\s+new\s+
+                    [A-Z][a-zA-Z0-9_]*\s*\([^()]*\))\s*;)
+                    [\s\n]*})/ixsgp)
+                {
+                    my $pre = ${^PREMATCH};
+                    my $handler = $3;
+                    my $line1 = ($pre =~ tr/\n//) + 1;
+                    my $lines = ($handler =~ tr/\n//) + 1;
+                    # print "found handler: $handler\n";
+                    # print " start line = $line1; lines = $lines\n";
+                    for (my $i = $line1; $i < $line1 + $lines; $i++)
+                    {
+                        $exemptLines->{$fileName}->{$i} = -1;
+                    }
+                }
+            }
+
+            # sort method entries
+            if (defined $exemptLines->{$fileName}->{method})
+            {
+                @{$exemptLines->{$fileName}->{method}} =
+                    sort { $a->[0] <=> $b->[0] }
+                        @{$exemptLines->{$fileName}->{method}};
+            }
+        }
+    }
+    else
+    {
+        print "Cannot open source file $fileName: $!\n";
+    }
+
+    return $exemptLines;
+}
+
+
+#=============================================================================
 # post-process generated HTML files
 #=============================================================================
 my $jacoco  = (-f "$resultDir/jacoco.xml")
@@ -2085,74 +2294,91 @@ if ($debug)
     print "\n", ($time6 - $time5), " seconds\n";
 }
 
-
 if (!$buildFailed) # $can_proceed)
 {
     if (defined $jacoco)
     {
-    my $ptsPerUncovered = 0.0;
-    my $methodCounter = $jacoco->{report}{counter}('type', 'eq', 'METHOD');
-    my $methods = 0 + $methodCounter->{missed}->content
-        + $methodCounter->{covered}->content;
-    if ($runtimeScoreWithoutCoverage > 0 && $methods > 0)
-    {
-        my $topLevelGradedElements = 1;
-        my $label = '';
-        if ($coverageMetric == 1
-            || $coverageMetric == 3 || $coverageMetric == 4)
+    my $counter = $jacoco->{report}{counter}('type', 'eq', 'METHOD');
+    my $methods = 0 + $counter->{missed}->content
+        + $counter->{covered}->content;
+    my $methodsCovered = 0 + $counter->{covered}->content;
+    my $lines = 0;
+    my $linesCovered = 0;
+    my $instructions = 0;
+    my $instructionsCovered = 0;
+    my $complexity = 0;
+    my $complexityCovered = 0;
+    my $branches = 0;
+    my $branchesCovered = 0;
+
+        my @suiteNodes = ();
+        for my $pkg (@{$jacoco->{report}{package}})
         {
-            my $counter = $jacoco->{report}{counter}(
-                'type', 'eq', 'LINE');
-            $topLevelGradedElements =  0 + $counter->{missed}->content
-                + $counter->{covered}->content;
-            $label = 'Lines';
-            if ($topLevelGradedElements == 0)
+            my $pkgName = $pkg->{name};
+            $pkgName =~ s,/,.,go;
+            print "package = " . $pkg->{name} . " ($pkgName)\n" if ($debug > 3);
+            for my $cls (@{$pkg->{class}})
             {
-                $counter = $jacoco->{report}{counter}(
-                    'type', 'eq', 'INSTRUCTION');
-                $topLevelGradedElements =  0 + $counter->{missed}->content
-                    + $counter->{covered}->content;
-                $label = 'Instructions';
+                my $clsName = $cls->{name};
+                $clsName =~ s,^.*/([^/]+)$,\1,o;
+                print "    class = " . $cls->{name} . " ($clsName)\n"
+                    if ($debug > 3);
+                if (defined $suites{$pkgName}
+                    && defined $suites{$pkgName}->{$clsName})
+                {
+                    push(@suiteNodes, $cls);
+                    print "        suite found\n" if ($debug > 3);
+                }
             }
         }
-        if ($coverageMetric == 2)
-        {
-            my $counter = $jacoco->{report}{counter}(
-                'type', 'eq', 'COMPLEXITY');
-            $topLevelGradedElements =  0 + $counter->{missed}->content
-                + $counter->{covered}->content;
-            $label = 'Methods and Conditionals';
-        }
-        elsif ($coverageMetric == 3)
-        {
-            my $counter = $jacoco->{report}{counter}(
-                'type', 'eq', 'BRANCH');
-            $topLevelGradedElements +=  0 + $counter->{missed}->content
-                + $counter->{covered}->content;
-            $label .= ' and Conditionals';
-        }
-        elsif ($coverageMetric == 4)
-        {
-            my $counter = $jacoco->{report}{counter}(
-                'type', 'eq', 'COMPLEXITY');
-            $topLevelGradedElements +=  0 + $counter->{missed}->content
-                + $counter->{covered}->content;
-            $label = "Methods/$label/Conditionals";
-        }
-        elsif ($coverageMetric != 1)
-        {
-            $topLevelGradedElements = $methods;
-            $label = 'Methods';
-        }
-        $cfg->setProperty("statElementsLabel", "$label Executed");
 
-        if ($studentsMustSubmitTests)
+        # Initialize counter based on top-level accumulators in jacoco.xml
+        $counter = $jacoco->{report}{counter}('type', 'eq', 'LINE');
+        $lines += 0 + $counter->{missed}->content
+            + $counter->{covered}->content;
+        $linesCovered += 0 + $counter->{covered}->content;
+        $counter = $jacoco->{report}{counter}('type', 'eq', 'INSTRUCTION');
+        $instructions += 0 + $counter->{missed}->content
+            + $counter->{covered}->content;
+        $instructionsCovered += 0 + $counter->{covered}->content;
+        $counter = $jacoco->{report}{counter}('type', 'eq', 'COMPLEXITY');
+        $complexity += 0 + $counter->{missed}->content
+            + $counter->{covered}->content;
+        $complexityCovered += 0 + $counter->{covered}->content;
+        $counter = $jacoco->{report}{counter}('type', 'eq', 'BRANCH');
+        $branches += 0 + $counter->{missed}->content
+            + $counter->{covered}->content;
+        $branchesCovered += 0 + $counter->{covered}->content;
+        if (!$includeTestSuitesInCoverage)
         {
-            $ptsPerUncovered = -1.0 /
-                $topLevelGradedElements * $runtimeScoreWithoutCoverage;
+            for my $cls (@suiteNodes)
+            {
+                $counter = $cls->{counter}('type', 'eq', 'LINE');
+                $lines -= 0 + $counter->{missed}->content
+                    + $counter->{covered}->content;
+                $linesCovered -= 0 + $counter->{covered}->content;
+                $counter = $cls->{counter}('type', 'eq', 'INSTRUCTION');
+                $instructions -= 0 + $counter->{missed}->content
+                    + $counter->{covered}->content;
+                $instructionsCovered -= 0 + $counter->{covered}->content;
+                $counter = $cls->{counter}('type', 'eq', 'COMPLEXITY');
+                $complexity -= 0 + $counter->{missed}->content
+                    + $counter->{covered}->content;
+                $complexityCovered -= 0 + $counter->{covered}->content;
+                $counter = $cls->{counter}('type', 'eq', 'BRANCH');
+                $branches -= 0 + $counter->{missed}->content
+                    + $counter->{covered}->content;
+                $branchesCovered -= 0 + $counter->{covered}->content;
+                $counter = $cls->{counter}('type', 'eq', 'METHOD');
+                $methods -= 0 + $counter->{missed}->content
+                    + $counter->{covered}->content;
+                $methodsCovered -= 0 + $counter->{covered}->content;
+            }
         }
-    }
+
     my $Uprojdir = $workingDir . "/";
+    my %exemptLines = ();
+    my %fileDeductionProperties = ();
     foreach my $pkg (@{ $jacoco->{report}{package} })
     {
         my $pkgName = $pkg->{name}->content;
@@ -2162,6 +2388,8 @@ if (!$buildFailed) # $can_proceed)
             $pkgName =~ s,\\,/,go;
             $pkgName .= '/';
         }
+        my $javaPackageName = $pkg->{name}->content;
+        $javaPackageName =~ s,[/\\],.,go;
         foreach my $file (@{ $pkg->{sourcefile} })
         {
             my $fileName = $pkgName . $file->{name}->content;
@@ -2171,6 +2399,9 @@ if (!$buildFailed) # $can_proceed)
             my $fqClassName = $fileName;
             $fqClassName =~ s,\..*$,,o;
             $fqClassName =~ s,/,.,go;
+            my $includeCvg = $includeTestSuitesInCoverage
+                || !(defined $suites{$javaPackageName})
+                || !(defined $suites{$javaPackageName}->{$className});
 
             # Try to match against longer file names from checkstyle/pmd
             my $bestMatch = undef;
@@ -2201,16 +2432,83 @@ if (!$buildFailed) # $can_proceed)
                 $codeMarkupIds{$fileName} = $codeMarkupNo;
             }
 
+            # Identify lines that don't require coverage
+            my %exemptLines = ();
+            extractExemptLines($fileName, \%exemptLines);
+            if ($debug > 3)
+            {
+                print "exempt lines = ", dump(\%exemptLines), "\n";
+            }
+
             # Save coverage data to %codeMessages
             if (!defined $codeMessages{$fileName})
             {
                 $codeMessages{$fileName} = {};
             }
             my $msgs = $codeMessages{$fileName};
+            my $exemptLinesCovered = 0;
+            my $exemptLinesMissed = 0;
+            my $exemptInstructionsCovered = 0;
+            my $exemptInstructionsMissed = 0;
+            my $exemptMethodsCovered = 0;
+            my $exemptMethodsMissed = 0;
+            my $exemptBranchesCovered = 0;
+            my $exemptBranchesMissed = 0;
+            my $exemptComplexityCovered = 0;
+            my $exemptComplexityMissed = 0;
             foreach my $line (@{ $file->{line} })
             {
-                my $num = $line->{nr}->content;
-                if (0 + $line->{mb}->content > 0)
+                my $num = 0 + $line->{nr}->content;
+                my $ci = 0 + $line->{ci}->content;
+                my $mi = 0 + $line->{mi}->content;
+                my $cb = 0 + $line->{cb}->content;
+                my $mb = 0 + $line->{mb}->content;
+                if (defined $exemptLines{$fileName})
+                {
+                     if (defined $exemptLines{$fileName}->{$num})
+                     {
+                         if ($ci + $mi + $cb + $mb > 0)
+                         {
+                             if ($ci + $cb > 0)
+                             {
+                                 $exemptLinesCovered++;
+                             }
+                             elsif ($mi + $mb > 0)
+                             {
+                                 $exemptLinesMissed++;
+                             }
+                             $exemptInstructionsCovered += $ci;
+                             $exemptInstructionsMissed += $mi;
+                             $exemptBranchesCovered += $cb;
+                             $exemptBranchesMissed += $mb;
+                             $exemptComplexityCovered += $cb / 2;
+                             $exemptComplexityMissed +=
+                                 ($mb + $cb) / 2 - ($cb / 2);
+                             if (defined $exemptLines{$fileName}->{method})
+                             {
+                                 for my $methodRange (
+                                  @{$exemptLines{$fileName}->{method}})
+                                 {
+                                     if ($methodRange->[0] <= $num
+                                         && $methodRange->[1] >= $num)
+                                     {
+                                         if ($ci + $cb > 0)
+                                         {
+                                             $methodRange->[2]++;
+                                         }
+                                         last;
+                                     }
+                                     elsif ($methodRange->[0] > $num)
+                                     {
+                                         last;
+                                     }
+                                 }
+                             }
+                         }
+                         next;
+                     }
+                }
+                if ($mb)
                 {
                     if (!defined $msgs->{$num})
                     {
@@ -2218,25 +2516,25 @@ if (!$buildFailed) # $can_proceed)
                     }
                     $msgs->{$num}{category} = 'coverage';
                     $msgs->{$num}{coverage} = 'e';
-                    if (0 + $line->{cb}->content > 0)
+                    if ($cb)
                     {
                         $msgs->{$num}->{message} =
-                            'The decision on this line always evaluated the '
-                            . 'same way.  Make sure you have separate tests '
-                            . 'where the decision is true, and where it is '
-                            . 'false.';
+                            'Not all possibilities for this decision were '
+                            . 'tested.  Remember that when you have N simple '
+                            . 'conditions combined, you must test all N+1 '
+                            . 'possibilities.';
                     }
                     else
                     {
-                        if (0 + $line->{mi}->content > 0)
+                        if ($mi)
                         {
-                            if (0 + $line->{ci}->content > 0)
+                            if ($ci)
                             {
                                 $msgs->{$num}->{message} =
                                     'The decision(s) on this line were not '
                                     . 'tested.  Make sure you have separate '
-                                    . 'tests where the decision is true, and '
-                                    . 'where it is false.';
+                                    . 'tests for each way the decision can '
+                                    . 'be true or false.';
                             }
                             else
                             {
@@ -2251,7 +2549,7 @@ if (!$buildFailed) # $can_proceed)
                         }
                     }
                 }
-                elsif (0 + $line->{mi}->content > 0)
+                elsif ($mi)
                 {
                     if (!defined $msgs->{$num})
                     {
@@ -2259,7 +2557,7 @@ if (!$buildFailed) # $can_proceed)
                     }
                     $msgs->{$num}{category} = 'coverage';
                     $msgs->{$num}{coverage} = 'e';
-                    if (0 + $line->{ci}->content > 0)
+                    if ($ci)
                     {
                         $msgs->{$num}->{message} =
                             'Only part of this line was executed by your '
@@ -2272,6 +2570,33 @@ if (!$buildFailed) # $can_proceed)
                     }
                 }
             }
+            if (defined $exemptLines{$fileName}->{method})
+            {
+                for my $methodRange (@{$exemptLines{$fileName}->{method}})
+                {
+                    if ($methodRange->[2] > 0)
+                    {
+                        $exemptMethodsCovered++;
+                        $exemptComplexityCovered++;
+                    }
+                    else
+                    {
+                        $exemptMethodsMissed++;
+                        $exemptComplexityMissed++;
+                    }
+                }
+            }
+            $methods -= $exemptMethodsCovered + $exemptMethodsMissed;
+            $methodsCovered -= $exemptMethodsCovered;
+            $lines -= $exemptLinesCovered + $exemptLinesMissed;
+            $linesCovered -= $exemptLinesCovered;
+            $instructions -=
+                $exemptInstructionsCovered + $exemptInstructionsMissed;
+            $instructionsCovered -= $exemptInstructionsCovered;
+            $complexity -= $exemptComplexityCovered + $exemptComplexityMissed;
+            $complexityCovered -= $exemptComplexityCovered;
+            $branches -= $exemptBranchesCovered + $exemptBranchesMissed;
+            $branchesCovered -= $exemptBranchesCovered;
 
             if ($pkgName ne '')
             {
@@ -2288,14 +2613,21 @@ if (!$buildFailed) # $can_proceed)
 #                              $metrics->{loc}->content);
 #            $cfg->setProperty("codeMarkup${numCodeMarkups}.ncloc",
 #                              $metrics->{ncloc}->content);
-            my $counter = $file->{counter}('type', 'eq', 'LINE');
+            $counter = $file->{counter}('type', 'eq', 'LINE');
             my $myElementsCovered = 0 + $counter->{covered}->content;
             my $myElements = $myElementsCovered + $counter->{missed}->content;
             if ($myElements == 0)
             {
                 $counter = $file->{counter}('type', 'eq', 'INSTRUCTION');
-                $myElementsCovered = 0 + $counter->{covered}->content;
-                $myElements = $myElementsCovered + $counter->{missed}->content;
+                $myElementsCovered = 0 + $counter->{covered}->content
+                    - $exemptInstructionsCovered;
+                $myElements = $myElementsCovered + $counter->{missed}->content
+                    - $exemptInstructionsMissed;
+            }
+            else
+            {
+                $myElementsCovered -= $exemptLinesCovered;
+                $myElements -= $exemptLinesCovered + $exemptLinesMissed;
             }
             $cfg->setProperty("codeMarkup${codeMarkupNo}.statements",
                               $myElements);
@@ -2303,40 +2635,63 @@ if (!$buildFailed) # $can_proceed)
                               $myElementsCovered);
 
             $counter = $file->{counter}('type', 'eq', 'METHOD');
-            if ($coverageMetric == 2
-                || $coverageMetric < 1 || $coverageMetric > 4)
+            if ($coverageMetric == 0
+                || $coverageMetric == 2
+                || $coverageMetric > 4)
             {
-                $myElementsCovered = 0 + $counter->{covered}->content;
-                $myElements = $myElementsCovered + $counter->{missed}->content;
+                $myElementsCovered = 0 + $counter->{covered}->content
+                    - $exemptMethodsCovered;
+                $myElements = $myElementsCovered + $counter->{missed}->content
+                    - $exemptMethodsMissed;
             }
             elsif ($coverageMetric == 4)
             {
-                $myElementsCovered += 0 + $counter->{covered}->content;
-                $myElements += 0 + $counter->{missed}->content
-                    + $counter->{covered}->content;
+                my $complexityCounter =
+                    $file->{counter}('type', 'eq', 'COMPLEXITY');
+                $myElementsCovered += 0
+                    + $complexityCounter->{covered}->content
+                    - $exemptComplexityCovered;
+                $myElements += 0 + $complexityCounter->{missed}->content
+                    + $complexityCounter->{covered}->content
+                    - $exemptComplexityMissed
+                    - $exemptComplexityCovered;
             }
             $cfg->setProperty("codeMarkup${codeMarkupNo}.methods",
                               0 + $counter->{missed}->content
-                              + $counter->{covered}->content);
+                              - $exemptMethodsMissed
+                              + $counter->{covered}->content
+                              - $exemptMethodsCovered);
             $cfg->setProperty("codeMarkup${codeMarkupNo}.methodsCovered",
-                              0 + $counter->{covered}->content);
+                              0 + $counter->{covered}->content
+                              - $exemptMethodsCovered);
 
             $counter = $file->{counter}('type', 'eq', 'BRANCH');
-            if ($coverageMetric > 1)
+            if ($coverageMetric > 1 && $coverageMetric < 4)
             {
-                $myElementsCovered += 0 + $counter->{covered}->content;
+                $myElementsCovered += 0 + $counter->{covered}->content
+                    - $exemptBranchesCovered;
                 $myElements += 0 + $counter->{missed}->content
-                    + $counter->{covered}->content;
+                    + $counter->{covered}->content
+                    - $exemptBranchesMissed
+                    - $exemptBranchesCovered;
             }
             $cfg->setProperty("codeMarkup${codeMarkupNo}.conditionals",
                               0 + $counter->{missed}->content
-                              + $counter->{covered}->content);
+                              - $exemptBranchesMissed
+                              + $counter->{covered}->content
+                              - $exemptBranchesCovered);
             $cfg->setProperty(
                 "codeMarkup${codeMarkupNo}.conditionalsCovered",
-                0 + $counter->{covered}->content);
+                0 + $counter->{covered}->content
+                - $exemptBranchesCovered);
 
-            $gradedElements += $myElements;
-            $gradedElementsCovered += $myElementsCovered;
+            if (!$includeCvg)
+            {
+                $myElements = 0;
+                $myElementsCovered = 0;
+            }
+#            $gradedElements += $myElements;
+#            $gradedElementsCovered += $myElementsCovered;
 
             $cfg->setProperty("codeMarkup${codeMarkupNo}.elements",
                               $myElements);
@@ -2345,12 +2700,71 @@ if (!$buildFailed) # $can_proceed)
             $cfg->setProperty("codeMarkup${codeMarkupNo}.sourceFileName",
                               $fileName);
             $cfg->setProperty("codeMarkup${codeMarkupNo}.deductions",
-                ($myElements - $myElementsCovered) * $ptsPerUncovered
-                - $messageStats->{file}->{$fileName}->{pts}->content);
+#                ($myElements - $myElementsCovered) * $ptsPerUncovered +
+                0 - $messageStats->{file}->{$fileName}->{pts}->content);
+            $fileDeductionProperties{"codeMarkup${codeMarkupNo}.deductions"} =
+                $myElements - $myElementsCovered;
             $cfg->setProperty("codeMarkup${codeMarkupNo}.remarks",
                 (0 + $messageStats->{file}->{$fileName}->{remarks}->content));
         }
     }
+        my $ptsPerUncovered = 0.0;
+        my $label = '';
+
+        if ($coverageMetric == 1
+            || $coverageMetric == 3 || $coverageMetric == 4)
+        {
+            $gradedElements = $lines;
+            $gradedElementsCovered = $linesCovered;
+            $label = 'Lines';
+            if ($gradedElements == 0)
+            {
+                $gradedElements =  $instructions;
+                $gradedElementsCovered = $instructionsCovered;
+                $label = 'Instructions';
+            }
+        }
+        if ($coverageMetric == 2)
+        {
+            $gradedElements = $methods + $branches;
+            $gradedElementsCovered = $methodsCovered + $branchesCovered;
+            $label = 'Methods and Conditions';
+        }
+        elsif ($coverageMetric == 3)
+        {
+            $gradedElements += $branches;
+            $gradedElementsCovered += $branchesCovered;
+            $label .= ' and Conditions';
+        }
+        elsif ($coverageMetric == 4)
+        {
+            $gradedElements += $complexity;
+            $gradedElementsCovered += $complexityCovered;
+            $label = "Methods/$label/Conditions";
+        }
+        elsif ($coverageMetric != 1)
+        {
+            $gradedElements = $methods;
+            $gradedElementsCovered = $methodsCovered;
+            $label = 'Methods';
+        }
+        $cfg->setProperty("statElementsLabel", "$label Executed");
+
+        if ($studentsMustSubmitTests)
+        {
+            $ptsPerUncovered = -1.0 /
+                $gradedElements * $runtimeScoreWithoutCoverage;
+            if ($ptsPerUncovered < 0)
+            {
+                for my $prop (keys %fileDeductionProperties)
+                {
+                    my $deductions = 0 + $cfg->getProperty($prop, 0);
+                    my $missedElements = $fileDeductionProperties{$prop};
+                    $cfg->setProperty($prop,
+                        $deductions + $ptsPerUncovered * $missedElements);
+                }
+            }
+        }
     }
 }
 $cfg->setProperty("numCodeMarkups", $numCodeMarkups);
