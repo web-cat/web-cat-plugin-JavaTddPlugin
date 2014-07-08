@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 4;
     version.minor    = 0;
-    version.revision = 6;
-    version.date     = 20130927;
+    version.revision = 7;
+    version.date     = 20140708;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -12,7 +12,7 @@
     license          = "GNU Affero General Public License v.3";
     license.url      = "http://www.gnu.org/licenses/agpl.html";
     copyright        =
-        "(c) 2006-2013 Virginia Tech Department of Computer Science";
+        "(c) 2006-2014 Virginia Tech Department of Computer Science";
     info.url         = "http://wiki.web-cat.org/WCWiki/JavaTddPlugin";
     history.url      =
         "http://wiki.web-cat.org/WCWiki/JavaTddPlugin/ChangeHistory";
@@ -203,15 +203,28 @@
                            a student's tests cover the corresponding code.";
             choices     = ( { label = "Methods executed"; value = 0; },
                             { label = "Lines executed"; value = 1; },
-                            { label = "Methods + decisions executed";
+                            { label = "Methods + conditions executed";
                               value = 2; },
-                            { label = "Lines + decisions executed";
+                            { label = "Lines + conditions executed";
                               value = 3; },
-                         { label = "Methods + lines + decisions executed";
+                         { label = "Methods + lines + conditions executed";
                               value = 4; }
                           );
         },
-/*
+        {
+            property    = includeTestSuitesInCoverage;
+            type        = boolean;
+            default     = false;
+            name        = "Include Student Test Code in Coverage Measures";
+            category    = "Basic Settings";
+            description =
+  "Normally, this plug-in excludes student-written tests from all coverage
+  calculations, since the goal of the testing is to test the solution, not
+  to execute more tests.  When this option is set, student-written tests
+  will be included in code coverage measures for the purposes of scoring,
+  meaning that students will have to execute all of the code in their
+  test classes.";
+        },
         {
             property    = requireSimpleExceptionCoverage;
             type        = boolean;
@@ -241,6 +254,7 @@
   simple getters and setters are not counted in coverage measurements, and
   do not result in point deductions.";
         },
+/*
         {
             property    = "clover.includes";
             type        = shortText;
@@ -404,7 +418,6 @@
   documentation</a>).  This plug-in uses PMD v5.0.5.  If you owuld like to
   turn off all PMD checks entirely, use the \"Turn PMD Off\" options instead.";
         },
-/*
         {
             property    = use.comtor;
             type        = antBoolean;
@@ -414,7 +427,6 @@
   "Set to true to run the COMTOR Comment Analyzer and include the results
   as part of the overall feedback report.";
         },
-*/
         {
             property    = staticAnalysisInclude;
             type        = shortText;
