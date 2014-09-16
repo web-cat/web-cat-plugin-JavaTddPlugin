@@ -2125,9 +2125,9 @@ sub extractExemptLines
                     (?:[A-Za-z_][A-Za-z0-9_\.]+|
                     "[^"]*"|
                     new\s+[A-Z][a-zA-Z0-9_]*Parser\s*\[\]\s*{}
-                    );\s*})/ixsgp)
+                    );\s*})/ixsg)
                 {
-                    my $pre = ${^PREMATCH};
+                    my $pre = $`;
                     my $getter = $2;
                     my $line1 = ($pre =~ tr/\n//) + 1;
                     my $lines = ($getter =~ tr/\n//) + 1;
@@ -2153,9 +2153,9 @@ sub extractExemptLines
                         [a-zA-Z_][a-zA-Z0-9_]*\s*\)
                     \s*{\s*
                     [A-Za-z_][A-Za-z0-9_\.]+\s*=\s*[A-Za-z_][A-Za-z0-9_]+;
-                    \s*})/ixsgp)
+                    \s*})/ixsg)
                 {
-                    my $pre = ${^PREMATCH};
+                    my $pre = $`;
                     my $setter = $2;
                     my $line1 = ($pre =~ tr/\n//) + 1;
                     my $lines = ($setter =~ tr/\n//) + 1;
@@ -2187,9 +2187,9 @@ sub extractExemptLines
                     printStackTrace\s*\([^()]*\)|
                     throw\s+new\s+
                     [A-Z][a-zA-Z0-9_]*\s*\([^()]*\))\s*;)
-                    [\s\n]*})/ixsgp)
+                    [\s\n]*})/ixsg)
                 {
-                    my $pre = ${^PREMATCH};
+                    my $pre = $`;
                     my $handler = $3;
                     my $line1 = ($pre =~ tr/\n//) + 1;
                     my $lines = ($handler =~ tr/\n//) + 1;
