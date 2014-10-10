@@ -740,7 +740,7 @@ EOF
         scanTo(qr/^(compile\.instructor\.tests:|BUILD FAILED)/);
         $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
         $_ = <ANTLOG>;
-        scanThrough(qr/^\s*($|\[javac\](?!\s+Compiling))/);
+        scanTo(qr/^(\s*\[javac\]\s+Compiling|BUILD FAILED)/);
         if (!defined($_)  ||  $_ !~ m/^\s*\[javac\]\s+Compiling/)
         {
             adminLog("Failed to compile instructor test cases!\nCannot "
@@ -750,6 +750,7 @@ EOF
         else
         {
             $_ = <ANTLOG>;
+            scanTo(qr/^(\s*\[javac\] |(instructor\.)?test(.?):|BUILD)/);
         }
         my $instrHints     = "";
         my %instrHintCollection = ();
@@ -783,6 +784,7 @@ EOF
                 $status{'compileMsgs'} .= htmlEscape($_);
             }
             $_ = <ANTLOG>;
+            scanTo(qr/^(\s*\[javac\] |(instructor\.)?test(.?):|BUILD)/);
         }
 
         scanTo(qr/^((instructor\.)?test(.?):|BUILD FAILED)/);

@@ -58,7 +58,13 @@
     </and>
   </condition>
 
-  <path id="build.classpath">
+  <condition property="run.sequential">
+  	<not>
+        <isset property="run.parallel"/>
+  	</not>
+  </condition>
+
+  <path id="instructor.classpath">
     <pathelement location="${pluginHome}/JavaTddPluginSupport.jar"/>
     <fileset dir="${pluginHome}">
       <include name="*.jar"/>
@@ -77,13 +83,46 @@
       <include name="**/*.jar"/>
     </fileset>
     <fileset dir="${pluginHome}/jacoco" includes="jacocoagent.jar"/>
-    <pathelement location="${studentBuild}"/>
+    <pathelement location="${studentBuild}.raw"/>
     <pathelement location="${basedir}"/>
+  </path>
+
+  <path id="student.classpath.base">
+    <pathelement location="${pluginHome}/JavaTddPluginSupport.jar"/>
+    <fileset dir="${pluginHome}">
+      <include name="*.jar"/>
+      <exclude name="JavaTddPluginSupport.jar"/>
+    </fileset>
+    <pathelement location="${instructorBuild}"/>
+    <pathelement location="${assignmentClassFiles}"/>
+    <fileset dir="${assignmentClassDir}">
+      <include name="**/*.jar"/>
+    </fileset>
+    <pathelement location="${instructorClassFiles}"/>
+    <fileset dir="${instructorClassDir}">
+      <include name="**/*.jar"/>
+    </fileset>
+    <fileset dir="${defaultJars}">
+      <include name="**/*.jar"/>
+    </fileset>
+    <fileset dir="${pluginHome}/jacoco" includes="jacocoagent.jar"/>
+    <pathelement location="${basedir}"/>
+  </path>
+
+  <path id="student.classpath">
+    <path refid="student.classpath.base"/>
+    <pathelement location="${studentBuild}.raw"/>
   </path>
 
   <path id="checkstyle.classpath">
     <pathelement location="${checkstyle.jar}"/>
-    <path refid="build.classpath"/>
+    <path refid="student.classpath"/>
+  </path>
+
+  <path id="student.instrumented.classpath">
+    <path refid="student.classpath.base"/>
+    <pathelement location="${studentBuild}"/>
+    <pathelement location="${studentBuild}.raw"/>
   </path>
 
   <path id="pmd.classpath">
@@ -91,6 +130,7 @@
     <fileset dir="${pmd.lib}" casesensitive="false">
       <include name="**/*.jar"/>
     </fileset>
+    <pathelement location="${basedir}"/>
   </path>
 
 
@@ -147,8 +187,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
   <target name="compile"
           description="compiles all the student code using javac">
-    <mkdir dir="${instructorBuild}"/>
-    <mkdir dir="${studentBuild}"/>
+    <mkdir dir="${studentBuild}.raw"/>
     <apply executable="${PerlForPlugins.perl.exe}"
       failonerror="true"
       parallel="true"
@@ -159,9 +198,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <fileset dir="${basedir}" casesensitive="no">
         <include name="**/*.java"/>
       </fileset>
-  	</apply>
+    </apply>
     <javac srcdir="${basedir}"
-           destdir="${studentBuild}"
+           destdir="${studentBuild}.raw"
            verbose="off"
            deprecation="on"
            debug="true"
@@ -169,15 +208,15 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     	   includeAntRuntime="false"
     	   encoding="UTF-8"
       >
-      <classpath refid="build.classpath"/>
+      <classpath refid="student.classpath"/>
       <compilerarg value="-Xlint:unchecked"/>
     </javac>
   </target>
 
 
   <target name="compile.instructor.tests"
-          depends="compile"
           description="compile all of the instructor-provided unit tests">
+    <mkdir dir="${instructorBuild}"/>
   	<!-- TODO: need to handle non-UTF-8 reference tests here -->
     <javac srcdir="${testCasePath}"
            destdir="${instructorBuild}"
@@ -192,7 +231,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     	<!-- Should include:, but not until we have a viable UTF-8-ifier
            encoding="UTF-8"
     	-->
-      <classpath refid="build.classpath"/>
+      <classpath refid="instructor.classpath"/>
     </javac>
   </target>
 
@@ -208,7 +247,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            fork="yes"
            forkmode="once"
            timeout="${exec.timeout}">
-      <classpath refid="build.classpath"/>
+      <classpath refid="instructor.classpath"/>
       <jvmarg value="${enableAssertions}"/>
       <jvmarg value="-D${security.manager}"/>
       <!--jvmarg value="-Dabbot.robot.verify=false"/-->
@@ -282,7 +321,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            fork="yes"
            forkmode="once"
            timeout="${exec.timeout}">
-      <classpath refid="checkstyle.classpath"/>
+      <classpath refid="student.instrumented.classpath"/>
       <jvmarg value="${enableAssertions}"/>
       <jvmarg value="-D${security.manager}"/>
         <!--jvmarg value="-Dabbot.robot.verify=false"/-->
@@ -351,13 +390,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
 
   <target name="instrument.code"
-          depends="compile"
           description="add JaCoCo instrumentation to student code">
-    <delete includeemptydirs="true" quiet="true">
-      <fileset dir="${instructorBuild}/"/>
-      <fileset dir="${studentBuild}.raw/"/>
-    </delete>
-  	<move file="${studentBuild}" tofile="${studentBuild}.raw"/>
     <mkdir dir="${studentBuild}"/>
     <copy todir="${studentBuild}">
       <fileset dir="${studentBuild}.raw"
@@ -395,7 +428,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
-  <target name="checkstyle" depends="compile" unless="disableCheckstyle">
+  <target name="checkstyle"
+  	unless="disableCheckstyle">
     <taskdef resource="checkstyletask.properties"
          classpathref="checkstyle.classpath"/>
     <checkstyle config="${checkstyleConfigFile}"
@@ -413,7 +447,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
-  <target name="pmd" depends="compile" unless="disablePmd">
+  <target name="pmd"
+  	unless="disablePmd">
     <taskdef name="pmd"
              classname="net.sourceforge.pmd.ant.PMDTask"
              classpathref="pmd.classpath"/>
@@ -422,7 +457,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
          failOnRuleViolation="false"
     >
       <sourceLanguage name="java" version="1.7"/>
-      <auxclasspath refid="build.classpath"/>
+      <auxclasspath refid="student.classpath"/>
       <formatter type="xml" toFile="${resultDir}/pmd_report.xml"/>
       <fileset dir="${basedir}"
                casesensitive="false"
@@ -577,9 +612,33 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
        The main target
        ============================================================ -->
 
-  <target name="run"
-          depends="initial.clean, instructor.test, jacoco.report,
-  	               checkstyle, pmd, run.comtor,
-  	               generate.pdf, generate.diagrams, final.clean"/>
+  <target name="test.bundle" depends="instructor.test, jacoco.report"/>
+  <target name="checkstyle.bundle"
+    depends="checkstyle, run.comtor, generate.pdf, generate.diagrams"/>
+
+  <target name="sequential.middle" depends="compile" if="run.sequential">
+  	<echo message="Running steps sequentially ..."/>
+    <antcall target="test.bundle"/>
+    <antcall target="checkstyle.bundle"/>
+    <antcall target="pmd"/>
+  </target>
+
+  <target name="parallel.middle" depends="compile" if="run.parallel">
+    <echo message="Running steps in parallel ..."/>
+    <parallel threadsPerProcessor="1">
+      <sequential>
+        <antcall target="test.bundle"/>
+      </sequential>
+      <sequential>
+        <antcall target="checkstyle.bundle"/>
+      </sequential>
+      <sequential>
+        <antcall target="pmd"/>
+      </sequential>
+    </parallel>
+  </target>
+
+  <target name="run" depends="initial.clean,
+  	sequential.middle, parallel.middle, final.clean"/>
 
 </project>
