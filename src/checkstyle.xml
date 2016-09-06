@@ -49,10 +49,19 @@
       <property name="allowMissingThrowsTags" value="true"/>
       <property name="allowMissingReturnTag" value="true"/>
       <property name="excludeScope" value="package"/>
+      <message key="javadoc.missing"
+        value="The Javadoc for this method or constructor is missing. All private methods and constructors must include a description of their purpose."/>
+      <message key="javadoc.duplicateTag"
+        value="This {0} tag already appears elsewhere in this Javadoc comment, but it should only appear once (@param tags should only appear once per distinct parameter name).  Remove the repeated occurrences."/>
+      <message key="javadoc.unusedTagGeneral"
+        value="This tag does not seem to be needed for this method or constructor (i.e. a @return tag for a method with a return type of void or a @param tag for a parameter that does not exist). Check for spelling mistakes or remove the tag if it is not needed."/>
+      <message key="javadoc.unusedTag"
+        value="This tag does not seem to be needed for this method or constructor (i.e. a @return tag for a method with a return type of void or a @param tag for a parameter that does not exist). Check for spelling mistakes or remove the tag if it is not needed."/>
     </module>
     <module name="JavadocType">
       <property name="authorFormat" value="\S"/>
       <property name="versionFormat" value="\S"/>
+      <property name="scope" value="package"/>
       <message key="type.missingTag"
         value="The {0} tag for this class or interface is missing from its Javadoc comment.  @author tags should be followed by your name and your user name (use multiple @author tags for partner(s), if any) and the @version tag should be followed by the date (2013-01-31) or a version number (1.0, 2.0, etc.)."/>
       <message key="javadoc.missing"
@@ -201,7 +210,7 @@
     -->
     <module name="NoWhitespaceAfter">
       <property name="tokens"
-        value="BNOT,DEC,DOT,INC,LNOT,UNARY_MINUS,UNARY_PLUS"/>
+        value="BNOT,DEC,INC,UNARY_MINUS,UNARY_PLUS"/>
       <property name="allowLineBreaks" value="false"/>
       <message key="ws.followed"
         value="''{0}'' is followed by whitespace (i.e. a space, tab, or new line) and it should not be.  For readablilty, remove the spaces between ''{0}'' and the next value."/>
@@ -348,10 +357,7 @@
         value="Redundant throws clause: ''{0}'' is an unchecked exception and does not need to be declared."/>
     </module>
     <!-- <module name="SimplifyBooleanExpression"/> :let PMD handle this -->
-    <module name="SimplifyBooleanReturn">
-      <message key="simplify.boolreturn"
-      value="This if statement can be removed.  If you are returning true when the if statement's Boolean condition is true, and false when the statement's condition is false, then you can simply return the condition instead (i.e. return x &lt; 5;).  If you are returning false when the if statment's condition is true and returning true in the else branch, you can just return the NOT (!) of the condition instead (i.e. return !okay;)."/>
-    </module>
+    <!-- <module name="SimplifyBooleanReturn"/> :let PMD handle this -->
     <module name="StringLiteralEquality">
       <message key="string.literal.equality"
         value="Literal Strings should be compared using equals(), not ''{0}''.  The == and != operators compare the references of objects, not their values.  Using the equals() (or equalsIgnoreCase()) method will compare the values of the Strings instead."/>
@@ -437,6 +443,15 @@
         value="When declaring a literal long value, use an uppercase ''L'' instead of a lowercase ''l''.  This avoids the confusion between the lowercase ''l'' (ell) and the number ''1''."/>
     </module>
 
+    <module name="DescendantToken">
+      <property name="tokens" value="EQUAL,NOT_EQUAL"/>
+      <property name="limitedTokens" value="STRING_LITERAL"/>
+      <property name="maximumNumber" value="0"/>
+      <property name="maximumDepth" value="1"/>
+      <property name="maximumMessage"
+        value="Do not compare object references when you intend to compare String objects. Use the equals() method instead."/>
+    </module>
+
   </module>
 
   <module name="RegexpSingleline">
@@ -470,7 +485,7 @@
        case where the second return is not in an else -->
   <module name="RegexpMultiline">
     <property name="format"
-      value="(if\s*(.*)\s*\{?\s*return\s+true\s*;\s*\}?\s*return\s+false\s*;|if\s*(.*)\s*\{?\s*return\s+false\s*;\s*\}?\s*return\s+true\s*;)"/>
+      value="(if\s*([^{};]*)\s*\{?\s*return\s+true\s*;\s*\}?\s*return\s+false\s*;|if\s*([^{};]*)\s*\{?\s*return\s+false\s*;\s*\}?\s*return\s+true\s*;)"/>
     <property name="message"
       value="This if statement can be removed.  If you are returning true when the if statement's Boolean condition is true, and false when the statement's condition is false, then you can simply return the condition instead (i.e. return x &lt; 5;).  If you are returning false when the if statment's condition is true and returning true in the else branch, you can just return the NOT (!) of the condition instead (i.e. return !okay;)."/>
     </module>

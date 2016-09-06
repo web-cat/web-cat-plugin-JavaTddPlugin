@@ -93,7 +93,6 @@
       <include name="*.jar"/>
       <exclude name="JavaTddPluginSupport.jar"/>
     </fileset>
-    <pathelement location="${instructorBuild}"/>
     <pathelement location="${assignmentClassFiles}"/>
     <fileset dir="${assignmentClassDir}">
       <include name="**/*.jar"/>

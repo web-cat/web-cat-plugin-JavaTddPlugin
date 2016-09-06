@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 4;
     version.minor    = 0;
-    version.revision = 7;
-    version.date     = 20140708;
+    version.revision = 8;
+    version.date     = 20160906;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -12,7 +12,7 @@
     license          = "GNU Affero General Public License v.3";
     license.url      = "http://www.gnu.org/licenses/agpl.html";
     copyright        =
-        "(c) 2006-2014 Virginia Tech Department of Computer Science";
+        "(c) 2006-2016 Virginia Tech Department of Computer Science";
     info.url         = "http://wiki.web-cat.org/WCWiki/JavaTddPlugin";
     history.url      =
         "http://wiki.web-cat.org/WCWiki/JavaTddPlugin/ChangeHistory";
@@ -23,7 +23,8 @@
     languages  = ( { name = Java; version = 1.4; },
                    { name = Java; version = 1.5; },
                    { name = Java; version = 1.6; },
-                   { name = Java; version = 1.7; } );
+                   { name = Java; version = 1.7; },
+                   { name = Java; version = 1.8; } );
     description = "This \"all-in-one\" plug-in is designed to provide full
         processing and feedback generation for Java assignments where
         students write their own JUnit test cases.
