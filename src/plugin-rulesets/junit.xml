@@ -28,15 +28,13 @@
 
   <!-- UseAssertEqualsInsteadOfAssertTrue" -->
   <rule ref="rulesets/java/junit.xml/UseAssertSameInsteadOfAssertTrue"
-    message="This assertEquals() test uses == to compare object references.
-    Ensure that you mean to compare object references rather than the
-    values of the corresponding objects, since this could be a bug.  If you
-    intend to compare object references only, use assertSame(x, y) instead of
-    assertTrue(x == y), or assertNotSame(x, y) instead of
-    assertFalse(x == y)."/>
+    message="Use assertEquals() to compare two values for equality instead
+	of using assertTrue().  If you intend to compare object references, use
+	assertSame() instead of assertTrue(), or assertNotSame() instead of
+	assertFalse()."/>
   <rule ref="rulesets/java/junit.xml/UseAssertNullInsteadOfAssertTrue"
     message="Use assertNull(x) instead of assertTrue(x == null), or
-    assertNotNull(x) vs assertFalse(x == null)."/>
+    assertNotNull(x) instead of assertFalse(x == null)."/>
   <rule ref="rulesets/java/junit.xml/SimplifyBooleanAssertion"
     message="Avoid negation in an assertTrue() or assertFalse() test. For
     example, rephrase: assertTrue(!expr); as: assertFalse(expr);."/>
