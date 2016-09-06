@@ -108,7 +108,7 @@
   PrimaryPrefix/Name/@Image='assertSame' or
   PrimaryPrefix/Name/@Image='assertEquals']
   [not(PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryPrefix/Name or
-  PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryExpression/PrimaryPrefix[@Label='this'])]
+  PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryExpression/PrimaryPrefix/@ThisModifier='true')]
   [ancestor::ClassOrInterfaceDeclaration[
     count( ExtendsList[
         ClassOrInterfaceType[ends-with(@Image, 'TestCase')]]
@@ -157,7 +157,7 @@
   PrimaryPrefix/Name/@Image='assertSame' or
   PrimaryPrefix/Name/@Image='assertEquals']
   [not(PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryPrefix/Name or
-  PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryExpression/PrimaryPrefix[@Label='this'])]
+  PrimarySuffix/Arguments/ArgumentList/descendant::PrimaryExpression/PrimaryPrefix/@ThisModifier='true')]
   [ancestor::MethodDeclaration
     [parent::ClassOrInterfaceBodyDeclaration[
       child::Annotation[descendant::Name/@Image = "Test"]
