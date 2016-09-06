@@ -473,7 +473,8 @@ public class HintingJUnitResultFormatter
                     java.lang.reflect.Method method = null;
                     try
                     {
-                        suiteClass.getMethod(  methodName, (Class[])null );
+                        method =
+                            suiteClass.getMethod(methodName, (Class[])null);
                     }
                     catch ( NoSuchMethodException e )
                     {
@@ -583,10 +584,10 @@ public class HintingJUnitResultFormatter
     private static final Pattern[] expectedOutputRegExps = {
         null,                               // 0: not used
         null,                               // 1: not used
-        Pattern.compile( "(?is)\\s*"
+        Pattern.compile("(?is)\\s*"
             + "(\\(after normalizing strings\\)\\s*)?"
-            + "expected:.*but was:.*$" ),// 2: CompFailure
-        Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
+            + "expected:.*but was:.*$", Pattern.DOTALL),// 2: CompFailure
+        Pattern.compile("(?is)(((\\s*expected:.*but was:.*)"
             + "|(<.*> was the same as:\\s*<.*>)"
             + "|(<.*> matches regex:\\s*<.*>)"
             + "|(<.*> does not match regex:\\s*<.*>)"
@@ -597,9 +598,10 @@ public class HintingJUnitResultFormatter
             + "|(<.*> does not contain regex:\\s*<.*>)"
             + "|(: (expected|actual) array was null)"
             +"|(array lengths differed)"
-            +"|(arrays firsts differed)).*)$"
+            +"|(arrays firsts differed)).*)$",
+            Pattern.DOTALL
             ),// 3: assertEquals (including JUnit 4.x array version
-        Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
+        Pattern.compile("(?is)(((\\s*expected:.*but was:.*)"
             + "|(<.*> was the same as:\\s*<.*>)"
             + "|(<.*> matches regex:\\s*<.*>)"
             + "|(<.*> does not match regex:\\s*<.*>)"
@@ -610,13 +612,16 @@ public class HintingJUnitResultFormatter
             + "|(<.*> does not contain regex:\\s*<.*>)"
             + "|(: (expected|actual) array was null)"
             +"|(array lengths differed)"
-            +"|(arrays firsts differed)).*)$"
+            +"|(arrays firsts differed)).*)$",
+            Pattern.DOTALL
             ),// 4: assertFalse
         null,                               // 5: assertNotNull
-        Pattern.compile( "(?i)\\s*expected not same$" ),  // 6: assertNotSame
+        Pattern.compile("(?i)\\s*expected not same$",
+            Pattern.DOTALL),                // 6: assertNotSame
         null,                               // 7: assertNull
-        Pattern.compile( "(?is)\\s*expected same:.*was not:.*$" ),//8:assertSame
-        Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
+        Pattern.compile("(?is)\\s*expected same:.*was not:.*$",
+            Pattern.DOTALL),                //8:assertSame
+        Pattern.compile("(?is)(((\\s*expected:.*but was:.*)"
             + "|(<.*> was the same as:\\s*<.*>)"
             + "|(<.*> matches regex:\\s*<.*>)"
             + "|(<.*> does not match regex:\\s*<.*>)"
@@ -627,10 +632,11 @@ public class HintingJUnitResultFormatter
             + "|(<.*> does not contain regex:\\s*<.*>)"
             + "|(: (expected|actual) array was null)"
             +"|(array lengths differed)"
-            +"|(arrays firsts differed)).*)$"
+            +"|(arrays firsts differed)).*)$",
+            Pattern.DOTALL
             ),// 9: assertTrue
         null,                               // 10: not used
-        Pattern.compile( "(?is)(((\\s*expected:.*but was:.*)"
+        Pattern.compile("(?is)(((\\s*expected:.*but was:.*)"
             + "|(<.*> was the same as:\\s*<.*>)"
             + "|(<.*> matches regex:\\s*<.*>)"
             + "|(<.*> does not match regex:\\s*<.*>)"
@@ -641,7 +647,8 @@ public class HintingJUnitResultFormatter
             + "|(<.*> does not contain regex:\\s*<.*>)"
             + "|(: (expected|actual) array was null)"
             +"|(array lengths differed)"
-            +"|(arrays firsts differed)).*)$"
+            +"|(arrays firsts differed)).*)$",
+            Pattern.DOTALL
             ),// 11: custom assert helper method in test case, so still apply these
         null,                               // 12: not used
         null                                // 13: not used
