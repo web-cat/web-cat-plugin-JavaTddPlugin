@@ -25,6 +25,8 @@
 
 package net.sf.webcat.plugins.javatddplugin;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 import org.apache.tools.ant.taskdefs.optional.junit.JUnitTest;
@@ -225,6 +227,63 @@ public class PlistJUnitResultFormatter
             if ( msg != null )
             {
                 msg = msg.replaceAll( "\"", "\\\"" );
+                if (code == 2 && msg.length() > MAX_MSG_LENGTH)
+                {
+                    // Comparison failure.  Trim possibly excessive match text.
+                    Matcher m = EXPECTED_ACTUAL.matcher(msg);
+                    if (m.find())
+                    {
+                        String prefix = msg.substring(0, m.start(1));
+                        String expected = m.group(1);
+                        String middle = msg.substring(m.end(1), m.start(4));
+                        String actual = m.group(4);
+                        String suffix = msg.substring(m.end(4));
+
+                        // Compact the expected value, if necessary
+                        String innerExpected = m.group(3);
+                        if (innerExpected != null
+                            && innerExpected.length() > MAX_MSG_LENGTH)
+                        {
+                            expected = msg.substring(m.start(1), m.start(3))
+                                + innerExpected.substring(0, PREFIX_SIZE)
+                                + "[...]"
+                                + innerExpected.substring(
+                                    innerExpected.length() - PREFIX_SIZE - 1)
+                                + msg.substring(m.end(3), m.start(4));
+                        }
+                        else if (expected.length() > MAX_MSG_LENGTH)
+                        {
+                            expected = expected.substring(0, PREFIX_SIZE)
+                            + "[...]"
+                            + expected.substring(
+                                expected.length() - PREFIX_SIZE - 1);
+                        }
+
+                        // Compact the actual value, if necessary
+                        String innerActual = m.group(3);
+                        if (innerActual != null
+                            && innerActual.length() > MAX_MSG_LENGTH)
+                        {
+                            int prefixSize = (COMPACT_LENGTH - 5) / 2;
+                            expected = msg.substring(m.start(1), m.start(3))
+                                + innerActual.substring(0, prefixSize)
+                                + "[...]"
+                                + innerActual.substring(
+                                    innerActual.length() - prefixSize - 1)
+                                + msg.substring(m.end(3), m.start(4));
+                        }
+                        else if (actual.length() > MAX_MSG_LENGTH)
+                        {
+                            actual = actual.substring(0, PREFIX_SIZE)
+                            + "[...]"
+                            + actual.substring(
+                                actual.length() - PREFIX_SIZE - 1);
+                        }
+
+                        // Reassemble the message from its parts
+                        msg = prefix + expected + middle + actual + suffix;
+                    }
+                }
                 if ( level > 2 )
                 {
                     msg = error.getClass().getName() + ": " + msg;
@@ -690,4 +749,11 @@ public class PlistJUnitResultFormatter
         Exception.class,                                    //   42
         Throwable.class                                     //   43
     };
+
+    private static final int MAX_MSG_LENGTH = 256;
+    private static final int COMPACT_LENGTH = 73;
+    private static final int PREFIX_SIZE = (COMPACT_LENGTH - 5) / 2;
+    private static final Pattern EXPECTED_ACTUAL = Pattern.compile(
+        "expected:\\s*<([^\\[]*(\\[(.*)\\].*)?)> but "
+        + "was:\\s*<([^\\[]*(\\[(.*)\\].*)?)>$", Pattern.DOTALL);
 }
