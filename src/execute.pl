@@ -1647,7 +1647,7 @@ sub translateHTMLFile
         <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
         <a[^<>]*>([^<>]*)</a>
         (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-        Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted[^<>]*"[^<>]*>
+        Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted[^<>]*"[^<>]*>
         (\s*fail\s*\((<span [^<>]*>[^<>]*</span>)?\)\s*;)
         \s*</a>
         |$1"line$2$3$4$5$6|ixsg);
@@ -1686,12 +1686,16 @@ sub translateHTMLFile
             (CountHilight">\s*)
             <a[^<>]*>([^<>]*)</a>
             (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
             [^<>]*"[^<>]*>
             (\s*([a-zA-Z_][a-zA-Z0-9_]*\s*.\s*printStackTrace\s*\([^<>()]*\)\|
             <span\sclass="keyword">throw</span>\s+
             <span\sclass="keyword">new</span>\s+
-            [A-Z][a-zA-Z0-9_]*\s*\([^<>()]*\))\s*;)
+            [A-Z][a-zA-Z0-9_]*\s*\([^<>()]*\)\|
+            <span\sclass="keyword">return</span>\s+
+            (?:[A-Za-z_][A-Za-z0-9_\.]+\|
+            <span\sclass="string">"[^"]*"</span>)
+            )\s*;)
             \s*</a>
             |$1"line$11$12$13$14$15|ixsg);
 
@@ -1705,7 +1709,7 @@ sub translateHTMLFile
             (CountHilight">\s*)
             <a[^<>]*>([^<>]*)</a>
             (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
             [^<>]*"[^<>]*>
             (\s*NoViableAltException\s+nvae\s+=)\s*</a>
             (((?!</tr>).)*</tr>\s*<tr>\s*((?!</tr>).)*
@@ -1716,7 +1720,7 @@ sub translateHTMLFile
             (CountHilight">\s*)
             <a[^<>]*>([^<>]*)</a>
             (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
             [^<>]*"[^<>]*>
             (\s*<span\sclass="keyword">throw</span>\s+nvae;)
             \s*</a>
@@ -1745,7 +1749,7 @@ sub translateHTMLFile
             (CountHilight">\s*)
             <a[^<>]*>([^<>]*)</a>
             (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
             [^<>]*"[^<>]*>
             (\s*<span\sclass="keyword">return</span>\s+
             (?:[A-Za-z_][A-Za-z0-9_\.]+\|
@@ -1794,7 +1798,7 @@ sub translateHTMLFile
             (CountHilight">\s*)
             <a[^<>]*>([^<>]*)</a>
             (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*statement\snot\sexecuted
+            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
             [^<>]*"[^<>]*>
             (\s*[A-Za-z_][A-Za-z0-9_\.]+\s*=\s*
             [A-Za-z_][A-Za-z0-9_]+;)\s*</a>
@@ -2124,17 +2128,16 @@ sub extractExemptLines
                     (get[A-Z][a-zA-Z0-9_]*)\s*\(\s*\)
                     \s*{\s*
                     return\s+
-                    (?:[A-Za-z_][A-Za-z0-9_\.]+|
+                    (?:[A-Za-z_][A-Za-z0-9_\.]*|
                     "[^"]*"|
                     new\s+[A-Z][a-zA-Z0-9_]*Parser\s*\[\]\s*{}
-                    );\s*})/ixsg)
+                    );\s*}
+                    )/ixsg)
                 {
                     my $pre = $`;
                     my $getter = $2;
                     my $line1 = ($pre =~ tr/\n//) + 1;
                     my $lines = ($getter =~ tr/\n//) + 1;
-                    # print "found getter: $getter\n";
-                    # print " start line = $line1; lines = $lines\n";
                     if (!defined $exemptLines->{$fileName}->{method})
                     {
                         $exemptLines->{$fileName}->{method} = [];
@@ -2154,7 +2157,7 @@ sub extractExemptLines
                     ([a-zA-Z]+|[A-Za-z][a-zA-Z0-9_]*)\s*
                         [a-zA-Z_][a-zA-Z0-9_]*\s*\)
                     \s*{\s*
-                    [A-Za-z_][A-Za-z0-9_\.]+\s*=\s*[A-Za-z_][A-Za-z0-9_]+;
+                    [A-Za-z_][A-Za-z0-9_\.]*\s*=\s*[A-Za-z_][A-Za-z0-9_]*;
                     \s*})/ixsg)
                 {
                     my $pre = $`;
@@ -2181,15 +2184,20 @@ sub extractExemptLines
             my $noViableAltBlocks = 0;
             if (!$requireSimpleExceptionCoverage)
             {
-                while ($fullText =~ m/((?<=\n)[^\S\n]*(}[^\S\n]*)?)
-                    (catch[\s\n]*
-                    \(\s*[A-Z][a-zA-Z0-9_]*\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)
-                    [\s\n]*{[\s\n]*
+                while ($fullText =~ m/((?<=\n)(?:[^\S\n]|\/\/[^\n]*)*
+                    (}(?:[^\S\n]|\/\/[^\n]*)*)?)
+                    (catch([\s\n]|\/\/[^\n]*)*
+                    \(\s*[A-Z][a-zA-Z0-9_]*(\s*\|
+                      \s*[a-zA-Z_][a-zA-Z0-9_]*)*
+                      \s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)
+                    [\s\n]*{([\s\n]|\/\/[^\n]*)*
                     (([a-zA-Z_][a-zA-Z0-9_]*\s*\.\s*
-                    printStackTrace\s*\([^()]*\)|
-                    throw\s+new\s+
-                    [A-Z][a-zA-Z0-9_]*\s*\([^()]*\))\s*;)
-                    [\s\n]*})/ixsg)
+                     printStackTrace\s*\([^()]*\)|
+                     throw\s+new\s+
+                     [A-Z][a-zA-Z0-9_]*\s*\([^()]*\)|
+                     return\s*[^;}]*
+                    )\s*;)([\s\n]|\/\/[^\n]*)*})
+                    /ixsg)
                 {
                     my $pre = $`;
                     my $handler = $3;
@@ -2754,8 +2762,12 @@ if (!$buildFailed) # $can_proceed)
 
         if ($studentsMustSubmitTests)
         {
-            $ptsPerUncovered = -1.0 /
-                $gradedElements * $runtimeScoreWithoutCoverage;
+            $ptsPerUncovered = 0;
+            if ($gradedElements > 0 && $runtimeScoreWithoutCoverage > 0)
+            {
+                $ptsPerUncovered = -1.0 /
+                    $gradedElements * $runtimeScoreWithoutCoverage;
+            }
             if ($ptsPerUncovered < 0)
             {
                 for my $prop (keys %fileDeductionProperties)
@@ -2836,7 +2848,7 @@ EOF
     }
     unlink "$resultDir/student-results.html";
 
-    @lines = linesFromFile("$resultDir/student-out.txt");
+    @lines = linesFromFile("$resultDir/student-out.txt", 75000, 4000);
     if ($#lines >= 0)
     {
         $status{'feedback'}->startFeedbackSection(
@@ -3252,7 +3264,7 @@ EOF
         }
         unlink "$resultDir/instr-results.html";
 
-        @lines = linesFromFile("$resultDir/instr-out.txt");
+        @lines = linesFromFile("$resultDir/instr-out.txt", 75000, 4000);
         if ($#lines >= 0)
         {
             $status{'instrFeedback'}->startFeedbackSection(
