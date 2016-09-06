@@ -37,14 +37,28 @@ public class CsvJUnitResultFormatter
         if (result.error != null)
         {
             testResultsPlist.append(result.error.getClass().getName());
+            testResultsPlist.append(',');
+            testResultsPlist.append(csvEscape(result.error.getMessage()));
         }
         else
         {
-            testResultsPlist.append("null");
+            testResultsPlist.append("null,null");
         }
+        testResultsPlist.append(',');
+        testResultsPlist.append(
+            (result.level == 1 && result.code == 1) ? 1 : 0);
         testResultsPlist.append(StringUtils.LINE_SEP);
     }
 
+    private  String csvEscape(String string)
+    {
+        String result = string;
+        if (result.contains("\"") || result.contains(","))
+        {
+            result = '"' + result.replaceAll("\"", "\"\"") + '"';
+        }
+        return result;
+    }
 
     // ----------------------------------------------------------
     protected void outputForSuite(StringBuffer buffer, JUnitTest suite)
