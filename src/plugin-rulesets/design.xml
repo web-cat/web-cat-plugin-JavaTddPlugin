@@ -10,7 +10,7 @@
     alternate messages from the main PMD rulesets/java/design.xml ruleset.
   </description>
 
-  <!--  <rule ref="rulesets/java/design.xml/UseSingleton"/> -->
+  <!--  <rule ref="rulesets/java/design.xml/UseUtilityClass"/> -->
 
   <!--  Checkstyle is handling this one
   <rule ref="rulesets/java/design.xml/SimplifyBooleanReturns"
@@ -125,7 +125,7 @@
 
   <!-- NonThreadSafeSingleton -->
 
-  <rule ref="rulesets/java/design.xml/UncommentedEmptyMethod"
+  <rule ref="rulesets/java/design.xml/UncommentedEmptyMethodBody"
     message="This method does not contain any code. Should it be doing
     something? Or can it be removed?  If you need to keep it, add a
     comment to the body explaining why it is empty."/>

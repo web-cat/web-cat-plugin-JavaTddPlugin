@@ -348,14 +348,14 @@
     -->
     <!-- <module name="MissingSwitchDefault"/> :let PMD handle this -->
     <!-- <module name="ModifiedControlVariable"/> -->
-    <module name="RedundantThrows">
+    <!--  <module name="RedundantThrows">
       <property name="allowUnchecked" value="true"/>
       <message key="redundant.throws.subclass"
         value="Redundant throws clause: ''{0}'' is subclass of ''{1}'' and does not need to be included in the throws clause."/>
-      <!-- This message is unused in this configuration -->
+      < This message is unused in this configuration >
       <message key="redundant.throws.unchecked"
         value="Redundant throws clause: ''{0}'' is an unchecked exception and does not need to be declared."/>
-    </module>
+    </module-->
     <!-- <module name="SimplifyBooleanExpression"/> :let PMD handle this -->
     <!-- <module name="SimplifyBooleanReturn"/> :let PMD handle this -->
     <module name="StringLiteralEquality">
