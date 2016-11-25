@@ -338,12 +338,20 @@ public class PlistJUnitResultFormatter
     // ----------------------------------------------------------
     private void appendResultsQuotedValue(String str)
     {
+        if (str != null)
+        {
+            if (str.length() > 1024)
+            {
+                str = str.substring(0, 1024) + "...";
+            }
+            str = str.replace("\"", "\\\"");
+        }
         testResultsPlist.append('"');
-        testResultsPlist.append(str.replace("\"", "\\\""));
+        testResultsPlist.append(str);
         testResultsPlist.append('"');
 
         testResultsPerlList.append('\'');
-        testResultsPerlList.append(str.replace("'", "\\'"));
+        testResultsPerlList.append(str);
         testResultsPerlList.append('\'');
     }
 
