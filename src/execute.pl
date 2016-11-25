@@ -136,6 +136,10 @@ my $toolDeductionScaleFactor =
 my $coverageMetric    = $cfg->getProperty('coverageMetric', 0);
 my $minCoverageLevel =
     $cfg->getProperty('minCoverageLevel', 0.0);
+my $coverageGoal =
+    $cfg->getProperty('coverageGoal', 100.0);
+if ($coverageGoal <= 0) { $coverageGoal = 100; }
+if ($coverageGoal >= 1) { $coverageGoal /= 100.0; }
 
 my $useXvfb =
     $cfg->getProperty('useXvfb', 0);
@@ -2763,10 +2767,15 @@ if (!$buildFailed) # $can_proceed)
         if ($studentsMustSubmitTests)
         {
             $ptsPerUncovered = 0;
-            if ($gradedElements > 0 && $runtimeScoreWithoutCoverage > 0)
+            if ($gradedElements > 0
+                && $runtimeScoreWithoutCoverage > 0
+                && ($gradedElementsCovered * 1.0 / $gradedElements)
+                < $coverageGoal)
             {
                 $ptsPerUncovered = -1.0 /
-                    $gradedElements * $runtimeScoreWithoutCoverage;
+                    $gradedElements
+                    * $runtimeScoreWithoutCoverage
+                    * $coverageGoal;
             }
             if ($ptsPerUncovered < 0)
             {
@@ -2864,14 +2873,19 @@ EOF
         || (defined $status{'studentTestResults'}
             && $status{'studentTestResults'}->testsExecuted > 0))
     {
-        $codeCoveragePercent = ($gradedElements == 0)
-            ? 0
-            : int(($gradedElementsCovered / $gradedElements) * 100.0 + 0.5);
-        if ($gradedElementsCovered < $gradedElements
-            && $codeCoveragePercent == 100)
+        $codeCoveragePercent = 0;
+        if ($gradedElements > 0)
         {
-            # Don't show 100% if some cases failed
-            $codeCoveragePercent--;
+            $codeCoveragePercent =
+                int(($gradedElementsCovered * 1.0 / $gradedElements)
+                / $coverageGoal * 100.0 + 0.5);
+            if ($codeCoveragePercent > 100) { $codeCoveragePercent = 100; }
+            if (($gradedElementsCovered * 1.0 / $gradedElements) < $coverageGoal
+                && $codeCoveragePercent == 100)
+            {
+                # Don't show 100% if some cases failed
+                $codeCoveragePercent--;
+            }
         }
 
         $sectionTitle = "Code Coverage from Your Tests ";
@@ -2879,7 +2893,8 @@ EOF
         {
             $sectionTitle .= "<b class=\"warn\">(No Coverage!)</b>";
         }
-        elsif ($gradedElements == $gradedElementsCovered)
+        elsif (($gradedElementsCovered * 1.0 / $gradedElements)
+            >= $coverageGoal)
         {
             $sectionTitle .= "(100%)";
         }
@@ -3335,7 +3350,12 @@ if ($studentsMustSubmitTests)
 {
     if ($gradedElements > 0)
     {
-        $runtimeScore *= $gradedElementsCovered / $gradedElements;
+        my $multiplier = $gradedElementsCovered * 1.0 / $gradedElements
+            / $coverageGoal;
+        if ($multiplier < 1.0)
+        {
+            $runtimeScore *= $multiplier;
+        }
     }
     else
     {
