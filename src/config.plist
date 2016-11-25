@@ -213,6 +213,19 @@
                           );
         },
         {
+            property    = coverageGoal;
+            type        = double;
+            name        = "Test Coverage Goal";
+            category    = "Basic Settings";
+            description =
+  "If students are required to submit tests, this value is the target test
+  coverage threshold that must be achieved in order for students to receive
+  full credit.  It should be a number between 0.0-100.0 representing the
+  minimum percent coverage required for full credit.  The default is 100.0,
+  but a lower value may be used to allow students some slack in test coverage
+  when JaCoCo test coverage measures make achieving 100% too challenging.";
+        },
+        {
             property    = includeTestSuitesInCoverage;
             type        = boolean;
             default     = false;
