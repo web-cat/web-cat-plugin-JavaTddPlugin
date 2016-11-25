@@ -429,7 +429,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
   <target name="checkstyle"
   	unless="disableCheckstyle">
-    <taskdef resource="checkstyletask.properties"
+    <taskdef resource="com/puppycrawl/tools/checkstyle/ant/checkstyle-ant-task.properties"
          classpathref="checkstyle.classpath"/>
     <checkstyle config="${checkstyleConfigFile}"
                 failOnViolation="false">
