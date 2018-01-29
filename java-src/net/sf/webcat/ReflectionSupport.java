@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: ReflectionSupport.java,v 1.8 2010/05/27 14:24:21 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2007 Virginia Tech
  |
@@ -106,7 +106,7 @@ import static junit.framework.Assert.*;
  *  </p>
  *
  *  @author  stedwar2
- *  @version $Id$
+ *  @version $Id: ReflectionSupport.java,v 1.8 2010/05/27 14:24:21 stedwar2 Exp $
  */
 public class ReflectionSupport
 {

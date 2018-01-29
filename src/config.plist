@@ -39,17 +39,35 @@
             property    = testCases;
             type        = fileOrDir;
             fileTypes   = ( java );
-            name        = "JUnit Reference Test Class(es)";
+            name        = "Hidden JUnit Reference Test Class(es)";
             description =
   "A Java source file (or directory of source files) containing JUnit tests
   to run against student code to assess completeness of problem coverage.
+  Test outcomes are not directly visible to students, an students only see
+  hints about what may be incorrect.
   If you select a single Java file, it must contain a JUnit test class
   declared in the default package.  If you select a directory, it should
   contain JUnit test classes arranged in subdirectories according to their
   Java package declarations.  If you make no selection, an empty set of
   instructor reference tests will be used instead.";
         },
-        {
+/*        {
+            property    = visibleTestCases;
+            type        = fileOrDir;
+            fileTypes   = ( java );
+            name        = "Visible JUnit Reference Test Class(es)";
+            description =
+  "A Java source file (or directory of source files) containing JUnit tests
+  to run against student code to assess completeness of problem coverage.
+  \"Visible\" here means pass/fail information for every test is shown (not
+  limited by hint controls).
+  If you select a single Java file, it must contain a JUnit test class
+  declared in the default package.  If you select a directory, it should
+  contain JUnit test classes arranged in subdirectories according to their
+  Java package declarations.  If you make no selection, an empty set of
+  instructor reference tests will be used instead.";
+        },
+*/        {
             property    = assignmentJar;
             type        = fileOrDir;
             fileTypes   = ( jar );

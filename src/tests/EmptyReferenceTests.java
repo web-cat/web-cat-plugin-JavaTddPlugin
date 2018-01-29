@@ -4,7 +4,7 @@
  *  always passes.
  *
  *  @author  stedwar2
- *  @version $Id$
+ *  @version $Id: EmptyReferenceTests.java,v 1.1 2008/03/25 15:34:32 stedwar2 Exp $
  */
 public class EmptyReferenceTests
     extends junit.framework.TestCase

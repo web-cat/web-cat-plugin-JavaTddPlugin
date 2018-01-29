@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: TestOptions.java,v 1.3 2010/02/23 17:19:18 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006-2010 Virginia Tech
  |
@@ -33,8 +33,8 @@ import junit.framework.Test;
  *  a specific method.
  *
  *  @author Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.3 $, $Date: 2010/02/23 17:19:18 $
  */
 public class TestOptions
     extends HintOptions

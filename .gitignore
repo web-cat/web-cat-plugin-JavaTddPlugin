@@ -1,0 +1,6 @@
+api/
+bin/
+webcat-support-*.*
+src/fikin/*.jar
+src/jacoco/*.jar
+src/defaultJars/*.jar

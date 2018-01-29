@@ -1,4 +1,4 @@
-// $Id$
+// $Id: junit.js,v 1.1 2011/03/07 19:24:07 aallowat Exp $
 
 (function() {
     /*

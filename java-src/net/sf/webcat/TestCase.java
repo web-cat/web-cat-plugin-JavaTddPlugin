@@ -6,8 +6,8 @@ package net.sf.webcat;
  *
  *  @deprecated
  *  @author  Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.7 $, $Date: 2010/02/23 19:47:16 $
  */
 public class TestCase
     extends student.TestCase

@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: ScoringWeight.java,v 1.3 2011/06/09 16:18:40 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006-2011 Virginia Tech
  |
@@ -36,8 +36,8 @@ import java.lang.annotation.*;
  *  @deprecated Use
  *  {@link student.testingsupport.annotations.ScoringWeight} instead.
  *  @author Stephen Edwards
- *  @author  Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author  Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.3 $, $Date: 2011/06/09 16:18:40 $
  */
 @Deprecated
 @Documented

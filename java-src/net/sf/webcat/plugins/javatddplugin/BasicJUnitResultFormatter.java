@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: BasicJUnitResultFormatter.java,v 1.4 2011/11/04 16:08:46 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006 Virginia Tech
  |
@@ -46,8 +46,8 @@ import org.apache.tools.ant.taskdefs.optional.junit.PlainJUnitResultFormatter;
  *  output formatting and omits all stdout/stderr from test cases.
  *
  *  @author Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.4 $, $Date: 2011/11/04 16:08:46 $
  */
 public class BasicJUnitResultFormatter
     extends PlainJUnitResultFormatter

@@ -6,8 +6,8 @@ package net.sf.webcat;
  *
  *  @deprecated
  *  @author  Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.5 $, $Date: 2010/02/23 19:47:19 $
  */
 public class SystemIOUtilities
     extends student.testingsupport.SystemIOUtilities

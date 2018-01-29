@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: TestSuiteOptions.java,v 1.2 2010/02/23 17:19:18 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006-2010 Virginia Tech
  |
@@ -33,8 +33,8 @@ import org.apache.tools.ant.taskdefs.optional.junit.JUnitTest;
  *  a test class.
  *
  *  @author Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.2 $, $Date: 2010/02/23 17:19:18 $
  */
 public class TestSuiteOptions
     extends HintOptions

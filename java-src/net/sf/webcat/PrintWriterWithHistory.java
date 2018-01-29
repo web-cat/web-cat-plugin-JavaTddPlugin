@@ -8,8 +8,8 @@ import java.io.*;
  *
  *  @deprecated
  *  @author  Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.3 $, $Date: 2010/02/23 19:47:10 $
  */
 public class PrintWriterWithHistory
     extends student.testingsupport.PrintWriterWithHistory

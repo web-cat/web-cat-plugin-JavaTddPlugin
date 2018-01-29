@@ -11,8 +11,8 @@ import java.io.UnsupportedEncodingException;
  *
  *  @deprecated
  *  @author  Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.4 $, $Date: 2010/02/23 19:47:10 $
  */
 public class PrintStreamWithHistory
     extends student.testingsupport.PrintStreamWithHistory

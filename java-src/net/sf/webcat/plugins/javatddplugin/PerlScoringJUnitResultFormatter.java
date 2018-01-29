@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: PerlScoringJUnitResultFormatter.java,v 1.3 2011/06/09 16:18:40 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006-2010 Virginia Tech
  |
@@ -41,8 +41,8 @@ import org.apache.tools.ant.util.StringUtils;
  *  interpreted by Perl.
  *
  *  @author Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.3 $, $Date: 2011/06/09 16:18:40 $
  */
 public class PerlScoringJUnitResultFormatter
     implements JUnitResultFormatter

@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: Hint.java,v 1.2 2011/05/18 17:40:07 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006-2011 Virginia Tech
  |
@@ -35,8 +35,8 @@ import java.lang.annotation.*;
  *  @deprecated Use
  *  {@link student.testingsupport.annotations.Hint} instead.
  *  @author Stephen Edwards
- *  @author  Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author  Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.2 $, $Date: 2011/05/18 17:40:07 $
  */
 @Deprecated
 @Documented

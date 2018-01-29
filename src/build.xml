@@ -32,6 +32,8 @@
   <!-- These are for reference tests -->
   <property name="testCasePath"                 value="${pluginHome}/tests"/>
   <property name="testCasePattern"              value="**/*.java"/>
+  <property name="visibleTestCasePath"          value="${pluginHome}/tests"/>
+  <property name="visibleTestCasePattern"       value="**/*.java"/>
   <property name="refTestClassPattern"          value="**/*.class"/>
   <property name="refTestClassExclusionPattern" value="none"/>
 
@@ -217,20 +219,22 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
           description="compile all of the instructor-provided unit tests">
     <mkdir dir="${instructorBuild}"/>
   	<!-- TODO: need to handle non-UTF-8 reference tests here -->
-    <javac srcdir="${testCasePath}"
-           destdir="${instructorBuild}"
+    <javac destdir="${instructorBuild}"
            verbose="off"
            failonerror="false"
            debug="true"
            debuglevel="lines,vars,source"
            casesensitive="no"
-           includes="${testCasePattern}"
            includeAntRuntime="false"
     	>
     	<!-- Should include:, but not until we have a viable UTF-8-ifier
            encoding="UTF-8"
     	-->
       <classpath refid="instructor.classpath"/>
+      <src path="${testCasePath}"/>
+      <include name="${testCasePattern}"/>
+      <src path="${visibleTestCasePath}"/>
+      <include name="${visibleTestCasePattern}"/>
     </javac>
   </target>
 

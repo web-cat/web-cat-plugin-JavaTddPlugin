@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #=============================================================================
-#   @(#)$Id$
+#   @(#)$Id: execute.pl,v 1.43 2016/09/06 12:22:31 stedwar2 Exp $
 #-----------------------------------------------------------------------------
 #   Web-CAT: execute script for Java submissions
 #
@@ -354,6 +354,28 @@ my $testCasePathPattern;
         $testCasePath = $target;
     }
     $testCasePathPattern = filePattern($testCasePath);
+}
+
+my $visibleTestCasePathPattern;
+{
+    my $visibleTestCasePath = "${pluginHome}/tests";
+    my $visibleTestCaseFileOrDir = $cfg->getProperty('visibleTestCases');
+    if (defined $visibleTestCaseFileOrDir && $visibleTestCaseFileOrDir ne "")
+    {
+        my $target = confirmExists($scriptData, $visibleTestCaseFileOrDir);
+        if (-d $target)
+        {
+            $cfg->setProperty('visibleTestCasePath', $target);
+        }
+        else
+        {
+            $cfg->setProperty('visibleTestCasePath', dirname($target));
+            $cfg->setProperty('visibleTestCasePattern', basename($target));
+            $cfg->setProperty('visibleJustOneTestClass', 'true');
+        }
+        $visibleTestCasePath = $target;
+    }
+    $visibleTestCasePathPattern = filePattern($visibleTestCasePath);
 }
 
 # Set up other test case filtering patterns

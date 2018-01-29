@@ -7,8 +7,8 @@ import java.util.Collection;
  *  Use {@link student.testingsupport.StringNormalizer} instead.
  *
  *  @author  Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.3 $, $Date: 2010/02/23 19:47:19 $
  */
 public class StringNormalizer
     extends student.testingsupport.StringNormalizer

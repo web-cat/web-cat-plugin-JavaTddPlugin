@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: ProfilingSecurityManager.java,v 1.1 2007/09/15 01:58:39 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  | Modified from Mark Petrovic's original:
  |
@@ -71,7 +71,7 @@ import java.util.Set;
  * prevent a security check, but it can reduce I/O during profiling.
  *
  * @author Mark S. Petrovic, with modifications by Stephen Edwards
- * @version $Id$
+ * @version $Id: ProfilingSecurityManager.java,v 1.1 2007/09/15 01:58:39 stedwar2 Exp $
  */
 public class ProfilingSecurityManager
     extends SecurityManager

@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: HintingJUnitResultFormatter.java,v 1.12 2016/09/06 12:17:24 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006-2010 Virginia Tech
  |
@@ -36,8 +36,8 @@ import org.apache.tools.ant.util.*;
  *  hints for use by a Perl-based hint formatting engine.
  *
  *  @author Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.12 $, $Date: 2016/09/06 12:17:24 $
  */
 public class HintingJUnitResultFormatter
     extends PlistJUnitResultFormatter

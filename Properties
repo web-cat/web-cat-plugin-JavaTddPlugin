@@ -1,5 +1,5 @@
 #This file is automatically rewritten by ANT.  Hand-edits may be lost.
-#Tue Sep 06 08:21:54 EDT 2016
+#Fri Nov 17 08:35:39 EST 2017
 version.minor=0
 timeoutMultiplier=2
 license.url="http\://www.gnu.org/licenses/agpl.html"
@@ -11,7 +11,7 @@ interpreter.prefix="${PerlForPlugins.perl.exe}"
 languages=( { name \= Java; version \= 1.4
 autoPublish=true
 version.major=4
-version.date=20160906
+version.date=20171117
 timeoutInternalPadding=400
 provider="Virginia Tech Computer Science"
 authorUid=edwards

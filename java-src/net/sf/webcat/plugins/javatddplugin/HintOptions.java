@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: HintOptions.java,v 1.5 2013/08/26 04:11:00 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006 Virginia Tech
  |
@@ -31,7 +31,7 @@ package net.sf.webcat.plugins.javatddplugin;
  *  hint generation.
  *
  *  @author Stephen Edwards
- *  @version $Id$
+ *  @version $Id: HintOptions.java,v 1.5 2013/08/26 04:11:00 stedwar2 Exp $
  */
 public class HintOptions
 {

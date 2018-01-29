@@ -1,5 +1,5 @@
 /*==========================================================================*\
- |  $Id$
+ |  $Id: PlistJUnitResultFormatter.java,v 1.9 2016/09/06 12:18:31 stedwar2 Exp $
  |*-------------------------------------------------------------------------*|
  |  Copyright (C) 2006-2010 Virginia Tech
  |
@@ -38,8 +38,8 @@ import org.apache.tools.ant.util.StringUtils;
  *  in plist format (Apple-style property lists).
  *
  *  @author Stephen Edwards
- *  @author Last changed by $Author$
- *  @version $Revision$, $Date$
+ *  @author Last changed by $Author: stedwar2 $
+ *  @version $Revision: 1.9 $, $Date: 2016/09/06 12:18:31 $
  */
 public class PlistJUnitResultFormatter
     extends PerlScoringJUnitResultFormatter
@@ -338,20 +338,12 @@ public class PlistJUnitResultFormatter
     // ----------------------------------------------------------
     private void appendResultsQuotedValue(String str)
     {
-        if (str != null)
-        {
-            if (str.length() > 1024)
-            {
-                str = str.substring(0, 1024) + "...";
-            }
-            str = str.replace("\"", "\\\"");
-        }
         testResultsPlist.append('"');
-        testResultsPlist.append(str);
+        testResultsPlist.append(str.replace("\"", "\\\""));
         testResultsPlist.append('"');
 
         testResultsPerlList.append('\'');
-        testResultsPerlList.append(str);
+        testResultsPerlList.append(str.replace("'", "\\'"));
         testResultsPerlList.append('\'');
     }
 
