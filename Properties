@@ -1,6 +1,6 @@
 #This file is automatically rewritten by ANT.  Hand-edits may be lost.
-#Fri Nov 17 08:35:39 EST 2017
-version.minor=0
+#Sun Feb 25 22:29:07 GMT-05:00 2018
+version.minor=1
 timeoutMultiplier=2
 license.url="http\://www.gnu.org/licenses/agpl.html"
 author="Stephen Edwards (edwards@cs.vt.edu)"
@@ -11,10 +11,10 @@ interpreter.prefix="${PerlForPlugins.perl.exe}"
 languages=( { name \= Java; version \= 1.4
 autoPublish=true
 version.major=4
-version.date=20171117
+version.date=20180225
 timeoutInternalPadding=400
 provider="Virginia Tech Computer Science"
 authorUid=edwards
 provider.url="http\://web-cat.cs.vt.edu/updates"
-version.revision=8
+version.revision=0
 name="JavaTddPlugin"

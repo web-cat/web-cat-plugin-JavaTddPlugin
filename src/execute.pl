@@ -3122,6 +3122,22 @@ EOF
     }
     elsif ($status{'instrTestResults'}->allTestsFail)
     {
+        my $hints = $status{'instrTestResults'}->formatHints(
+            1, $hintsLimit);
+    print "hints = $hints\n";
+        if (defined $hints && $hints ne "" && $hints =~ /honor code viol/i)
+        {
+            $hints =~ s/<p>Failure during test case setup[^<]*<\/p>//g;
+            $hints =~ s/symptom: [^\s]*:\s*//g;
+            $hints =~ s/\s*expected: \S*false\S* but was: \S*true\S*//g;
+            $hints =~ s/<pre>/<p>/g;
+            $hints =~ s/<\/pre>/<\/p>/g;
+        $status{'feedback'}->print(<<EOF);
+<p><b class="warn">$hints</b></p>
+EOF
+    }
+        else
+        {
         $status{'feedback'}->print(<<EOF);
 <p><b class="warn">Your problem setup does not appear to be
 consistent with the assignment.</b></p>
@@ -3152,6 +3168,7 @@ of your solution or your test cases.</p>
 <p>Double check that you have carefully followed all initial conditions
 requested in the assignment in setting up your solution.</p>
 EOF
+        }
     }
     elsif ($status{'instrTestResults'}->allTestsPass)
     {
@@ -3365,6 +3382,7 @@ $beautifier->beautifyCwd($cfg,
 
 # First, the static analysis, tool-based score
 my $staticScore  = $maxToolScore - $status{'toolDeductions'};
+my $show_gzoltar = ($instructorCasesPercent < 10) ? 0 : 1;
 
 # Second, the coverage/testing/correctness component
 my $runtimeScore = $runtimeScoreWithoutCoverage;
@@ -3374,6 +3392,11 @@ if ($studentsMustSubmitTests)
     {
         my $multiplier = $gradedElementsCovered * 1.0 / $gradedElements
             / $coverageGoal;
+        if ($multiplier * 100.0 < $minCoverageLevel)
+        {
+            # print "multiplier = $multiplier\n";
+            $show_gzoltar = 0;
+        }
         if ($multiplier < 1.0)
         {
             $runtimeScore *= $multiplier;
@@ -3392,6 +3415,41 @@ print "score with coverage: $runtimeScore ($gradedElementsCovered "
 # my $rawScore = $can_proceed
 #     ? ($staticScore + $runtimeScore)
 #     : 0;
+
+
+#=============================================================================
+# Include zoltar info, if present.
+#=============================================================================
+
+my $gzoltar_file = "${resultDir}/gzoltar.html";
+# print "instructor cases = $instructorCasesPercent, show = $show_gzoltar\n";
+if ($show_gzoltar && -f $gzoltar_file && ! -z $gzoltar_file)
+{
+    # print "starting feedback section\n";
+    $status{'feedback'}->startFeedbackSection(
+        "Heatmap of Suspicious Code",
+        ++$expSectionId);
+    $status{'feedback'}->print(<<EOF);
+<p>
+This color-coded view of your source code shows the <b>most suspicious</b>
+areas in your program--the lines that are most strongly associated with
+failing reference tests provided by your instructor.</p>
+<p>
+The lines highlighted in color are hints for place(s) you can look for
+bugs, with lines that are darker or more red being more suspicious.  Only
+classes containing suspicious lines are shown.</p>
+<p>
+Hover your mouse over colored lines to see line numbers.</p>
+EOF
+    open(GZOLTAR, $gzoltar_file);
+    my $line;
+    while ($line = <GZOLTAR>)
+    {
+        $status{'feedback'}->print($line);
+    }
+    close(GZOLTAR);
+    $status{'feedback'}->endFeedbackSection;
+}
 
 
 #=============================================================================

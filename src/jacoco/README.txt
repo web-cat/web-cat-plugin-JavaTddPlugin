@@ -10,4 +10,4 @@ http://www.eclemma.org/jacoco/index.html
 
 The current official build of this plug-in uses:
 
-http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.7.7.201606060606/jacoco-0.7.7.201606060606.zip
+http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.7.2.201409121644/jacoco-0.7.2.201409121644.zip

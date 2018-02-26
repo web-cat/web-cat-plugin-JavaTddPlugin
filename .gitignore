@@ -4,3 +4,5 @@ webcat-support-*.*
 src/fikin/*.jar
 src/jacoco/*.jar
 src/defaultJars/*.jar
+src/JavaTddPluginSupport.jar
+src/junit-4.8.2.jar

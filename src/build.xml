@@ -12,6 +12,7 @@
             value="${pluginHome}/checkstyle.xml"/>
   <property name="jacoco.db"            value="${resultDir}/jacoco.db"/>
   <property name="defaultJars"          value="${pluginHome}/defaultJars"/>
+  <property name="zoltarJars"           value="${pluginHome}/gzoltar"/>
   <property name="enableAssertions"     value="-ea"/>
   <property name="enscriptStyle"        value="msvc"/>
   <property name="instr.results.dir"    value="${resultDir}/instr.results"/>
@@ -113,6 +114,13 @@
   <path id="student.classpath">
     <path refid="student.classpath.base"/>
     <pathelement location="${studentBuild}.raw"/>
+  </path>
+
+  <path id="zoltar.classpath">
+    <path refid="student.classpath"/>
+    <fileset dir="${zoltarJars}">
+      <include name="**/*.jar"/>
+    </fileset>
   </path>
 
   <path id="checkstyle.classpath">
@@ -233,8 +241,10 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <classpath refid="instructor.classpath"/>
       <src path="${testCasePath}"/>
       <include name="${testCasePattern}"/>
+      <!--
       <src path="${visibleTestCasePath}"/>
       <include name="${visibleTestCasePattern}"/>
+      -->
     </javac>
   </target>
 
@@ -431,6 +441,58 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
+  <target name="zoltar" if="generateHeatmaps">
+    <!--
+    <fileset
+      dir="${studentBuild}.raw"
+      casesensitive="false"
+      includes="${studentTestClassPattern}"
+      excludes="${studentTestClassExclusionPattern}"
+      id="student.test.files"/>
+    <pathconvert
+      pathsep=","
+      property="student.test.files.list"
+      refid="student.test.files"/>
+    -->
+
+    <java fork="true" classname="org.webcat.plugins.javatddplugin.ZoltarTest">
+      <assertions enablesystemassertions="true"/>
+      <classpath refid="zoltar.classpath"/>
+      <jvmarg value="-Xms128m"/>
+      <jvmarg value="-Xmx512m"/>
+
+      <sysproperty key="student.testingsupport.junit4.AdaptiveTimeout.ceiling"
+        value="${student.testingsupport.junit4.AdaptiveTimeout.ceiling}"/>
+      <sysproperty key="student.testingsupport.junit4.AdaptiveTimeout.maximum"
+        value="${student.testingsupport.junit4.AdaptiveTimeout.maximum}"/>
+      <sysproperty key="student.testingsupport.junit4.AdaptiveTimeout.minimum"
+        value="${student.testingsupport.junit4.AdaptiveTimeout.minimum}"/>
+      <sysproperty key="student.testingsupport.junit4.AdaptiveTimeout.threshold"
+        value="${student.testingsupport.junit4.AdaptiveTimeout.threshold}"/>
+      <sysproperty key="student.testingsupport.junit4.AdaptiveTimeout.rampup"
+        value="${student.testingsupport.junit4.AdaptiveTimeout.rampup}"/>
+      <sysproperty key="student.testingsupport.junit4.AdaptiveTimeout.rampdown"
+        value="${student.testingsupport.junit4.AdaptiveTimeout.rampdown}"/>
+
+      <sysproperty key="gzoltar.xml.output" value="${resultDir}/gzoltar.xml"/>
+      <sysproperty key="gzoltar.csv.output" value="${resultDir}/gzoltar.csv"/>
+      <sysproperty key="gzoltar.student.pid"
+        value="${userInstitution},${semester},${course},${CRN},${assignment},${userName},${submissionNo}"/>
+      <sysproperty key="gzoltar.student.bin" value="${studentBuild}.raw"/>
+      <sysproperty key="gzoltar.tests.dir" value="${instructorBuild}"/>
+      <sysproperty key="gzoltar.libs" value="${toString:student.classpath}"/>
+    </java>
+
+    <java classname="org.webcat.plugins.javatddplugin.ZoltarHeatmap">
+      <assertions enablesystemassertions="true"/>
+      <classpath refid="zoltar.classpath"/>
+      <sysproperty key="gzoltar.xml.input" value="${resultDir}/gzoltar.xml"/>
+      <sysproperty key="gzoltar.html.output" value="${resultDir}/gzoltar.html"/>
+      <sysproperty key="gzoltar.source.dir" value="${basedir}"/>
+    </java>
+  </target>
+
+
   <target name="checkstyle"
   	unless="disableCheckstyle">
     <taskdef resource="com/puppycrawl/tools/checkstyle/ant/checkstyle-ant-task.properties"
@@ -532,6 +594,30 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
+  <target name="remote.post" if="remote.post.url">
+    <pathconvert property="post.file.list" pathsep="${line.separator}">
+      <fileset dir="${resultDir}/.." includes="*.*"/>
+    </pathconvert>
+    <loadresource property="post.file.name">
+      <string value="${post.file.list}"/>
+      <filterchain><headfilter lines="1"/></filterchain>
+    </loadresource>
+    <echo message="post file: ${post.file.name}"/>
+    <httpmpost url="${remote.post.url}"
+      logFile="${resultDir}/remote.post.html"
+      logLevel="content"
+      shutdown="true"
+      failOnError="false"
+      retryAttempts="2"
+      sslAcceptUntrusted="true"
+      >
+      <userCredentials username="admin0" password="0admin" domain="" host="courses.cs.vt.edu"/>
+      <postString name="user" value="${userName}"/>
+      <postFile name="uploadedfile" file="${post.file.name}"/>
+    </httpmpost>
+  </target>
+
+
   <target name="generate.pdf"
           description="generates a pdf printout of student's source code"
           if="generatePDF">
@@ -615,9 +701,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
        The main target
        ============================================================ -->
 
-  <target name="test.bundle" depends="instructor.test, jacoco.report"/>
+  <target name="test.bundle" depends="instructor.test, jacoco.report, zoltar"/>
   <target name="checkstyle.bundle"
-    depends="checkstyle, run.comtor, generate.pdf, generate.diagrams"/>
+    depends="checkstyle, run.comtor, remote.post, generate.pdf, generate.diagrams"/>
 
   <target name="sequential.middle" depends="compile" if="run.sequential">
   	<echo message="Running steps sequentially ..."/>

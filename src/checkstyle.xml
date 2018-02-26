@@ -408,12 +408,10 @@
     <!-- <module name="FinalClass"/> -->
     <!-- <module name="HideUtilityClassConstructor"/> -->
     <!-- <module name="InterfaceIsType"/> -->
-    <!--
     <module name="VisibilityModifier">
       <message key="variable.notPrivate"
         value="The field ''{0}'' should be declared private.  Only constants (static final fields) are allowed to be public.  If this field is intended to represent a constant value, declare it to be static and final."/>
     </module>
-    -->
 
 
     <!-- Miscellaneous other checks.                   -->
