@@ -8,7 +8,7 @@
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
     provider         = "Virginia Tech Computer Science";
-    provider.url     = "http://web-cat.cs.vt.edu/updates";
+    provider.url     = "http://web-cat.org/updates";
     license          = "GNU Affero General Public License v.3";
     license.url      = "http://www.gnu.org/licenses/agpl.html";
     copyright        =
