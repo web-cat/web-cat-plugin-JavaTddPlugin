@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <includepath>
   <includepathentry path="/Web-CAT/PerlForPlugins/Resources/lib" />
+  <includepathentry path="/Web-CAT/Plugins/JavaTDDPlugin/src/perllib" />
 </includepath>
 

@@ -1,13 +1,12 @@
 #!/usr/bin/perl
 #=============================================================================
-#   @(#)$Id: execute.pl,v 1.43 2016/09/06 12:22:31 stedwar2 Exp $
-#-----------------------------------------------------------------------------
 #   Web-CAT: execute script for Java submissions
 #
 #   usage:
 #       execute.pl <properties-file>
 #=============================================================================
 
+use Class::Struct;
 use strict;
 use Carp qw(carp croak);
 use Config::Properties::Simple;
@@ -21,23 +20,16 @@ use Web_CAT::Beautifier;
 use Web_CAT::Clover::Reformatter;
 use Web_CAT::FeedbackGenerator;
 use Web_CAT::JUnitResultsReader;
-use Web_CAT::Utilities
-    qw(confirmExists filePattern copyHere htmlEscape addReportFile scanTo
-       scanThrough linesFromFile addReportFileWithStyle);
 use XML::Smart;
 use Data::Dump qw(dump);
 
-my @beautifierIgnoreFiles = ();
-
 
 #=============================================================================
-# Bring command line args into local variables for easy reference
+# Load properties files given on command line
 #=============================================================================
 my $propfile   = $ARGV[0];     # property file name
 my $cfg        = Config::Properties::Simple->new(file => $propfile);
 
-my $pid        = $cfg->getProperty('userName');
-my $workingDir = $cfg->getProperty('workingDir');
 my $pluginHome = $cfg->getProperty('pluginHome');
 {
     # scriptHome is deprecated, but may still be used on older servers
@@ -46,23 +38,61 @@ my $pluginHome = $cfg->getProperty('pluginHome');
         $pluginHome = $cfg->getProperty('scriptHome');
     }
 }
-my $resultDir  = $cfg->getProperty('resultDir');
-my $timeout    = $cfg->getProperty('timeout', 45);
-my $publicDir  = "$resultDir/public";
-
-my $maxToolScore          = $cfg->getProperty('max.score.tools', 20);
-my $maxCorrectnessScore   = $cfg->getProperty('max.score.correctness',
-                                              100 - $maxToolScore);
 
 
 #=============================================================================
 # Import local libs
 #=============================================================================
 
-my $localLib = "$pluginHome/perllib";
-push @INC, $localLib;
-eval "require JavaTddPlugin";
+use lib dirname(__FILE__) . '/perllib';
+use JavaTddPlugin;
+use Web_CAT::Utilities qw(
+    confirmExists
+    filePattern
+    copyHere
+    htmlEscape
+    addReportFile
+    scanTo
+    scanThrough
+    linesFromFile
+    addReportFileWithStyle
+    );
+use Web_CAT::ExpandedFeedbackUtil qw(
+    extractAboveBelowLinesOfCode
+    checkForPatternInFile
+    negateValueZeroToOneAndOneToZero
+    extractLineOfCode
+    );
+use Web_CAT::ErrorMapper qw(
+    compilerErrorHintKey
+    runtimeErrorHintKey
+    compilerErrorEnhancedMessage
+    setResultDir
+    codingStyleMessageValue
+    );
 
+
+#=============================================================================
+# Bring config properties into local variables for easy reference
+#=============================================================================
+
+my $pid        = $cfg->getProperty('userName');
+my $workingDir = $cfg->getProperty('workingDir');
+my $resultDir  = $cfg->getProperty('resultDir');
+
+#Using ResultDir in ErrorMapper file and we set the value here
+setResultDir($resultDir);
+
+my $useEnhancedFeedback = $cfg->getProperty('useEnhancedFeedback', 0);
+$useEnhancedFeedback = ($useEnhancedFeedback =~ m/^(true|on|yes|y|1)$/i);
+
+my @beautifierIgnoreFiles = ();
+my $timeout    = $cfg->getProperty('timeout', 45);
+my $publicDir  = "$resultDir/public";
+
+my $maxToolScore          = $cfg->getProperty('max.score.tools', 20);
+my $maxCorrectnessScore   = $cfg->getProperty('max.score.correctness',
+                                              100 - $maxToolScore);
 
 #my $instructorCases        = 0;
 #my $instructorCasesPassed  = undef;
@@ -84,6 +114,189 @@ my %status = (
         new Web_CAT::FeedbackGenerator($resultDir, 'feedback.html'),
     'instrFeedback'      =>
         new Web_CAT::FeedbackGenerator($resultDir, 'staffFeedback.html')
+);
+
+# To mark components in each module(in WebCat-java submission) based on
+# whether all the errors of a subsection are passed or not. For instance,
+# "1" in compilerErrors implies: no compilerErrors
+
+# If there are no compiler errors or warnings or signature errors then
+# firstHalfRadialBar = 50; otherwise zero. Likewise secondHalfRadialBar
+# corresponds to codingFlaws and junitTests
+
+my %codingSectionStatus = (
+    'compilerErrors'            => 1,
+    'compilerWarnings'          => 1,
+    'signatureErrors'           => 1,
+    'codingFlaws'               => 1,
+    'junitTests'                => 1,
+    'firstHalfRadialBar'        => 50,
+    'secondHalfRadialBar'       => 50
+);
+
+my %styleSectionStatus = (
+    'javadoc'                   => 1,
+    'indentation'               => 1,
+    'whitespace'                => 1,
+    'lineLength'                => 1,
+    'other'                     => 1,
+    'pointsGainedPercent'       => 100
+);
+
+my %testingSectionStatus = (
+    'errors'                    => 1,
+    'failures'                  => 1,
+    'methodsUncovered'          => 1,
+    'statementsUncovered'       => 1,
+    'conditionsUncovered'       => 1,
+    'resultsPercent'            => 100,
+    'codeCoveragePercent'       => 100
+);
+
+my %behaviorSectionStatus = (
+    'errors'                    => 1,
+    'stackOverflowErrors'       => 1,
+    'testsTakeTooLong'          => 1,
+    'failures'                  => 1,
+    'outOfMemoryErrors'         => 1,
+    'problemCoveragePercent'    => 100
+);
+
+# A limit for number of errors in a subcategory in the feedback.
+# Example: codingFlaws is a subcategory.
+my $maxErrorsPerSubcategory = 8;
+
+# A limit for number of lines above assertion failure in Testing section.
+my $linesAboveAssertionFailure = 5;
+
+# To know which among the above four sections should be expanded-
+# Based on which one first contains errors in the following order:
+# Coding(1), Testing(2), Behavior(3), Style (4).
+my $expandSectionId = -1;
+
+# Traverse over the expanded section hashmaps using the order from below
+# arrays.
+my @codingSectionOrder = (
+    'compilerErrors',
+    'compilerWarnings',
+    'signatureErrors',
+    'codingFlaws',
+    'junitTests');
+
+my @styleSectionOrder = (
+    'javadoc',
+    'indentation',
+    'whitespace',
+    'lineLength',
+    'other');
+
+my @testingSectionOrder = (
+    'errors',
+    'failures',
+    'methodsUncovered',
+    'statementsUncovered',
+    'conditionsUncovered');
+
+my @behaviorSectionOrder = (
+    'errors',
+    'stackOverflowErrors',
+    'testsTakeTooLong',
+    'failures',
+    'outOfMemoryErrors');
+
+my %codingSectionTitles = (
+    'compilerErrors'            => 'Compiler Errors',
+    'compilerWarnings'          => 'Compiler Warnings',
+    'signatureErrors'           => 'Signature Errors',
+    'codingFlaws'               => 'Potential Coding Bugs',
+    'junitTests'                => 'Unit Test Coding Problems'
+);
+
+my %styleSectionTitles = (
+    'javadoc'                   => 'JavaDoc',
+    'indentation'               => 'Indentation Problems',
+    'whitespace'                => 'Whitespace Problems',
+    'lineLength'                => 'Line Length Problems',
+    'other'                     => 'Other Style Problems'
+);
+
+my %testingSectionTitles = (
+    'errors'                    => 'Unit Test Errors',
+    'failures'                  => 'Unit Test Failures',
+    'methodsUncovered'          => 'Unexecuted Methods',
+    'statementsUncovered'       => 'Unexecuted Statements',
+    'conditionsUncovered'       => 'Unexecuted Conditions'
+);
+
+my %behaviorSectionTitles = (
+    'errors'                    => 'Unexpected Exceptions',
+    'stackOverflowErrors'       => 'Infinite Recursion Problems',
+    'testsTakeTooLong'          => 'Infinite Looping Problems',
+    'failures'                  => 'Behavior Issues',
+    'outOfMemoryErrors'         => 'Out of Memory Errors'
+);
+
+
+# expandedSection Content-each element in the hashmap is an array of structs
+# (expandedMessage)
+my %codingSectionExpanded = (
+    'compilerErrors'            => undef,
+    'compilerWarnings'          => undef,
+    'signatureErrors'           => undef,
+    'codingFlaws'               => undef,
+    'junitTests'                => undef
+);
+
+my %styleSectionExpanded = (
+    'javadoc'                   => undef,
+    'indentation'               => undef,
+    'whitespace'                => undef,
+    'lineLength'                => undef,
+    'other'                     => undef
+);
+
+my %testingSectionExpanded = (
+    'errors'                    => undef,
+    'failures'                  => undef,
+    'methodsUncovered'          => undef,
+    'statementsUncovered'       => undef,
+    'conditionsUncovered'       => undef
+);
+
+my %behaviorSectionExpanded = (
+    'errors'                    => undef,
+    'stackOverflowErrors'       => undef,
+    'testsTakeTooLong'          => undef,
+    'failures'                  => undef,
+    'outOfMemoryErrors'         => undef
+);
+
+# Temporary hashes to hold structs per file (for compiler errors and warnings)
+# or rule (for all others) for expanded section.
+# This is a multidimensional hash of the following form:
+# 'compilerErrors'---'count'--'file or rule name'--count value
+# 'compilerErrors'---'data'--'file or rule name'--array of structs
+my %perFileRuleStruct = (
+    'compilerErrors'            => undef,
+    'compilerWarnings'          => undef,
+    'signatureErrors'           => undef,
+    'codingFlaws'               => undef,
+    'junitTests'                => undef,
+    'javadoc'                   => undef,
+    'indentation'               => undef,
+    'whitespace'                => undef,
+    'lineLength'                => undef,
+    'other'                     => undef,
+    'errors'                    => undef,
+    'failures'                  => undef,
+    'methodsUncovered'          => undef,
+    'statementsUncovered'       => undef,
+    'conditionsUncovered'       => undef,
+    'behaviorErrors'            => undef,
+    'stackOverflowErrors'       => undef,
+    'testsTakeTooLong'          => undef,
+    'behaviorFailures'          => undef,
+    'outOfMemoryErrors'         => undef
 );
 
 
@@ -356,28 +569,6 @@ my $testCasePathPattern;
     $testCasePathPattern = filePattern($testCasePath);
 }
 
-my $visibleTestCasePathPattern;
-{
-    my $visibleTestCasePath = "${pluginHome}/tests";
-    my $visibleTestCaseFileOrDir = $cfg->getProperty('visibleTestCases');
-    if (defined $visibleTestCaseFileOrDir && $visibleTestCaseFileOrDir ne "")
-    {
-        my $target = confirmExists($scriptData, $visibleTestCaseFileOrDir);
-        if (-d $target)
-        {
-            $cfg->setProperty('visibleTestCasePath', $target);
-        }
-        else
-        {
-            $cfg->setProperty('visibleTestCasePath', dirname($target));
-            $cfg->setProperty('visibleTestCasePattern', basename($target));
-            $cfg->setProperty('visibleJustOneTestClass', 'true');
-        }
-        $visibleTestCasePath = $target;
-    }
-    $visibleTestCasePathPattern = filePattern($visibleTestCasePath);
-}
-
 # Set up other test case filtering patterns
 setClassPatternIfNeeded('refTestInclude', 'refTestClassPattern');
 setClassPatternIfNeeded('refTestExclude', 'refTestClassExclusionPattern');
@@ -389,7 +580,6 @@ setClassPatternIfNeeded('staticAnalysisExclude',
     'staticAnalysisSrcExclusionPattern', 1);
 setClassPatternIfNeeded('staticAnalysisExclude',
     'instrumentExclusionPattern');
-
 
 # useDefaultJar
 {
@@ -604,6 +794,7 @@ if ($callAnt)
             $ANT .= " -logger org.apache.tools.ant.listener.ProfileLogger";
         }
     }
+
     my $cmdline = $Web_CAT::Utilities::SHELL
         . "$ANT -f \"$pluginHome/build.xml\" -l \"$antLog\" "
         . "-propertyfile \"$propfile\" \"-Dbasedir=$workingDir\" "
@@ -614,6 +805,9 @@ if ($callAnt)
         $timeout - $postProcessingTime, $cmdline);
     if ($timeout_status)
     {
+        # Mark Behavior Section-tests taking too long
+        $behaviorSectionStatus{'testsTakeTooLong'} = 0;
+
         $can_proceed = 0;
         $status{'antTimeout'} = 1;
         $buildFailed = 1;
@@ -657,19 +851,135 @@ sub adminLog
     close(SCRIPTLOG);
 }
 
+my $cannotFindSymbolStruct;
+
+# generate compilerError and compilerWarning Structs.
+# We pick only the first occurring error or warning in a file.
+sub generateCompilerErrorWarningStruct
+{
+    my $messageString = shift;
+    my $key = shift;
+    my $splitString;
+    my $errorStruct;
+
+    if (index(lc($key), 'error') != -1)
+    {
+        $splitString = 'error:';
+    }
+    else
+    {
+        $splitString = 'warning:';
+    }
+
+    my @messageContents = split($splitString, $messageString);
+
+    my @fileDetails = split(':', $messageContents[0]);
+    #trim the message
+    $messageContents[1] =~ s/^\s+|\s+$//g;
+
+    my $fileName = $fileDetails[0];
+    $fileName =~ s,\\,/,go;
+    my $lineNum = $fileDetails[1];
+    my $codeLines = extractAboveBelowLinesOfCode($fileName, $lineNum);
+    $fileName =~ s,^\Q$workingDir/\E,,i;
+
+    # For compiler warning we dont have enhanced messages
+    # For "cannot find symbol" errors, "addCannotFindSymbolStruct" computes
+    # the enhaced message
+    if ($splitString eq 'warning:'
+        || $messageContents[1] eq 'cannot find symbol')
+    {
+        $errorStruct = expandedMessage->new(
+            entityName => $fileName,
+            lineNum => $lineNum,
+            errorMessage => $messageContents[1],
+            linesOfCode => $codeLines,
+            enhancedMessage => '',
+            );
+    }
+    else
+    {
+        $errorStruct = expandedMessage->new(
+            entityName => $fileName,
+            lineNum => $lineNum,
+            errorMessage => $messageContents[1],
+            linesOfCode => $codeLines,
+            enhancedMessage =>
+                compilerErrorEnhancedMessage($messageContents[1]),
+            );
+    }
+
+    # If the struct contains only "cannot find symbol" then we look for the
+    # next line in the ant.log to obtain symbol name and add the struct later
+    if ($errorStruct->errorMessage eq 'cannot find symbol')
+    {
+        $cannotFindSymbolStruct = $errorStruct;
+        return;
+    }
+
+    if (defined $perFileRuleStruct{$key}{'data'}{$fileName})
+    {
+        $perFileRuleStruct{$key}{'count'}{$fileName}++;
+    }
+    else
+    {
+        $perFileRuleStruct{$key}{'data'}{$fileName} = $errorStruct;
+        $perFileRuleStruct{$key}{'count'}{$fileName} = 1;
+    }
+}
+
+sub addCannotFindSymbolStruct
+{
+    if (not defined $cannotFindSymbolStruct)
+    {
+        return;
+    }
+
+    my $symbolName = shift;
+    #Replace multiple spaces by single space
+    $symbolName =~ tr/ //s;
+    $symbolName =~ s/^\bsymbol\s+symbol\b/symbol/io;
+
+    my $errorMessage = $cannotFindSymbolStruct->errorMessage;
+    $errorMessage .= $symbolName;
+
+    my $errorStruct = expandedMessage->new(
+        entityName => $cannotFindSymbolStruct->entityName,
+        lineNum => $cannotFindSymbolStruct->lineNum,
+        errorMessage => $errorMessage,
+        linesOfCode => $cannotFindSymbolStruct->linesOfCode,
+        enhancedMessage => compilerErrorEnhancedMessage($errorMessage),
+        );
+
+    $cannotFindSymbolStruct = undef;
+
+    if (defined $perFileRuleStruct{'compilerErrors'}{'data'}{$errorStruct->entityName})
+    {
+        $perFileRuleStruct{' Errors'}{'count'}{$errorStruct->entityName}++;
+
+    }
+    else
+    {
+        $perFileRuleStruct{'compilerErrors'}{'data'}{$errorStruct->entityName} = $errorStruct;
+        $perFileRuleStruct{'compilerErrors'}{'count'}{$errorStruct->entityName} = 1;
+    }
+}
 
 #-----------------------------------------------
 my %suites = ();
 if ($can_proceed)
 {
+
     open(ANTLOG, "$antLog") ||
         die "Cannot open file for input '$antLog': $!";
     $antLogOpen++;
 
     $_ = <ANTLOG>;
+
     scanTo(qr/^(compile:|BUILD FAILED)/);
     $buildFailed++ if defined($_)  &&  m/^BUILD FAILED/;
     $_ = <ANTLOG>;
+
     scanThrough(qr/^\s*\[(?!javac\])/);
     scanThrough(qr/^\s*($|\[javac\](?!\s+Compiling))/);
     if (!defined($_)  ||  $_ !~ m/^\s*\[javac\]\s+Compiling/)
@@ -690,24 +1000,30 @@ EOF
     {
         $status{'studentHasSrcs'} = 1;
         $_ = <ANTLOG>;
+
         my $projdir  = $workingDir;
         $projdir .= "/" if ($projdir !~ m,/$,);
         $projdir = filePattern($projdir);
         my $compileMsgs    = "";
         my $compileErrs    = 0;
+        my $compileWarnings = 0;
         my $firstFile      = "";
         my $collectingMsgs = 1;
+
         print "projdir = '$projdir'\n" if $debug;
+
         while (defined($_)  &&  s/^\s*\[javac\] //o)
         {
-            # print "msg: $_";
+
             my $wrap = 0;
             if (s/^$projdir//io)
             {
                 # print "trimmed: $_";
                 if ($firstFile eq "" && m/^([^:]*):/o)
                 {
+
                     $firstFile = $1;
+
                     $firstFile =~ s,\\,\\\\,g;
                     # print "firstFile='$firstFile'\n";
                 }
@@ -731,19 +1047,71 @@ EOF
                 $collectingMsgs = 1;
                 $can_proceed = 0;
                 $buildFailed = 1;
+
+                # set CompilerErrors flag to reflect that it didnt pass.
+                $codingSectionStatus{'compilerErrors'} = 0;
+
             }
+            if (m/^[1-9][0-9]*\s.*warning/o)
+            {
+                $compileWarnings++;
+
+                # set CompilerWarnings flag to reflect that it didnt pass.
+                $codingSectionStatus{'compilerWarnings'} = 0;
+            }
+
+            if (m/error:/o or m/warning:/o)
+            {
+                if (m/error:/o)
+                {
+                    generateCompilerErrorWarningStruct($_, 'compilerErrors' );
+                }
+
+                if (m/warning:/o)
+                {
+                    generateCompilerErrorWarningStruct($_, 'compilerWarnings');
+                }
+            }
+
+            if (m/symbol:/o)
+            {
+                # This essentially contains the symbol name.
+                # Example: 'symbol symbol: food'
+                addCannotFindSymbolStruct($_);
+            }
+
+
             if ($collectingMsgs)
             {
                 $_ = htmlEscape($_);
+
                 if ($wrap)
                 {
                     $_ = "<b class=\"warn\">" . $_ . "</b>\n";
                 }
                 $compileMsgs .= $_;
+
             }
             $_ = <ANTLOG>;
+
         }
-        if ($compileMsgs ne "")
+
+        if ($compileErrs > 0)
+        {
+            $status{'compileErrs'}++;
+            @{$codingSectionExpanded{'compilerErrors'}} =
+                addStructsToExpandedSectionsFromScalarHashValues(
+                'compilerErrors');
+        }
+
+        if ($compileWarnings > 0)
+        {
+            @{$codingSectionExpanded{'compilerWarnings'}} =
+                addStructsToExpandedSectionsFromScalarHashValues(
+                'compilerWarnings');
+        }
+
+        if ($compileMsgs ne "" && !$useEnhancedFeedback)
         {
             $status{'feedback'}->startFeedbackSection(
                 ($compileErrs)
@@ -755,6 +1123,7 @@ EOF
             $status{'feedback'}->print("</pre>\n");
             $status{'feedback'}->endFeedbackSection;
         }
+
     }
 
 
@@ -799,7 +1168,6 @@ EOF
             {
                 # print "err: $_";
                 $status{'compileErrs'}++;
-
             }
             if (m/^Compile failed;/o)
             {
@@ -853,6 +1221,7 @@ EOF
         new Web_CAT::JUnitResultsReader("$resultDir/student.inc");
     $status{'instrTestResults'} =
         new Web_CAT::JUnitResultsReader("$resultDir/instr.inc");
+
     foreach my $class ($status{'studentTestResults'}->suites)
     {
         my $pkg = "";
@@ -1148,6 +1517,52 @@ sub trackMessageInstanceInContext
     }
 }
 
+# Using a group mark the coding Section subsections appropriately.
+sub markCodingSection
+{
+    my $group = shift;
+
+    # Group for CodingFlaws is "coding", whereas "codingMinor" and
+    # "codingWarning" will fall under "other" subcategory in Style category.
+    if (lc($group) eq "coding")
+    {
+        $codingSectionStatus{'codingFlaws'} = 0;
+    }
+    elsif (index(lc($group), 'testing') != -1)
+    {
+        $codingSectionStatus{'junitTests'} = 0;
+    }
+}
+
+# Use group and rule to mark the Style Section subsections appropriately.
+sub markStyleSection
+{
+    my $rule = shift;
+    my $group = shift;
+
+    if (index(lc($rule), 'javadoc') != -1)
+    {
+        $styleSectionStatus{'javadoc'} = 0;
+    }
+    elsif (index(lc($rule), 'indentation') != -1)
+    {
+        $styleSectionStatus{'indentation'} = 0;
+    }
+    elsif (index(lc($rule), 'whitespace') != -1)
+    {
+        $styleSectionStatus{'whitespace'} = 0;
+    }
+    elsif (index(lc($rule), 'linelength') != -1)
+    {
+        $styleSectionStatus{'lineLength'} = 0;
+    }
+    elsif (lc($group) ne "coding" && index(lc($group),"testing") == -1)
+    {
+        # If its not marked in coding and style section(other four
+        # subcategories).
+        $styleSectionStatus{'other'} = 0;
+    }
+}
 
 #-----------------------------------------------
 # trackMessageInstance(rule, fileName, violation)
@@ -1163,7 +1578,7 @@ sub trackMessageInstanceInContext
 #
 sub trackMessageInstance
 {
-    croak "usage: recordPMDMessageStats(rule, fileName, violation)"
+    croak 'usage: recordPMDMessageStats(rule, fileName, violation)'
         if ($#_ != 2);
     my $rule      = shift;
     my $fileName  = shift;
@@ -1178,6 +1593,18 @@ sub trackMessageInstance
       && $violation->{endline}->content)
     {
         $violation->{line} = $violation->{endline}->content;
+
+        # In case of testing violations from pmd, we would use beginline for
+        # rules like TestsHaveAssertions, as the endline would be the closing
+        # curly brace of the method. This is the only case where endline is
+        # different from beginline
+        if (index(lc($group), 'testing') != -1
+            && $violation->{beginline}->content
+            && $violation->{beginline}->content
+            != $violation->{endline}->content)
+        {
+            $violation->{beginline} = $violation->{beginline}->content;
+        }
     }
 
     if ($debug > 1)
@@ -1193,6 +1620,9 @@ sub trackMessageInstance
             print "found JUnit error!\n";
         }
     }
+
+    markCodingSection($group);
+    markStyleSection($rule, $group);
 
     # messageStats->group->rule->filename->{num, collapse} (pts later)
     trackMessageInstanceInContext(
@@ -1518,6 +1948,17 @@ if (!$status{'studentHasSrcs'})
     $status{'toolDeductions'} = $maxToolScore;
 }
 
+# set PointsGained in Style section color the radial bar
+if ($maxToolScore > 0)
+{
+    $styleSectionStatus{'pointsGainedPercent'} =
+        (($maxToolScore - $status{'toolDeductions'})/$maxToolScore) * 100;
+}
+else
+{
+    $styleSectionStatus{'pointsGainedPercent'} = 100;
+}
+
 
 #=============================================================================
 # translate html
@@ -1618,6 +2059,7 @@ sub translateHTMLFile
     while ($allHtml =~
       m/<span[^<>]*class="javadoc"[^<>]*>\@author<\/span>\s*([^<>]*)<\/span>/g)
     {
+
         my $authors = $1;
         $authors =~ s/\@[a-zA-Z][a-zA-Z0-9\.]+[a-zA-Z]/ /g;
         $authors =~
@@ -2330,6 +2772,305 @@ if ($debug)
     print "\n", ($time6 - $time5), " seconds\n";
 }
 
+# Compute FileName of the Class (even for inner level classes)
+sub computeFileNameUsingClassName
+{
+    my $className = shift;
+
+    # If the className is outer level class (fileName); it will be found in
+    # the keys of codeMarkupIds.
+    for my $longName (keys %codeMarkupIds)
+    {
+        if (index(lc($longName), lc($className . '.java')) != -1)
+        {
+            return $longName;
+        }
+    }
+
+    # Parse each file and see which file contains that class.
+    # pattern we are looking for is "class $className "
+    for my $longName (keys %codeMarkupIds)
+    {
+        if (checkForPatternInFile($workingDir . '/' . $longName,
+            'class' . ' ' .$className. ' '))
+        {
+            return $longName;
+        }
+    }
+
+    return;
+}
+
+# contains $filename . $lineNum as the key, these statements are displayed
+# as uncovered statements under methods uncovered, so we ignore them for
+# statements and branches uncovered
+my %fileLineNumMethodUncovered;
+
+#Contains the beginLine of each method (tests also).
+my %methodBeginLineNum;
+
+
+sub addMethodBeginLineNum
+{
+    # This data is obtained from JaCoCo
+    my $class = shift;
+
+    foreach my $method (@{ $class->{method} })
+    {
+        $methodBeginLineNum{$method->{name}} = $method->{line};
+    }
+}
+
+
+# Computes Uncovered Methods in a class and adds to the temporary
+# perFileRuleStruct Hash
+sub computeMethodsUncovered
+{
+    my $class = shift;
+
+    my $fileName = computeFileNameUsingClassName($class->{name}->content);
+
+    foreach my $method (@{ $class->{method} })
+    {
+        my $counter = $method->{counter}('type', 'eq', 'INSTRUCTION');
+
+        # print($method->{name}->content);
+        # print "\n";
+        if ($counter->{covered}->content != 0)
+        {
+            next;
+        }
+
+        my $numLines =
+            $method->{counter}('type', 'eq', 'LINE')->{missed}->content;
+        # Add the lines in the method uncovered to the hash
+        addTofileLineMethodUncoveredHash(
+            $fileName, $method->{line}->content, $numLines);
+
+        # Jacoco gives the line number of the body of the method: so we
+        # do "-2" to the line number
+        my $methodCoverageStruct = generateCompleteErrorStruct(
+            $fileName, $method->{line}->content-2,
+            'Method not executed',
+            'This method or constructor was not executed by any of your '
+            . 'software tests. Add more tests to check its behavior.');
+
+        # Insert into the temporary hash with key as concatenation of fileName
+        # and methodName.
+        # Count would be the number of missed instructions (later we
+        # sort(desc) based on that).
+        $perFileRuleStruct{'methodsUncovered'}{'count'}{$fileName . $method->{name}->content} =
+            $counter->{missed}->content;
+
+        $perFileRuleStruct{'methodsUncovered'}{'data'}{$fileName . $method->{name}->content} =
+            $methodCoverageStruct;
+    }
+}
+
+# Compute Brances Uncovered and add to perFileRuleStruct
+sub computeBranchesUncovered
+{
+    my $lineNum = shift;
+    my $missedBranches = shift;
+    my $fileName = shift;
+    my $message = shift;
+
+    # This statement is covered under "uncovered methods"
+    if (defined $fileLineNumMethodUncovered{$fileName . $lineNum})
+    {
+        return;
+    }
+
+    if ($message !~ m/\.$/o) { $message .= '.'; }
+    my $branchCoverageStruct = generateCompleteErrorStruct(
+        $fileName, $lineNum, 'Condition not executed', $message);
+
+    # Insert into the temporary hash with key as concatenation of fileName and
+    # line number.
+    # Count would be the number of missed branches (later we sort(desc)
+    # based on that).
+    $perFileRuleStruct{'conditionsUncovered'}{'count'}{$fileName . $lineNum} =
+        $missedBranches;
+
+    $perFileRuleStruct{'conditionsUncovered'}{'data'}{$fileName . $lineNum} =
+        $branchCoverageStruct;
+}
+
+# Temporary used only for Statements Coverage
+# filename----line numbers
+my %perFileStatementUncovered;
+
+sub addTofileLineMethodUncoveredHash
+{
+    my $fileName = shift;
+    my $beginLine = shift;
+    my $numLines = shift;
+
+    my $endLine = $beginLine + $numLines - 1;
+
+    while ($beginLine <= $endLine)
+    {
+        $fileLineNumMethodUncovered{$fileName . $beginLine} = 1;
+        $beginLine++;
+    }
+}
+
+# Compute All the statements that are uncovered to add to the temporary hash
+sub computeStatementsUncovered
+{
+    my $lineNum = shift;
+    my $fileName = shift;
+
+    # This statement is covered under "uncovered methods"
+    if (defined $fileLineNumMethodUncovered{$fileName . $lineNum})
+    {
+        return;
+    }
+
+    if (defined $perFileStatementUncovered{$fileName})
+    {
+        push @{$perFileStatementUncovered{$fileName}}, $lineNum;
+    }
+    else
+    {
+        my @temp;
+        push @temp, $lineNum;
+        $perFileStatementUncovered{$fileName} = [@temp];
+    }
+}
+
+# generate the error struct for statement coverage
+sub generateStatementsUncoveredErrorStruct
+{
+    my $fileName = shift;
+    my $startLineNum = shift;
+    my $endLineNum = shift;
+    my $errorMessage = shift;
+
+    my $codeLines = '';
+
+    # The line above the beginning of the uncovered statement.
+    $codeLines .=
+        extractLineOfCode($workingDir. "/" . $fileName, $startLineNum-1);
+
+    # If the block contains less than or equal to 8 statements then
+    # show all of them
+    if ($endLineNum - $startLineNum <= 7)
+    {
+        my $tempStartLineNum = $startLineNum;
+        while ($tempStartLineNum <= $endLineNum)
+        {
+            $codeLines .= extractLineOfCode(
+                $workingDir. "/" . $fileName, $tempStartLineNum);
+            $tempStartLineNum++;
+        }
+    }
+    else
+    {
+        my $tempStartLineNum = $startLineNum;
+
+        # First four uncovered statements
+        while ($tempStartLineNum <= $startLineNum+3)
+        {
+            $codeLines .= extractLineOfCode(
+                $workingDir. "/" . $fileName, $tempStartLineNum);
+            $tempStartLineNum++;
+        }
+
+        $codeLines .= '...';
+        $codeLines .= "\n";
+
+        #Last four uncovered statements
+        $tempStartLineNum = $endLineNum - 3;
+        while ($tempStartLineNum <= $endLineNum)
+        {
+            $codeLines .= extractLineOfCode(
+                $workingDir. "/" . $fileName, $tempStartLineNum);
+            $tempStartLineNum++;
+        }
+    }
+
+    # The line after the end of the uncovered statements.
+    $codeLines .=
+        extractLineOfCode($workingDir. "/" . $fileName,$endLineNum+1);
+
+    my $errorStruct = expandedMessage->new(
+        entityName => $fileName,
+        lineNum => $startLineNum,
+        errorMessage => 'Statements not executed',
+        linesOfCode => $codeLines,
+        enhancedMessage => $errorMessage,
+        );
+
+    return $errorStruct;
+}
+
+sub processStatementsUncovered
+{
+    foreach my $key (keys % perFileStatementUncovered)
+    {
+        my @lineNums = @{$perFileStatementUncovered{$key}};
+        @lineNums = sort @lineNums;
+
+        my $startLineNum = -1;
+        my $endLineNum = -1;
+
+        for my $lineNum (@lineNums)
+        {
+            if ($startLineNum == -1)
+            {
+                $startLineNum = $lineNum;
+                $endLineNum = $lineNum;
+                next;
+            }
+
+            if ($endLineNum+1 == $lineNum)
+            {
+                $endLineNum = $lineNum;
+            }
+            else
+            {
+                my $statementCoverageStruct =
+                    generateStatementsUncoveredErrorStruct(
+                    $key, $startLineNum, $endLineNum,
+                    'These statements were not executed by your tests.');
+
+                # Insert into the temporary hash with key as concatenation of
+                # fileName and start line number.
+                # Count would be the number of missed statements (later we
+                # sort(desc) based on that).
+                $perFileRuleStruct{'statementsUncovered'}{'count'}{$key . $startLineNum} =
+                    $endLineNum - $startLineNum + 1;
+
+                $perFileRuleStruct{'statementsUncovered'}{'data'}{$key . $startLineNum} =
+                    $statementCoverageStruct;
+
+                $startLineNum = $lineNum;
+                $endLineNum = $lineNum;
+            }
+
+        }
+
+        if ($startLineNum != -1)
+        {
+            my $statementCoverageStruct =
+                generateStatementsUncoveredErrorStruct(
+                  $key, $startLineNum, $endLineNum,
+                  'These statements were not executed by your tests.');
+
+            # Insert into the temporary hash with key as concatenation of
+            # fileName and start line number
+            # Count would be the number of missed statements (later we
+            # sort(desc) based on that).
+            $perFileRuleStruct{'statementsUncovered'}{'count'}{$key . $startLineNum} =
+                $endLineNum - $startLineNum + 1;
+
+            $perFileRuleStruct{'statementsUncovered'}{'data'}{$key . $startLineNum} =
+                $statementCoverageStruct;
+        }
+    }
+}
+
 if (!$buildFailed) # $can_proceed)
 {
     if (defined $jacoco)
@@ -2364,7 +3105,17 @@ if (!$buildFailed) # $can_proceed)
                 {
                     push(@suiteNodes, $cls);
                     print "        suite found\n" if ($debug > 3);
+
+                    if ($includeTestSuitesInCoverage)
+                    {
+                        computeMethodsUncovered($cls);
+                    }
                 }
+                else
+                {
+                    computeMethodsUncovered($cls);
+                }
+                addMethodBeginLineNum($cls);
             }
         }
 
@@ -2429,6 +3180,7 @@ if (!$buildFailed) # $can_proceed)
         foreach my $file (@{ $pkg->{sourcefile} })
         {
             my $fileName = $pkgName . $file->{name}->content;
+
             my $className = $file->{name}->content;
             $className =~ s,\..*$,,o;
             # print "\tclass: ", $file->{class}->{name}->content, "\n";
@@ -2494,6 +3246,7 @@ if (!$buildFailed) # $can_proceed)
             my $exemptComplexityMissed = 0;
             foreach my $line (@{ $file->{line} })
             {
+
                 my $num = 0 + $line->{nr}->content;
                 my $ci = 0 + $line->{ci}->content;
                 my $mi = 0 + $line->{mi}->content;
@@ -2546,6 +3299,7 @@ if (!$buildFailed) # $can_proceed)
                 }
                 if ($mb)
                 {
+
                     if (!defined $msgs->{$num})
                     {
                         $msgs->{$num} = {};
@@ -2554,6 +3308,7 @@ if (!$buildFailed) # $can_proceed)
                     $msgs->{$num}{coverage} = 'e';
                     if ($cb)
                     {
+
                         $msgs->{$num}->{message} =
                             'Not all possibilities for this decision were '
                             . 'tested.  Remember that when you have N simple '
@@ -2584,6 +3339,12 @@ if (!$buildFailed) # $can_proceed)
                                 . 'never executed by your tests.';
                         }
                     }
+
+                    if ($includeCvg)
+                    {
+                        computeBranchesUncovered($num, $mb,
+                                    $fileName, $msgs->{$num}->{message});
+                    }
                 }
                 elsif ($mi)
                 {
@@ -2603,6 +3364,11 @@ if (!$buildFailed) # $can_proceed)
                     {
                         $msgs->{$num}->{message} =
                             'This line was never executed by your tests.';
+                    }
+
+                    if ($includeCvg)
+                    {
+                        computeStatementsUncovered($num, $fileName);
                     }
                 }
             }
@@ -2810,7 +3576,27 @@ if (!$buildFailed) # $can_proceed)
                 }
             }
         }
+
+        # Mark testingSectionStatus based on coverage information.
+        if ($methods != $methodsCovered)
+        {
+            $testingSectionStatus{'methodsUncovered'} = 0;
+        }
+
+        if ($lines != $linesCovered)
+        {
+            $testingSectionStatus{'statementsUncovered'} = 0;
+        }
+
+        if ($branches != $branchesCovered)
+        {
+            $testingSectionStatus{'conditionsUncovered'} = 0;
+        }
+
+        processStatementsUncovered();
     }
+
+
 }
 $cfg->setProperty("numCodeMarkups", $numCodeMarkups);
 
@@ -2830,21 +3616,31 @@ if ($status{'studentHasSrcs'}
             && $status{'studentTestResults'}->hasResults)))
 {
     my $sectionTitle = "Results from Running Your Tests ";
+    if ($codingSectionStatus{'compilerErrors'} == 1)
+    {
+        # Only generate this section if compilation was successful
     if (!defined $status{'studentTestResults'})
     {
         $sectionTitle .= "<b class=\"warn\">(No Test Results!)</b>";
+
+        # Mark results in testingSectionStatus as well so that we can fill
+        # the radial bar.
+        $testingSectionStatus{'resultsPercent'} = 0;
     }
     elsif ($status{'studentTestResults'}->testsExecuted == 0)
     {
         $sectionTitle .= "<b class=\"warn\">(No Tests Submitted!)</b>";
+        $testingSectionStatus{'resultsPercent'} = 0;
     }
     elsif ($status{'studentTestResults'}->allTestsPass)
     {
         $sectionTitle .= "(100%)";
+        $testingSectionStatus{'resultsPercent'} = 100;
     }
     else
     {
         $sectionTitle .= "<b class=\"warn\">($studentCasesPercent%)</b>";
+        $testingSectionStatus{'resultsPercent'} = $studentCasesPercent;
     }
 
     $status{'feedback'}->startFeedbackSection(
@@ -2863,7 +3659,19 @@ if ($status{'studentHasSrcs'}
     # Transform the plain text JUnit results to an interactive HTML view.
     JavaTddPlugin::transformTestResults("student_",
         "$resultDir/student-results.txt",
-        "$resultDir/student-results.html");
+        "$resultDir/student-results.html"
+        );
+
+    # Mark the Errors and Failures flags for the testingSectionStatus.
+    $testingSectionStatus{'errors'} = negateValueZeroToOneAndOneToZero(
+        checkForPatternInFile( "$resultDir/student-results.txt",
+        'Caused an ERROR'));
+    $testingSectionStatus{'failures'} = negateValueZeroToOneAndOneToZero(
+        checkForPatternInFile("$resultDir/student-results.txt", 'FAILED'));
+
+    # Access each suite and generate error struct for
+    # Testing errors and failures
+    computeTestingErrorFailureStructs();
 
     open(STUDENTRESULTS, "$resultDir/student-results.html");
     my @lines = <STUDENTRESULTS>;
@@ -2890,6 +3698,7 @@ EOF
     }
 
     $status{'feedback'}->endFeedbackSection;
+    }
 
     if ($gradedElements > 0
         || (defined $status{'studentTestResults'}
@@ -2910,6 +3719,11 @@ EOF
             }
         }
 
+        # Code Coverage Percent of testingSectionStatus
+        $testingSectionStatus{'codeCoveragePercent'} = $codeCoveragePercent;
+
+        if (!$useEnhancedFeedback)
+        {
         $sectionTitle = "Code Coverage from Your Tests ";
         if ($gradedElements == 0)
         {
@@ -2938,6 +3752,7 @@ EOF
         {
             $status{'feedback'}->print("$codeCoveragePercent%");
         }
+
         my $descr = $cfg->getProperty("statElementsLabel", "Methods Executed");
         $descr =~ tr/A-Z/a-z/;
         $descr =~ s/\s*executed\s*$//;
@@ -2950,6 +3765,7 @@ tested--hover your mouse over them to find out why.
 </p>
 EOF
         $status{'feedback'}->endFeedbackSection;
+        }
     }
 }
 
@@ -3018,6 +3834,41 @@ $cfg->setProperty('outcomeProperties',
     . '"static.analysis.results")');
 
 
+sub markBehaviorSectionUsingInstrTests
+{
+    for my $suite ($status{'instrTestResults'}->listOfHashes)
+    {
+        if ($suite->{'level'} == 4 && $suite->{'code'} == 31)
+        {
+            $behaviorSectionStatus{'outOfMemoryErrors'} = 0;
+        }
+        elsif ($suite->{'level'} == 4 && $suite->{'code'} == 32)
+        {
+            $behaviorSectionStatus{'stackOverflowErrors'} = 0;
+# https://junit.org/junit4/javadoc/4.12/org/junit/runners/model/TestTimedOutException.html
+# Note that https://docs.oracle.com/javase/7/docs/api/java/util/concurrent/TimeoutException.html,
+# that's different from a test being timedout. TimeoutException is caught under errors
+        }
+        elsif ($suite->{'level'} == 5 && index(lc($suite->{'stackTrace'}),
+            lc("TestTimedOutException")) != -1)
+        {
+            $behaviorSectionStatus{'testsTakeTooLong'} = 0;
+        }
+    }
+}
+
+sub markCodingSectionUsingInstrResults
+{
+    for my $suite ($status{'instrTestResults'}->listOfHashes)
+    {
+        if ($suite->{'level'} == 4 && $suite->{'code'} == 29)
+        {
+            $codingSectionStatus{'signatureErrors'} = 0;
+            return;
+        }
+    }
+}
+
 #=============================================================================
 # generate reference test results
 #=============================================================================
@@ -3049,8 +3900,14 @@ if (defined $status{'instrTestResults'})
         $sectionTitle .= "<b class=\"warn\">($instructorCasesPercent%)</b>";
     }
 
+    if ($useEnhancedFeedback)
+    {
+        $sectionTitle = "Estimate of Problem Coverage";
+    }
+
     $status{'feedback'}->startFeedbackSection(
-        $sectionTitle, ++$expSectionId, ($instructorCasesPercent >= 100));
+        $sectionTitle, ++$expSectionId,
+        $useEnhancedFeedback || ($instructorCasesPercent >= 100));
     $status{'feedback'}->print("<p><b>Problem coverage: ");
     if ($instructorCasesPercent == 100)
     {
@@ -3071,25 +3928,6 @@ if (defined $status{'instrTestResults'})
 
     if ($status{'compileErrs'}) # $instructorCases == 0
     {
-        $status{'feedback'}->print(<<EOF);
-<p><b class="warn">Web-CAT was unable to assess your test
-cases.</b></p>
-<p>For this assignment, the proportion of the problem that is covered by your
-EOF
-        if ($studentsMustSubmitTests)
-        {
-            $status{'feedback'}->print(<<EOF);
-test cases is being assessed by running a suite of reference tests against
-your solution, and comparing the results of the reference tests against the
-results produced by your tests.</p>
-EOF
-        }
-        else
-        {
-            $status{'feedback'}->print(<<EOF);
-solution is being assessed by running a suite of reference tests.</p>
-EOF
-        }
         $status{'feedback'}->print(<<EOF);
 <p><b class="warn">Your code failed to compile correctly against
 the reference tests.</b></p>
@@ -3234,7 +4072,7 @@ have also met all requirements for a complete solution in the final
 state of your program.</p>
 EOF
     }
-    if ($hintsLimit != 0)
+    if ($hintsLimit != 0 && !$status{'compileErrs'})
     {
         if ($studentsMustSubmitTests
             && $hasJUnitErrors
@@ -3289,6 +4127,8 @@ EOF
 
     # Generate staff-targeted info
     {
+        if ($codingSectionStatus{'compilerErrors'} == 1)
+        {
         $status{'instrFeedback'}->startFeedbackSection(
             "Detailed Reference Test Results", ++$expSectionId, 1);
         my $hints = $status{'instrTestResults'}->formatHints(2);
@@ -3300,10 +4140,33 @@ EOF
 
         # Transform the plain text JUnit results into an interactive HTML
         # view.
-        JavaTddPlugin::transformTestResults("instr_",
+        JavaTddPlugin::transformTestResults('instr_',
             "$resultDir/instr-results.txt",
-            "$resultDir/instr-results.html");
+            "$resultDir/instr-results.html"
+            );
+        }
 
+        # Mark Behavior Section Status appropriately
+        $behaviorSectionStatus{'errors'} = negateValueZeroToOneAndOneToZero(
+            checkForPatternInFile(
+            "$resultDir/instr-results.txt", 'Caused an ERROR'));
+
+        $behaviorSectionStatus{'failures'} = negateValueZeroToOneAndOneToZero(
+            checkForPatternInFile(
+            "$resultDir/instr-results.txt", 'FAILED'));
+
+        markBehaviorSectionUsingInstrTests();
+        markCodingSectionUsingInstrResults();
+
+        # Access each suite and generate error struct for Coding (Signature
+        # Errors) and Behavior sections
+        computeBehaviorSectionSignatureStructs();
+
+        $behaviorSectionStatus{'problemCoveragePercent'} =
+            $instructorCasesPercent;
+
+        if ($codingSectionStatus{'compilerErrors'} == 1)
+        {
         open(INSTRRESULTS, "$resultDir/instr-results.html");
         my @lines = <INSTRRESULTS>;
         close(INSTRRESULTS);
@@ -3328,6 +4191,7 @@ EOF
             $status{'instrFeedback'}->endFeedbackSection;
         }
         $status{'instrFeedback'}->endFeedbackSection;
+        }
     }
 }
 
@@ -3367,6 +4231,1040 @@ foreach my $ff (keys %codeMessages)
     }
 }
 }
+
+
+# The extended error messages from config files which replace the builtin
+# messages from Checkstyle and PMD are longer.
+# Use those messages as 'enhancedMessage' and shorter messages as
+# 'errorMessage'.
+sub addShorterMessages
+{
+    my $struct = shift;
+    my $rule = shift;
+
+    my $shortMessage = codingStyleMessageValue($rule);
+
+    if ($shortMessage)
+    {
+        $struct = expandedMessage->new(
+            entityName => $struct->entityName,
+            lineNum => $struct->lineNum,
+            errorMessage => $shortMessage,
+            linesOfCode => $struct->linesOfCode,
+            enhancedMessage => $struct->errorMessage,
+            );
+    }
+
+    return $struct;
+}
+
+
+sub processCodingStyleStruct
+{
+    my $group = shift;
+    my $rule = shift;
+    my $struct = shift;
+
+    my $key = 'other';
+
+    if (lc($group) eq 'coding')
+    {
+        $key = 'codingFlaws';
+    }
+    elsif (index(lc($group), 'testing') != -1)
+    {
+        $key = 'junitTests';
+    }
+    elsif (index(lc($rule), 'javadoc') != -1)
+    {
+        $key = 'javadoc';
+    }
+    elsif (index(lc($rule), 'indentation') != -1)
+    {
+        $key = 'indentation';
+    }
+    elsif (index(lc($rule), 'whitespace') != -1)
+    {
+        $key = 'whitespace';
+    }
+    elsif (index(lc($rule), 'linelength') != -1)
+    {
+        $key = 'lineLength';
+    }
+
+    $struct = addShorterMessages($struct, $rule);
+
+    if (defined $perFileRuleStruct{$key}{'data'}{$rule})
+    {
+        push @{$perFileRuleStruct{$key}{'data'}{$rule}}, $struct;
+        $perFileRuleStruct{$key}{'count'}{$rule}++;
+    }
+    else
+    {
+        my @temp;
+        push @temp, $struct;
+        $perFileRuleStruct{$key}{'data'}{$rule} = [@temp];
+        $perFileRuleStruct{$key}{'count'}{$rule} = 1;
+    }
+}
+
+# Only Hints are used as error message; others aew undef
+sub generateHintErrorStruct
+{
+    my $errorMessage = shift;
+
+    my $errorStruct = expandedMessage->new(
+        entityName => '',
+        lineNum => '',
+        errorMessage => $errorMessage,
+        linesOfCode => '',
+        enhancedMessage => '',
+        );
+
+    return $errorStruct;
+}
+
+# Entire error struct is generated; all fields
+sub generateCompleteErrorStruct
+{
+    my $fileName = shift;
+    my $lineNum = shift;
+    my $errorMessage = shift;
+    my $enhancedMessage = shift || '';
+
+    my $codeLines = extractAboveBelowLinesOfCode(
+        $workingDir . '/' . $fileName, $lineNum);
+
+    my $errorStruct = expandedMessage->new(
+        entityName => $fileName,
+        lineNum => $lineNum,
+        errorMessage => $errorMessage,
+        linesOfCode => $codeLines,
+        enhancedMessage => $enhancedMessage,
+        );
+
+    return $errorStruct;
+}
+
+
+# Use this to generate expanded content for Style Section and
+# {codingFlaws, junitTests} in Coding
+#Value would be an array of structs as we will store all the messages and
+# then sort based on count of each group
+
+foreach my $ff (keys %codeMessages)
+{
+    foreach my $line (keys %{$codeMessages{$ff}})
+    {
+        if (defined $codeMessages{$ff}->{$line}{violations})
+        {
+            my @comments =
+                sort { $b->{line}->content  <=>  $a->{line}->content }
+                @{ $codeMessages{$ff}->{$line}{violations} };
+
+            foreach my $c (@comments)
+            {
+                 my $message = $c->{message}->content;
+                 if (!defined $message || $message eq '')
+                 {
+                     $message = $c->content;
+                 }
+
+                 #print 'group = ', $c->{group}->content, ', line = ',
+                     #$c->{line}->content, ', message = ',
+                     #$message, "\n";
+                     #print $c->{rule}->content;
+                     #print("\n");
+
+                 my $lineNum = $c->{line}->content;
+
+                 # This is the case of "TestsHaveAssertions" rule from pmd
+                 # where beginline is the one which contains the declaration
+                 # of the method and we would want to use that in highlighting
+                 # the code in feedback.
+                 if (index(lc($c->{group}->content), 'testing') != -1
+                     && $c->{beginline}->content)
+                 {
+                     $lineNum = $c->{beginline}->content;
+                 }
+
+                 my $codingStyleStruct = generateCompleteErrorStruct(
+                     $ff, $lineNum, $message);
+
+                 processCodingStyleStruct(
+                     $c->{group}->content,
+                     $c->{rule}->content,
+                     $codingStyleStruct);
+            }
+        }
+    }
+}
+
+# build struct array based on counts(descending-add in that order) in the hash
+# by picking hash values which are scalars (single structs)
+# Used for compiler errors and warnings, coverage(methods,statements,branches)
+# As they have only struct per key in the hash
+sub addStructsToExpandedSectionsFromScalarHashValues
+{
+    my $hashOuterKey = shift;
+    my @errorStructs;
+
+    if (!defined $perFileRuleStruct{$hashOuterKey})
+    {
+        return @errorStructs;
+    }
+
+    my %structHash = %{$perFileRuleStruct{$hashOuterKey}{'data'}};
+    my %countHash = %{$perFileRuleStruct{$hashOuterKey}{'count'}};
+
+
+    foreach my $key (sort { $countHash{$b} <=> $countHash{$a} } keys %countHash)
+    {
+        push @errorStructs, $structHash{$key};
+    }
+
+    return @errorStructs;
+}
+
+# Here the value in the hash is an array of error structs
+# pick one error from each subcategory (sorted based on frequency) and repeat
+# this process
+sub addStructsToExpandedSectionsFromArrayHashValues
+{
+    my $key = shift;
+
+    my @expandedMessageStruct;
+
+    if (!defined $perFileRuleStruct{$key})
+    {
+        return @expandedMessageStruct;
+    }
+
+    my $keyCount = keys %{$perFileRuleStruct{$key}{'count'}};
+
+    if ($key eq 'codingFlaws'
+        || $key eq 'junitTests'
+        || $key eq 'errors'
+        || $key eq 'behaviorErrors'
+        || $key eq 'javadoc'
+        || $key eq 'whitespace'
+        || $key eq 'other')
+    {
+        # These have subcategories
+        # Limit the number of errors per subcategory to $maxErrorsPerSubcategory
+        # Remaining categories are limited after they are grouped by file.
+
+        foreach my $rule (sort { $perFileRuleStruct{$key}{'count'}{$b} <=> $perFileRuleStruct{$key}{'count'}{$a} }
+            keys %{$perFileRuleStruct{$key}{'count'}})
+        {
+            my $errorsPerRule = int($maxErrorsPerSubcategory/$keyCount);
+            my $arraySize = @{$perFileRuleStruct{$key}{'data'}{$rule}};
+
+            while ($errorsPerRule > 0 && $arraySize > 0)
+            {
+                my $struct = shift @{$perFileRuleStruct{$key}{'data'}{$rule}};
+                push @expandedMessageStruct, $struct;
+
+                $errorsPerRule--;
+                $arraySize--;
+            }
+
+            if ($arraySize == 0)
+            {
+                delete $perFileRuleStruct{$key}{'data'}{$rule};
+                delete $perFileRuleStruct{$key}{'count'}{$rule};
+            }
+            else
+            {
+                push @expandedMessageStruct, countErrorsPerFileOverLimit(
+                    \@{$perFileRuleStruct{$key}{'data'}{$rule}});
+            }
+        }
+    }
+    else
+    {
+        # keyCount is "1" in this case as there is no subcategory
+        # Other keys
+        # These errors are grouped by file
+        # They are limited after the groupStructsByFileName is called on them
+        while ($keyCount > 0)
+        {
+            foreach my $rule (sort { $perFileRuleStruct{$key}{'count'}{$b} <=> $perFileRuleStruct{$key}{'count'}{$a} }
+                keys %{$perFileRuleStruct{$key}{'count'}})
+            {
+                my $struct = shift @{$perFileRuleStruct{$key}{'data'}{$rule}};
+
+                push @expandedMessageStruct, $struct;
+
+                my $arraySize = @{$perFileRuleStruct{$key}{'data'}{$rule}};
+                if ($arraySize == 0)
+                {
+                    delete $perFileRuleStruct{$key}{'data'}{$rule};
+                    delete $perFileRuleStruct{$key}{'count'}{$rule};
+                }
+            }
+            $keyCount = keys %{$perFileRuleStruct{$key}{'count'}};
+        }
+    }
+
+    return @expandedMessageStruct;
+}
+
+# Add Struct to perFileRuleStruct based on inner and outer key
+sub addErrorFailureStructToHash
+{
+    my $outerKey = shift;
+    my $innerKey = shift;
+    my $struct = shift;
+
+    if (defined $perFileRuleStruct{$outerKey}{'data'}{$innerKey})
+    {
+        push @{$perFileRuleStruct{$outerKey}{'data'}{$innerKey}}, $struct;
+        $perFileRuleStruct{$outerKey}{'count'}{$innerKey}++;
+    }
+    else
+    {
+        my @temp;
+        push @temp, $struct;
+        $perFileRuleStruct{$outerKey}{'data'}{$innerKey} = [@temp];
+        $perFileRuleStruct{$outerKey}{'count'}{$innerKey} = 1;
+    }
+}
+
+
+# Adds $linesAboveAssertionFailure lines above the test failure line.
+sub addLinesAboveAssertionFailure
+{
+    my $assertionStruct = shift;
+    my $methodName = shift;
+    my $failureLine = $assertionStruct->lineNum;
+    my $startLineNum = $assertionStruct->lineNum - $linesAboveAssertionFailure;
+
+    my $codeLines = '';
+
+    # To ensure that we don't go out of the method's beginning.
+    if ($methodBeginLineNum{$methodName} > $startLineNum)
+    {
+        $startLineNum  = $methodBeginLineNum{$methodName};
+    }
+
+    # One line above the failure line is already contained in the linesOfCode.
+    while ($startLineNum < $failureLine - 1)
+    {
+        $codeLines .= extractLineOfCode(
+            $workingDir . "/" . $assertionStruct->entityName, $startLineNum);
+        $startLineNum++;
+    }
+
+    $assertionStruct = expandedMessage->new(
+        entityName => $assertionStruct->entityName,
+        lineNum => $assertionStruct->lineNum,
+        errorMessage => $assertionStruct->errorMessage,
+        linesOfCode => $codeLines . $assertionStruct->linesOfCode,
+        enhancedMessage => $assertionStruct->enhancedMessage,
+        );
+
+    return $assertionStruct;
+}
+
+
+# Suites from student.inc
+sub computeTestingErrorFailureStructs
+{
+    my @studentSuites = $status{'studentTestResults'}->listOfHashes;
+
+    for my $suite (@studentSuites)
+    {
+        # Implies this test passed
+        if ($suite->{'level'} == 1)
+        {
+            next;
+        }
+
+        # Assertion Failures
+        if ($suite->{'level'} == 2)
+        {
+            my $fileName;
+            my $lineNum;
+            my $assertionStruct;
+
+           ($fileName, $lineNum) =
+               extractFileNameFromStackTrace($suite->{'stackTrace'}, 1);
+
+            if (!defined $fileName || !defined $lineNum)
+            {
+                $assertionStruct = generateHintErrorStruct(
+                    $suite->{'test'} . ': ' . $suite->{'message'});
+            }
+            else
+            {
+                $assertionStruct = generateCompleteErrorStruct($fileName,
+                    $lineNum, $suite->{'test'} . ': ' . $suite->{'message'});
+                $assertionStruct = addLinesAboveAssertionFailure(
+                    $assertionStruct, $suite->{'test'});
+            }
+
+            addErrorFailureStructToHash(
+                'failures', 'failures', $assertionStruct);
+            next;
+        }
+
+        # This is the case for errors
+        my $fileName;
+        my $lineNum;
+        my $errorStruct;
+        my $message = $suite->{'message'};
+
+        if (defined $suite->{'exceptionName'})
+        {
+            my $exName = $suite->{'exceptionName'};
+            $exName =~ s/^.*\.//o;
+            $message = $exName . ': ' . $message;
+        }
+
+        if ($suite->{'level'} == 4 && $suite->{'code'} == 32)
+        {
+            $errorStruct =
+                generateStackOverflowErrorStruct($suite->{'stackTrace'});
+
+            if (!defined $errorStruct)
+            {
+                $errorStruct = generateHintErrorStruct($message);
+            }
+        }
+        else
+        {
+            ($fileName, $lineNum) =
+                extractFileNameFromStackTrace($suite->{'stackTrace'}, 1);
+
+            if (!defined $fileName || !defined $lineNum)
+            {
+                $errorStruct = generateHintErrorStruct($message);
+            }
+            else
+            {
+                $errorStruct = generateCompleteErrorStruct(
+                    $fileName, $lineNum, $message);
+            }
+        }
+
+        if (!defined $suite->{'exceptionName'})
+        {
+            addErrorFailureStructToHash('errors', $message, $errorStruct);
+        }
+        else
+        {
+            addErrorFailureStructToHash(
+                'errors', $suite->{'exceptionName'}, $errorStruct);
+        }
+    }
+}
+
+#We use this to ensure that duplicate messages (which imply the same) aren't displayed in
+#the feedback. This is used for Signature Errors and Behavior Failures.
+my %signatureErrorFailureMessages;
+
+# Suites from instr.inc
+sub computeBehaviorSectionSignatureStructs
+{
+    my @instrSuites = $status{'instrTestResults'}->listOfHashes;
+
+    for my $suite (@instrSuites)
+    {
+        # Implies this test passed
+        if ($suite->{'level'} == 1)
+        {
+            next;
+        }
+
+        # Assertion Failures
+        if ($suite->{'level'} == 2)
+        {
+            if (defined $signatureErrorFailureMessages{$suite->{'message'}})
+            {
+                next;
+            }
+            else
+            {
+                $signatureErrorFailureMessages{$suite->{'message'}} = 1;
+            }
+
+            my $assertionStruct = generateHintErrorStruct($suite->{'message'});
+
+            # note that the key is 'behaviorFailures', so that there is no
+            # conflict with 'failures' which is key for testing
+            addErrorFailureStructToHash(
+                'behaviorFailures', 'behaviorFailures', $assertionStruct);
+            next;
+        }
+
+        # Signature Errors
+        if ($suite->{'level'} == 4 && $suite->{'code'} == 29)
+        {
+            if (defined $signatureErrorFailureMessages{$suite->{'message'}})
+            {
+                next;
+            }
+            else
+            {
+                $signatureErrorFailureMessages{$suite->{'message'}} = 1;
+            }
+
+            my $fileName;
+            my $lineNum;
+            my $signatureErrorStruct;
+
+            ($fileName, $lineNum) =
+                extractFileNameFromStackTrace($suite->{'stackTrace'}, 0);
+
+            if (!defined $fileName || !defined $lineNum)
+            {
+                $signatureErrorStruct =
+                    generateHintErrorStruct($suite->{'message'});
+            }
+            else
+            {
+                $signatureErrorStruct = generateCompleteErrorStruct(
+                    $fileName, $lineNum, $suite->{'message'});
+            }
+
+            addErrorFailureStructToHash('signatureErrors', 'signatureErrors',
+                $signatureErrorStruct);
+            next;
+        }
+
+        # StackOverflowError
+        if ($suite->{'level'} == 4 && $suite->{'code'} == 32)
+        {
+            my $stackOverflowErrorStruct;
+            $stackOverflowErrorStruct =
+                generateStackOverflowErrorStruct($suite->{'stackTrace'});
+
+            if (!defined $stackOverflowErrorStruct)
+            {
+                $stackOverflowErrorStruct =
+                    generateHintErrorStruct($suite->{'message'});
+            }
+
+            addErrorFailureStructToHash(
+                'stackOverflowErrors',
+                'stackOverflowErrors',
+                $stackOverflowErrorStruct);
+            next;
+        }
+
+        # OutOfMemoryError
+        if ($suite->{'level'} == 4 && $suite->{'code'} == 31)
+        {
+            my $fileName;
+            my $lineNum;
+            my $outOfMemoryStruct;
+
+            ($fileName, $lineNum) =
+                extractFileNameFromStackTrace($suite->{'stackTrace'}, 1);
+
+            if (!defined $fileName || !defined $lineNum)
+            {
+                $outOfMemoryStruct =
+                    generateHintErrorStruct($suite->{'message'});
+            }
+            else
+            {
+                $outOfMemoryStruct = generateCompleteErrorStruct(
+                    $fileName, $lineNum, $suite->{'message'});
+            }
+
+            addErrorFailureStructToHash(
+                'outOfMemoryErrors', 'outOfMemoryErrors', $outOfMemoryStruct);
+            next;
+        }
+
+        # Test Timedout
+        if ($suite->{'level'} == 5
+            && index(lc($suite->{'stackTrace'}), lc('TestTimedOutException'))
+            != -1)
+        {
+            my $testsTakeLongStruct =
+                generateHintErrorStruct($suite->{'message'});
+
+            addErrorFailureStructToHash(
+                'testsTakeTooLong', 'testsTakeTooLong', $testsTakeLongStruct);
+            next;
+        }
+
+        my $fileName;
+        my $lineNum;
+        my $errorStruct;
+        my $message = $suite->{'message'};
+
+        if (defined $suite->{'exceptionName'})
+        {
+            my $exName = $suite->{'exceptionName'};
+            $exName =~ s/^.*\.//o;
+            $message = $exName . ': ' . $message;
+        }
+
+        ($fileName, $lineNum) =
+            extractFileNameFromStackTrace($suite->{'stackTrace'}, 1);
+
+        if (!defined $fileName || !defined $lineNum)
+        {
+            $errorStruct = generateHintErrorStruct($message);
+        }
+        else
+        {
+            $errorStruct = generateCompleteErrorStruct(
+                $fileName, $lineNum, $message);
+        }
+
+        # note that the key is 'behaviorErrors', so that there is no conflict
+        # with 'errors' which is key for testing
+        if (!defined $suite->{'exceptionName'})
+        {
+            addErrorFailureStructToHash(
+                'behaviorErrors', $message, $errorStruct);
+        }
+        else
+        {
+            addErrorFailureStructToHash(
+                'behaviorErrors', $suite->{'exceptionName'}, $errorStruct);
+        }
+    }
+
+}
+
+# Obtain LongName of a file
+sub getLongName
+{
+    my $fileName = shift;
+
+    for my $longName (keys %codeMarkupIds)
+    {
+        if (index(lc($longName),lc($fileName)) != -1)
+        {
+            return $longName;
+        }
+    }
+    return undef;
+}
+
+# generate StackOverflowError struct
+sub generateStackOverflowErrorStruct
+{
+    my $stackTrace = shift;
+    my $errorStructFileName = undef;
+    my $errorStructLineNum = undef;
+    my $errorStructMessage = '';
+
+    # We generate hint error struct in this case
+    if (not defined $stackTrace)
+    {
+        return undef;
+    }
+
+    my @stackTracelines = split /\n/, $stackTrace;
+    my %cyclesInStack = ();
+    my $cycle = '';
+
+    for my $line (@stackTracelines)
+    {
+        # Lines which contain this substring(example: (abc.java:102)) are
+        # our required ones.
+        if (index($line,"(") == -1 || index($line,")") == -1)
+        {
+            next;
+        }
+
+        my $tempFileDetails = substr($line, index($line, '(') + 1,
+            index($line, ')') - index($line, '(') - 1);
+
+        my @fileDetails = split(':', $tempFileDetails);
+        my $tempSize = @fileDetails;
+        if ($tempSize < 2)
+        {
+            next;
+        }
+        my $tempFileName = $fileDetails[0];
+
+        my $fileName = undef;
+
+        for my $longName (keys %codeMarkupIds)
+        {
+            if (index(lc($longName), lc($tempFileName)) != -1)
+            {
+                $fileName = $longName;
+                last;
+            }
+        }
+
+        if (!defined $fileName)
+        {
+            next;
+        }
+
+        # A cycle is found
+        if (index(lc($cycle), lc($tempFileDetails)) != -1)
+        {
+            $cycle = substr($cycle, index(lc($cycle), lc($tempFileDetails)));
+            $cycle .= '->';
+            $cycle .= $tempFileDetails;
+
+            if (defined $cyclesInStack{$cycle})
+            {
+                $cyclesInStack{$cycle}++;
+            }
+            else
+            {
+                $cyclesInStack{$cycle} = 1;
+            }
+            $cycle = '';
+        }
+        else
+        {
+            # Form calling order
+            $cycle .= '->';
+            $cycle .= $tempFileDetails;
+        }
+    }
+
+    my $cyclesCount = keys %cyclesInStack;
+    if ($cyclesCount == 0)
+    {
+        return undef;
+    }
+
+    foreach my $key (sort {$cyclesInStack{$b} <=> $cyclesInStack{$a}}
+        keys %cyclesInStack)
+    {
+        my @cycleDetails = split('->', $key);
+        # So that we print the cycle in actual calling order: bottom to top
+        # in stack
+        @cycleDetails = reverse @cycleDetails;
+        my @fileDetails = split(':', $cycleDetails[0]);
+
+        if (!defined $errorStructFileName || !defined $errorStructLineNum)
+        {
+            $errorStructFileName = getLongName($fileDetails[0]);
+            $errorStructLineNum = $fileDetails[1];
+        }
+
+        my $methodCallsCount = @cycleDetails;
+        if ($methodCallsCount == 2)
+        {
+            $errorStructMessage .=
+                "The recursive method fails to stop calling itself:\n";
+        }
+        else
+        {
+           $errorStructMessage .=
+               "There is a recursion with cyclic relationships:\n";
+        }
+
+        foreach my $methodIndex (0 .. $#cycleDetails)
+        {
+            @fileDetails = split(':', $cycleDetails[$methodIndex]);
+            $errorStructMessage .= $fileDetails[0] . ':'
+                . extractLineOfCode($workingDir . "/" .
+                getLongName($fileDetails[0]),$fileDetails[1]);
+            $errorStructMessage =~ tr/ //s;
+            chomp($errorStructMessage);
+
+            if ($methodIndex != $methodCallsCount - 1)
+            {
+                $errorStructMessage .= '   ->   ';
+            }
+        }
+
+        $errorStructMessage .= "\n";
+    }
+
+    return generateCompleteErrorStruct(
+        $errorStructFileName, $errorStructLineNum, $errorStructMessage);
+}
+
+
+# topFileName is a boolean with '1' signifying topmost fileName and '0'
+# signifying bottommost
+sub extractFileNameFromStackTrace
+{
+    my $stackTrace = shift;
+
+    if (!defined $stackTrace)
+    {
+        return (undef,undef);
+    }
+
+    my $topFileName = shift;
+
+    my $fileName = undef;
+    my $lineNum = undef;
+
+    my @stackTracelines = split /\n/, $stackTrace;
+
+    foreach my $line (@stackTracelines)
+    {
+        # Lines which contain this substring(example: (abc.java:102)) are
+        # our required ones.
+        if (index($line,"(") == -1 || index($line,")") == -1)
+        {
+            next;
+        }
+
+        my $tempFileDetails = substr($line, index($line, '(') + 1,
+            index($line, ')') - index($line, '(') - 1);
+
+        my @fileDetails = split(':', $tempFileDetails);
+        my $tempSize = @fileDetails;
+        if ($tempSize < 2)
+        {
+            next;
+        }
+
+        my $tempFileName = $fileDetails[0];
+        my $tempLineNum = $fileDetails[1];
+
+       for my $longName (keys %codeMarkupIds)
+       {
+            if (index(lc($longName), lc($tempFileName)) != -1)
+            {
+                $fileName = $longName;
+                $lineNum = $tempLineNum;
+                if ($topFileName == 1)
+                {
+                    last;
+                }
+            }
+        }
+    }
+
+    return ($fileName, $lineNum);
+}
+
+@{$codingSectionExpanded{'codingFlaws'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('codingFlaws');
+@{$codingSectionExpanded{'junitTests'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('junitTests');
+@{$codingSectionExpanded{'signatureErrors'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('signatureErrors');
+
+@{$testingSectionExpanded{'errors'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('errors');
+@{$testingSectionExpanded{'failures'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('failures');
+@{$testingSectionExpanded{'methodsUncovered'}} =
+    addStructsToExpandedSectionsFromScalarHashValues('methodsUncovered');
+@{$testingSectionExpanded{'conditionsUncovered'}} =
+    addStructsToExpandedSectionsFromScalarHashValues('conditionsUncovered');
+@{$testingSectionExpanded{'statementsUncovered'}} =
+    addStructsToExpandedSectionsFromScalarHashValues('statementsUncovered');
+
+@{$behaviorSectionExpanded{'errors'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('behaviorErrors');
+@{$behaviorSectionExpanded{'failures'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('behaviorFailures');
+@{$behaviorSectionExpanded{'stackOverflowErrors'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('stackOverflowErrors');
+@{$behaviorSectionExpanded{'outOfMemoryErrors'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('outOfMemoryErrors');
+@{$behaviorSectionExpanded{'testsTakeTooLong'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('testsTakeTooLong');
+
+@{$styleSectionExpanded{'javadoc'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('javadoc');
+@{$styleSectionExpanded{'indentation'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('indentation');
+@{$styleSectionExpanded{'whitespace'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('whitespace');
+@{$styleSectionExpanded{'lineLength'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('lineLength');
+@{$styleSectionExpanded{'other'}} =
+    addStructsToExpandedSectionsFromArrayHashValues('other');
+
+#Group the errors by filename and limit them to $maxErrorsPerSubcategory
+# Others have been grouped by subcategory, so we dont group by filename
+@{$codingSectionExpanded{'signatureErrors'}} =
+    groupStructsByFileName(\@{$codingSectionExpanded{'signatureErrors'}});
+# @{$codingSectionExpanded{'signatureErrors'}} =
+#     limitStructsInSubCategory(\@{$codingSectionExpanded{'signatureErrors'}});
+
+@{$testingSectionExpanded{'errors'}} =
+    groupStructsByFileName(\@{$testingSectionExpanded{'errors'}});
+@{$testingSectionExpanded{'failures'}} =
+    groupStructsByFileName(\@{$testingSectionExpanded{'failures'}});
+# @{$testingSectionExpanded{'failures'}} =
+#     limitStructsInSubCategory(\@{$testingSectionExpanded{'failures'}});
+
+@{$testingSectionExpanded{'methodsUncovered'}} =
+    groupStructsByFileName(\@{$testingSectionExpanded{'methodsUncovered'}});
+# @{$testingSectionExpanded{'methodsUncovered'}} =
+#   limitStructsInSubCategory(\@{$testingSectionExpanded{'methodsUncovered'}});
+@{$testingSectionExpanded{'conditionsUncovered'}} =
+    groupStructsByFileName(\@{$testingSectionExpanded{'conditionsUncovered'}});
+@{$testingSectionExpanded{'conditionsUncovered'}} =
+    limitStructsInSubCategory(
+    \@{$testingSectionExpanded{'conditionsUncovered'}});
+@{$testingSectionExpanded{'statementsUncovered'}} =
+    groupStructsByFileName(\@{$testingSectionExpanded{'statementsUncovered'}});
+@{$testingSectionExpanded{'statementsUncovered'}} =
+    limitStructsInSubCategory(
+    \@{$testingSectionExpanded{'statementsUncovered'}});
+
+@{$behaviorSectionExpanded{'failures'}} =
+    groupStructsByFileName(\@{$behaviorSectionExpanded{'failures'}});
+# @{$behaviorSectionExpanded{'failures'}} =
+#     limitStructsInSubCategory(\@{$behaviorSectionExpanded{'failures'}});
+@{$behaviorSectionExpanded{'stackOverflowErrors'}} =
+    groupStructsByFileName(\@{$behaviorSectionExpanded{'stackOverflowErrors'}});
+# @{$behaviorSectionExpanded{'stackOverflowErrors'}} =
+#     limitStructsInSubCategory(
+#     \@{$behaviorSectionExpanded{'stackOverflowErrors'}});
+@{$behaviorSectionExpanded{'outOfMemoryErrors'}} =
+    groupStructsByFileName(\@{$behaviorSectionExpanded{'outOfMemoryErrors'}});
+# @{$behaviorSectionExpanded{'outOfMemoryErrors'}} =
+#     limitStructsInSubCategory(
+#     \@{$behaviorSectionExpanded{'outOfMemoryErrors'}});
+@{$behaviorSectionExpanded{'testsTakeTooLong'}} =
+    groupStructsByFileName(\@{$behaviorSectionExpanded{'testsTakeTooLong'}});
+# @{$behaviorSectionExpanded{'testsTakeTooLong'}} =
+#     limitStructsInSubCategory(
+#     \@{$behaviorSectionExpanded{'testsTakeTooLong'}});
+
+@{$styleSectionExpanded{'javadoc'}} =
+    groupStructsByFileName(\@{$styleSectionExpanded{'javadoc'}});
+@{$styleSectionExpanded{'javadoc'}} =
+    limitStructsInSubCategory(\@{$styleSectionExpanded{'javadoc'}});
+@{$styleSectionExpanded{'indentation'}} =
+    groupStructsByFileName(\@{$styleSectionExpanded{'indentation'}});
+@{$styleSectionExpanded{'indentation'}} =
+    limitStructsInSubCategory(\@{$styleSectionExpanded{'indentation'}});
+@{$styleSectionExpanded{'whitespace'}} =
+    groupStructsByFileName(\@{$styleSectionExpanded{'whitespace'}});
+@{$styleSectionExpanded{'whitespace'}} =
+    limitStructsInSubCategory(\@{$styleSectionExpanded{'whitespace'}});
+@{$styleSectionExpanded{'lineLength'}} =
+    groupStructsByFileName(\@{$styleSectionExpanded{'lineLength'}});
+@{$styleSectionExpanded{'lineLength'}} =
+    limitStructsInSubCategory(\@{$styleSectionExpanded{'lineLength'}});
+@{$styleSectionExpanded{'other'}} =
+    groupStructsByFileName(\@{$styleSectionExpanded{'other'}});
+@{$styleSectionExpanded{'other'}} =
+    limitStructsInSubCategory(\@{$styleSectionExpanded{'other'}});
+
+#To limit number of error structs in a subcategory to $maxErrorsPerSubcategory
+sub limitStructsInSubCategory {
+    my $arrayRef = shift;
+    my @arrayStructs = @{$arrayRef};
+    my @expandedMessageStruct;
+
+    my $errorsPerRule = $maxErrorsPerSubcategory;
+    my $arraySize = @arrayStructs;
+
+    while ($errorsPerRule > 0 && $arraySize > 0) {
+        my $struct = shift @arrayStructs;
+        push @expandedMessageStruct, $struct;
+
+        $errorsPerRule--;
+        $arraySize--;
+    }
+
+    if ($arraySize == 0) {
+        return @expandedMessageStruct;
+    }
+
+    push @expandedMessageStruct, countErrorsPerFileOverLimit(\@arrayStructs);
+
+    return @expandedMessageStruct;
+}
+
+#Create a string which contains the count of errors which we don't display in the feedback
+#Store that string in the errorStruct as part of enhanced message
+sub countErrorsPerFileOverLimit {
+    my $arrayRef = shift;
+    my @arrayStructs = @{$arrayRef};
+
+    my %countPerFile;
+    foreach my $struct (@arrayStructs) {
+        if (defined $countPerFile{$struct->entityName}) {
+            $countPerFile{$struct->entityName}++;
+        } else {
+            $countPerFile{$struct->entityName} = 1;
+        }
+    }
+
+    my $moreErrorString = "Likewise, there are ";
+
+    my $fileCount = keys %countPerFile;
+    foreach my $file (sort { $countPerFile{$b} <=> $countPerFile{$a} } keys %countPerFile) {
+        $moreErrorString .= $countPerFile{$file} . " issue(s) in " . $file . ", ";
+    }
+
+    #Remove the last ", ".
+    chop($moreErrorString);
+    chop($moreErrorString);
+    $moreErrorString .= ".";
+
+    my $moreErrorsStruct = expandedMessage->new( entityName => '',
+                        lineNum => '',
+                        errorMessage => '',
+                        linesOfCode => '',
+                        enhancedMessage => $moreErrorString,
+                        );
+
+    return $moreErrorsStruct;
+}
+
+# To group all the structs based on fileName(sorted)
+sub groupStructsByFileName
+{
+    my $arrayRef = shift;
+    my @arrayStructs = @{$arrayRef};
+    my %fileStructs;
+    my @groupedStructs;
+
+    foreach my $errorStruct (@arrayStructs)
+    {
+        if (defined $fileStructs{$errorStruct->entityName})
+        {
+            push @{$fileStructs{$errorStruct->entityName}}, $errorStruct;
+        }
+        else
+        {
+            my @temp;
+            push @temp, $errorStruct;
+            $fileStructs{$errorStruct->entityName} = [@temp];
+        }
+    }
+
+    foreach my $entityName (sort keys %fileStructs)
+    {
+        my %lineStructs;
+
+        foreach my $errorStruct (@{$fileStructs{$entityName}})
+        {
+            if (defined $lineStructs{$errorStruct->lineNum})
+            {
+                push @{$lineStructs{$errorStruct->lineNum}}, $errorStruct;
+            }
+            else
+            {
+                my @temp;
+                push @temp, $errorStruct;
+                $lineStructs{$errorStruct->lineNum} = [@temp];
+            }
+        }
+
+        foreach my $lineNum (sort {$a<=>$b} keys %lineStructs)
+        {
+            push @groupedStructs, @{$lineStructs{$lineNum}};
+        }
+    }
+
+    return @groupedStructs;
+}
+
+
+
+
 my $beautifier = new Web_CAT::Beautifier;
 $beautifier->setCountLoc(1);
 $beautifier->beautifyCwd($cfg,
@@ -3568,6 +5466,11 @@ EOF
         $rptFile->close;
         if ($rptFile->hasContent)
         {
+            if ($useEnhancedFeedback)
+            {
+                addReportFileWithStyle(
+                    $cfg, 'improvedFeedback.html', 'text/html', 1);
+            }
             addReportFileWithStyle($cfg, $rptFile->fileName, 'text/html', 1);
         }
         else
@@ -3595,6 +5498,744 @@ EOF
         }
     }
 }
+
+# Figure out which section among coding(1), testing(2), behavior(3) and
+# style(4) to expand
+sub computeExpandSectionId
+{
+    if ($codingSectionStatus{'compilerErrors'} == 0
+        || $codingSectionStatus{'compilerWarnings'} == 0
+        || $codingSectionStatus{'signatureErrors'} == 0
+        || $codingSectionStatus{'codingFlaws'} == 0
+        || $codingSectionStatus{'junitTests'} == 0)
+    {
+        return 1;
+    }
+
+    if ($testingSectionStatus{'errors'} == 0 ||
+        $testingSectionStatus{'failures'} == 0 ||
+        $testingSectionStatus{'methodsUncovered'} == 0 ||
+        $testingSectionStatus{'statementsUncovered'} == 0 ||
+        $testingSectionStatus{'conditionsUncovered'} == 0)
+    {
+        return 2;
+    }
+
+    if ($behaviorSectionStatus{'errors'} == 0
+        || $behaviorSectionStatus{'stackOverflowErrors'} == 0
+        || $behaviorSectionStatus{'testsTakeTooLong'} == 0
+        || $behaviorSectionStatus{'failures'} == 0
+        || $behaviorSectionStatus{'outOfMemoryErrors'} == 0)
+    {
+        return 3;
+    }
+
+    if ($styleSectionStatus{'javadoc'} == 0
+        || $styleSectionStatus{'indentation'} == 0
+        || $styleSectionStatus{'whitespace'} == 0
+        || $styleSectionStatus{'lineLength'} == 0
+        || $styleSectionStatus{'other'} == 0)
+    {
+        return 4;
+    }
+
+    return -1;
+}
+
+# If Compiler Errors- set all other section status to "-1" (no tick or cross
+# mark). set others to "-1" so that we don't mark anything for others as we
+# didnt evaluate.
+if ($codingSectionStatus{'compilerErrors'} == 0)
+{
+    $codingSectionStatus{'codingFlaws'} = -1;
+    $codingSectionStatus{'signatureErrors'} = -1;
+    $codingSectionStatus{'junitTests'} = -1;
+
+    $styleSectionStatus{'javadoc'} = -1;
+    $styleSectionStatus{'indentation'} = -1;
+    $styleSectionStatus{'whitespace'} = -1;
+    $styleSectionStatus{'lineLength'} = -1;
+    $styleSectionStatus{'other'} = -1;
+
+    $testingSectionStatus{'errors'} = -1;
+    $testingSectionStatus{'failures'} = -1;
+    $testingSectionStatus{'methodsUncovered'} = -1;
+    $testingSectionStatus{'statementsUncovered'} = -1;
+    $testingSectionStatus{'conditionsUncovered'} = -1;
+
+    $behaviorSectionStatus{'errors'} = -1;
+    $behaviorSectionStatus{'stackOverflowErrors'} = -1;
+    $behaviorSectionStatus{'testsTakeTooLong'} = -1;
+    $behaviorSectionStatus{'failures'} = -1;
+    $behaviorSectionStatus{'outOfMemoryErrors'} = -1;
+}
+
+# set expand section id for web-cat sections (coding,testing,behavior, style)
+$expandSectionId = computeExpandSectionId();
+
+
+# Compute Radial Bars for Coding Section
+if ($codingSectionStatus{'compilerErrors'} == 1
+    && $codingSectionStatus{'compilerWarnings'} == 1
+    && $codingSectionStatus{'signatureErrors'} == 1)
+{
+    $codingSectionStatus{'firstHalfRadialBar'} = 50;
+}
+else
+{
+    $codingSectionStatus{'firstHalfRadialBar'} = 0;
+}
+
+if ($codingSectionStatus{'codingFlaws'} == 1
+    && $codingSectionStatus{'junitTests'} == 1)
+{
+    $codingSectionStatus{'secondHalfRadialBar'} = 50;
+}
+else
+{
+    $codingSectionStatus{'secondHalfRadialBar'} = 0;
+}
+
+# Generate Feedback section html
+my $improvedFeedbackFileName = "$resultDir/improvedFeedback.html";
+open(IMPROVEDFEEDBACKFILE, ">$improvedFeedbackFileName")
+    || croak "Cannot open '$improvedFeedbackFileName' for writing: $!";
+
+
+# UserName
+print IMPROVEDFEEDBACKFILE
+    '<input type="hidden" id="userName" name="userName" value="' . $pid . '">';
+
+# Coding Section
+my $incomplete = ($expandSectionId == 1) ? ' incomplete' : '';
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+<div class="row">
+  <div class="col-12 col-md-6 panel$incomplete" id="codingPanel">
+    <div class="module">
+      <div dojoType="webcat.TitlePane" title="Coding">
+    <style>
+      \@keyframes rotate-coding {
+        100% {
+END_MESSAGE
+
+print IMPROVEDFEEDBACKFILE
+    'transform: rotate(' . 180 * ($codingSectionStatus{'firstHalfRadialBar'}
+    + $codingSectionStatus{'secondHalfRadialBar'}) / 100 . 'deg);';
+
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+        }
+      }
+     </style>
+    <ul class="chart" id="codingChart">
+END_MESSAGE
+
+# Values going into the spans don't add any meaning; adding two spans for
+# css sake
+print IMPROVEDFEEDBACKFILE '<li><span>',
+    "$codingSectionStatus{'firstHalfRadialBar'}%", '</span></li>',
+    '<li><span>',
+    "$codingSectionStatus{'secondHalfRadialBar'}%", '</span></li>',
+    "</ul>\n<ul class=\"checklist\">\n";
+
+for my $element (@codingSectionOrder)
+{
+    my $cssClass = ($codingSectionStatus{$element} == 1)
+        ? 'complete'
+        : (($codingSectionStatus{$element} == 0) ? 'incomplete' : 'unknown');
+
+    print IMPROVEDFEEDBACKFILE '<li class="', $cssClass, '">',
+        ($codingSectionStatus{$element} == 0 ? '' : 'No '),
+        "$codingSectionTitles{$element}</li>";
+}
+
+print IMPROVEDFEEDBACKFILE "</ul>\n";
+
+if ($codingSectionStatus{'compilerErrors'} == 0
+    || $codingSectionStatus{'compilerWarnings'} == 0
+    || $codingSectionStatus{'signatureErrors'} == 0
+    || $codingSectionStatus{'codingFlaws'} == 0
+    || $codingSectionStatus{'junitTests'} == 0)
+{
+    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><a ',
+        'class="seeMoreLink btn btn-sm btn-primary" ',
+        'href="#codingPanel">More...</a></span>';
+}
+
+
+# Coding Section Expanded
+my $isVisible = ($expandSectionId == 1) ? ' visible' : '';
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+      </div>
+      <div class="arrow borderArrow codingarrow$isVisible"></div>
+      <div class="arrow codingarrow$isVisible"></div>
+    </div>
+  </div>
+END_MESSAGE
+if ($codingSectionStatus{'compilerErrors'} == 0
+    || $codingSectionStatus{'compilerWarnings'} == 0
+    || $codingSectionStatus{'signatureErrors'} == 0
+    || $codingSectionStatus{'codingFlaws'} == 0
+    || $codingSectionStatus{'junitTests'} == 0)
+{
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+<div class="col-12 more-info$isVisible" id="coding-moreInfo">
+  <div class="module">
+END_MESSAGE
+
+for my $element (@codingSectionOrder)
+{
+    if (!defined $codingSectionExpanded{$element}
+        || !@{$codingSectionExpanded{$element}})
+    {
+        next;
+    }
+
+    print IMPROVEDFEEDBACKFILE
+        '<h1>' . $codingSectionTitles{$element} . '</h1>' ;
+
+    foreach my $errorStruct (@{$codingSectionExpanded{$element}})
+    {
+        print IMPROVEDFEEDBACKFILE
+            '<h2>', $errorStruct->entityName, '</h2><p class="errorType">',
+            htmlEscape($errorStruct->errorMessage), '</p>';
+
+        if (index(lc($element), lc('compilerErrors')) != -1)
+        {
+            print IMPROVEDFEEDBACKFILE '<input type="hidden" ',
+                'name="compilerErrorId" value="',
+                compilerErrorHintKey($errorStruct->errorMessage), '"/>';
+        }
+        elsif (index(lc($element), lc('signatureErrors')) != -1)
+        {
+            print IMPROVEDFEEDBACKFILE
+                '<input type="hidden" name="runtimeErrorId" value="',
+                runtimeErrorHintKey($errorStruct->errorMessage), '"/>';
+        }
+
+        my @linesOfCode = split /\n/, $errorStruct->linesOfCode;
+
+        if ( @linesOfCode)
+        {
+            print IMPROVEDFEEDBACKFILE '<pre class="prettyprint lang-java">',
+                "\n";
+
+            foreach my $line (@linesOfCode)
+            {
+                if (index(lc($line), $errorStruct->lineNum) != -1)
+                {
+                    print IMPROVEDFEEDBACKFILE
+                        '<span class="nocode highlight">', htmlEscape($line),
+                        '</span>', "\n";
+                    next;
+                }
+
+                print IMPROVEDFEEDBACKFILE htmlEscape($line), "\n";
+            }
+
+            print IMPROVEDFEEDBACKFILE '</pre>';
+        }
+
+        if ($errorStruct->enhancedMessage)
+        {
+            print IMPROVEDFEEDBACKFILE '<p><span>',
+                htmlEscape($errorStruct->enhancedMessage), '</span></p>';
+        }
+    }
+}
+
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+  </div>
+</div>
+END_MESSAGE
+}
+
+
+if ($codingSectionStatus{'compilerErrors'} == 1 && $studentsMustSubmitTests)
+{
+# Testing Section
+my $showTesting = 1;
+my $testingMsg = '';
+if ($status{'studentTestResults'}->testsExecuted == 0)
+{
+    $showTesting = 0;
+    $expandSectionId = 2;
+    $testingMsg = '<p>You are required to write your own software tests '
+        . 'for this assignment, but <b class="warn">no tests were '
+        . 'provided</b>.</p>';
+}
+$incomplete = ($expandSectionId == 2) ? ' incomplete' : '';
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+  <div class="col-12 col-md-6 panel$incomplete" id="testingPanel">
+    <div class="module">
+      <div dojoType="webcat.TitlePane" title="Your Testing">
+END_MESSAGE
+if ($showTesting)
+{
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+    <style>
+      \@keyframes rotate-testing {
+        100% {
+END_MESSAGE
+
+my $testingPct = ($testingSectionStatus{'codeCoveragePercent'}
+    * $testingSectionStatus{'resultsPercent'}) / 100;
+print IMPROVEDFEEDBACKFILE 'transform: rotate(' .
+    180 * $testingPct / 100 . 'deg);';
+
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+        }
+      }
+     </style>
+    <ul class="chart" id="testingChart">
+END_MESSAGE
+
+# Values going into the spans don't add any meaning; adding two spans for
+# css sake
+print IMPROVEDFEEDBACKFILE '<li><span>',
+    "$testingPct%", '</span></li>',
+    '<li><span>',
+    "$testingPct%", '</span></li>', "</ul>\n";
+}
+print IMPROVEDFEEDBACKFILE "<ul class=\"checklist\">\n";
+
+for my $element (@testingSectionOrder)
+{
+    my $cssClass = ($testingSectionStatus{$element} == 1)
+        ? 'complete'
+        : (($testingSectionStatus{$element} == 0) ? 'incomplete' : 'unknown');
+    if (!$showTesting) { $cssClass = 'unknown'; }
+    print IMPROVEDFEEDBACKFILE '<li class="', $cssClass, '">',
+        ($testingSectionStatus{$element} == 0 ? '' : 'No '),
+        "$testingSectionTitles{$element}</li>";
+}
+
+print IMPROVEDFEEDBACKFILE "</ul>\n";
+
+if ($testingSectionStatus{'errors'} == 0
+    || $testingSectionStatus{'failures'} == 0
+    || $testingSectionStatus{'methodsUncovered'} == 0
+    || $testingSectionStatus{'statementsUncovered'} == 0
+    || $testingSectionStatus{'conditionsUncovered'} == 0 )
+{
+    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><a ',
+        'class="seeMoreLink btn btn-sm btn-primary" ',
+        'href="#testingPanel">More...</a></span>';
+}
+
+
+# Testing Section Expanded
+$isVisible = ($expandSectionId == 2) ? ' visible' : '';
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+      $testingMsg</div>
+      <div class="arrow borderArrow testingarrow$isVisible"></div>
+      <div class="arrow testingarrow$isVisible"></div>
+    </div>
+  </div>
+END_MESSAGE
+if ($codingSectionStatus{'compilerErrors'} == 1 && $studentsMustSubmitTests &&
+    ($testingSectionStatus{'errors'} == 0
+    || $testingSectionStatus{'failures'} == 0
+    || $testingSectionStatus{'methodsUncovered'} == 0
+    || $testingSectionStatus{'statementsUncovered'} == 0
+    || $testingSectionStatus{'conditionsUncovered'} == 0 ))
+{
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+<div class="col-12 more-info$isVisible" id="testing-moreInfo">
+  <div class="module">
+END_MESSAGE
+
+for my $element (@testingSectionOrder)
+{
+    if (!defined $testingSectionExpanded{$element}
+        || !@{$testingSectionExpanded{$element}})
+    {
+        next;
+    }
+
+    print IMPROVEDFEEDBACKFILE
+        '<h1>', $testingSectionTitles{$element}, '</h1>';
+
+    foreach my $errorStruct (@{$testingSectionExpanded{$element}})
+    {
+        print IMPROVEDFEEDBACKFILE '<h2>', $errorStruct->entityName, '</h2>',
+            '<p class="errorType">', htmlEscape($errorStruct->errorMessage),
+            '</p>';
+
+        if (index(lc($element), lc("errors")) != -1)
+        {
+            print IMPROVEDFEEDBACKFILE
+                '<input type="hidden" name="runtimeErrorId" value="',
+                runtimeErrorHintKey($errorStruct->errorMessage), '"/>';
+        }
+
+        my @linesOfCode = split /\n/, $errorStruct->linesOfCode;
+
+        if (@linesOfCode)
+        {
+            print IMPROVEDFEEDBACKFILE '<pre class="prettyprint lang-java">',
+                "\n";
+
+            for my $index (0 .. $#linesOfCode)
+            {
+                if (index(lc($linesOfCode[$index]), $errorStruct->lineNum)
+                    != -1)
+                {
+                    print IMPROVEDFEEDBACKFILE
+                        '<span class="nocode highlight">',
+                        htmlEscape($linesOfCode[$index]),
+                        "</span>\n";
+                    next;
+                }
+
+                # All statements uncovered are errors (except first and last),
+                # so mark them as errors
+                if (index(lc($element), "statement") != -1
+                    && $index != 0
+                    && $index != $#linesOfCode)
+                {
+                    print IMPROVEDFEEDBACKFILE
+                        '<span class="nocode highlight">',
+                        htmlEscape($linesOfCode[$index]),
+                        "</span>\n";
+                }
+                else
+                {
+                    print IMPROVEDFEEDBACKFILE
+                        htmlEscape($linesOfCode[$index]), "\n";
+                }
+            }
+
+            print IMPROVEDFEEDBACKFILE '</pre>';
+        }
+
+        if ($errorStruct->enhancedMessage)
+        {
+            print IMPROVEDFEEDBACKFILE '<p><span>',
+                htmlEscape($errorStruct->enhancedMessage), '</span></p>';
+        }
+    }
+}
+
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+  </div>
+</div>
+END_MESSAGE
+}
+
+
+# Behavior Section
+my $showBehavior = 1;
+my $behaviorMsg = '';
+if ($studentsMustSubmitTests)
+{
+    if ($hasJUnitErrors && $junitErrorsHideHints)
+    {
+        $showBehavior = 0;
+        $behaviorMsg = '<p>Fix <b class="warn">Unit Test Coding Problems</b> '
+            . '(see above) for behavioral analysis.</p>';
+    }
+    elsif ($status{'studentTestResults'}->testsExecuted == 0)
+    {
+        $showBehavior = 0;
+        $behaviorMsg = '<p>Your own software tests must be included for '
+            . 'behavioral analysis.</p>';
+    }
+    elsif (!$status{'studentTestResults'}->hasResults
+           || $gradedElements == 0
+           || $gradedElementsCovered / $gradedElements * 100.0 <
+              $minCoverageLevel)
+    {
+        $showBehavior = 0;
+        $behaviorMsg = '<p>I';
+        if ($expandSectionId == 1)
+        {
+            $behaviorMsg = '<p>Fix the issues in the '
+                . '<b class="warn">Coding</b> section above. Then i';
+        }
+        # Note the initial "I" comes from the earlier initialization
+        $behaviorMsg .= 'mprove your testing by addressing issues in '
+            . '<b class="warn">Your Testing</b> section '
+            . 'above for behavioral analysis.</p>';
+    }
+}
+$incomplete = ($expandSectionId == 3) ? ' incomplete' : '';
+if (!$showBehavior) { $incomplete = ''; }
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+  <div class="col-12 col-md-6 panel$incomplete" id="behaviorPanel">
+    <div class="module">
+      <div dojoType="webcat.TitlePane" title="Behavior">
+END_MESSAGE
+if ($showBehavior)
+{
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+    <style>
+      \@keyframes rotate-behavior {
+        100% {
+END_MESSAGE
+
+print IMPROVEDFEEDBACKFILE 'transform: rotate(' .
+    180 * ($behaviorSectionStatus{'problemCoveragePercent'}) / 100 . 'deg);';
+
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+        }
+      }
+     </style>
+    <ul class="chart" id="behaviorChart">
+END_MESSAGE
+
+# Values going into the spans don't add any meaning; adding two spans for
+# css sake
+print IMPROVEDFEEDBACKFILE '<li><span>',
+    "$behaviorSectionStatus{'problemCoveragePercent'}%", '</span></li>',
+    '<li> <span>',
+    "$behaviorSectionStatus{'problemCoveragePercent'}%",
+    '</span></li>', "</ul>\n";
+}
+print IMPROVEDFEEDBACKFILE "<ul class=\"checklist\">\n";
+
+for my $element (@behaviorSectionOrder)
+{
+    my $cssClass = ($behaviorSectionStatus{$element} == 1)
+        ? 'complete'
+        : (($behaviorSectionStatus{$element} == 0) ? 'incomplete' : 'unknown');
+    if (!$showBehavior) { $cssClass = 'unknown'; }
+
+    print IMPROVEDFEEDBACKFILE '<li class="', $cssClass, '">',
+        ($behaviorSectionStatus{$element} == 0 ? '' : 'No '),
+        "$behaviorSectionTitles{$element}</li>";
+}
+
+print IMPROVEDFEEDBACKFILE "</ul>\n";
+
+if ($showBehavior
+    && ($behaviorSectionStatus{'errors'} == 0
+    || $behaviorSectionStatus{'stackOverflowErrors'} == 0
+    || $behaviorSectionStatus{'testsTakeTooLong'} == 0
+    || $behaviorSectionStatus{'failures'} == 0
+    || $behaviorSectionStatus{'outOfMemoryErrors'} == 0))
+{
+    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><a ',
+        'class="seeMoreLink btn btn-sm btn-primary" ',
+        'href="#behaviorPanel">More...</a></span>';
+}
+
+
+# Behavior Section Expanded
+$isVisible = ($expandSectionId == 3) ? ' visible' : '';
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+      $behaviorMsg</div>
+      <div class="arrow borderArrow behaviorarrow$isVisible"></div>
+      <div class="arrow behaviorarrow$isVisible"></div>
+    </div>
+  </div>
+END_MESSAGE
+if ($showBehavior
+    && ($behaviorSectionStatus{'errors'} == 0
+    || $behaviorSectionStatus{'stackOverflowErrors'} == 0
+    || $behaviorSectionStatus{'testsTakeTooLong'} == 0
+    || $behaviorSectionStatus{'failures'} == 0
+    || $behaviorSectionStatus{'outOfMemoryErrors'} == 0))
+{
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+<div class="col-12 more-info$isVisible" id="behavior-moreInfo">
+  <div class="module">
+END_MESSAGE
+
+
+for my $element (@behaviorSectionOrder)
+{
+    if (!defined $behaviorSectionExpanded{$element}
+        || !@{$behaviorSectionExpanded{$element}})
+    {
+        next;
+    }
+
+    print IMPROVEDFEEDBACKFILE
+        '<h1>', $behaviorSectionTitles{$element}, '</h1>' ;
+
+    if ($element eq 'failures')
+    {
+        print IMPROVEDFEEDBACKFILE '<p>Instructor reference tests found '
+            . 'problems with the following features:</p>';
+    }
+
+    foreach my $errorStruct (@{$behaviorSectionExpanded{$element}})
+    {
+        print IMPROVEDFEEDBACKFILE '<h2>', $errorStruct->entityName, '</h2>',
+            '<p class="errorType">', htmlEscape($errorStruct->errorMessage),
+            '</p><input type="hidden" name="runtimeErrorId" value="',
+            runtimeErrorHintKey($errorStruct->errorMessage), '"/>';
+
+        my @linesOfCode = split /\n/, $errorStruct->linesOfCode;
+        if (@linesOfCode)
+        {
+            print IMPROVEDFEEDBACKFILE '<pre class="prettyprint lang-java">',
+                "\n";
+
+            foreach my $line (@linesOfCode)
+            {
+                if (index(lc($line), $errorStruct->lineNum) != -1)
+                {
+                    print IMPROVEDFEEDBACKFILE
+                        '<span class="nocode highlight">', htmlEscape($line),
+                        '</span>', "\n";
+                    next;
+                }
+
+                print IMPROVEDFEEDBACKFILE htmlEscape($line), "\n";
+            }
+
+            print IMPROVEDFEEDBACKFILE '</pre>';
+        }
+
+        if ($errorStruct->enhancedMessage)
+        {
+            print IMPROVEDFEEDBACKFILE '<p><span>',
+                htmlEscape($errorStruct->enhancedMessage), '</span></p>';
+        }
+    }
+}
+
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+  </div>
+</div>
+END_MESSAGE
+}
+
+
+#Style Section
+$incomplete = ($expandSectionId == 4) ? ' incomplete' : '';
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+  <div class="col-12 col-md-6 panel$incomplete" id="stylePanel">
+    <div class="module">
+      <div dojoType="webcat.TitlePane" title="Style">
+    <style>
+      \@keyframes rotate-style {
+        100% {
+END_MESSAGE
+
+print IMPROVEDFEEDBACKFILE 'transform: rotate('
+    . 180 * ($styleSectionStatus{'pointsGainedPercent'}) / 100 . 'deg);';
+
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+        }
+      }
+     </style>
+    <ul class="chart" id="styleChart">
+END_MESSAGE
+
+# Values going into the spans don't add any meaning; adding two spans for
+# css sake
+print IMPROVEDFEEDBACKFILE '<li><span>',
+    "$styleSectionStatus{'pointsGainedPercent'}%", '</span></li>',
+    '<li><span>',
+    "$styleSectionStatus{'pointsGainedPercent'}%", '</span></li>',
+    "</ul>\n<ul class=\"checklist\">\n";
+
+for my $element (@styleSectionOrder)
+{
+    my $cssClass = ($styleSectionStatus{$element} == 1)
+        ? 'complete'
+        : (($styleSectionStatus{$element} == 0) ? 'incomplete' : 'unknown');
+
+    print IMPROVEDFEEDBACKFILE '<li class="', $cssClass, '">',
+        ($styleSectionStatus{$element} == 0 ? '' : 'No '),
+        "$styleSectionTitles{$element}</li>";
+}
+
+print IMPROVEDFEEDBACKFILE "</ul>\n";
+
+if ($styleSectionStatus{'javadoc'} == 0
+    || $styleSectionStatus{'indentation'} == 0
+    || $styleSectionStatus{'whitespace'} == 0
+    || $styleSectionStatus{'lineLength'} == 0
+    || $styleSectionStatus{'other'} == 0)
+{
+    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><a ',
+        'class="seeMoreLink btn btn-sm btn-primary" ',
+        'href="#stylePanel">More...</a></span>';
+}
+
+
+# Style Section Expanded
+$isVisible = ($expandSectionId == 4) ? ' visible' : '';
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+      </div>
+      <div class="arrow borderArrow stylearrow$isVisible"></div>
+      <div class="arrow stylearrow$isVisible"></div>
+    </div>
+  </div>
+END_MESSAGE
+if ($styleSectionStatus{'javadoc'} == 0
+    || $styleSectionStatus{'indentation'} == 0
+    || $styleSectionStatus{'whitespace'} == 0
+    || $styleSectionStatus{'lineLength'} == 0
+    || $styleSectionStatus{'other'} == 0)
+{
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+<div class="col-12 more-info$isVisible" id="style-moreInfo">
+  <div class="module">
+END_MESSAGE
+
+for my $element (@styleSectionOrder)
+{
+    if (!defined $styleSectionExpanded{$element}
+        || !@{$styleSectionExpanded{$element}})
+    {
+        next;
+    }
+
+    print IMPROVEDFEEDBACKFILE
+        '<h1>', $styleSectionTitles{$element}, '</h1>';
+
+    foreach my $errorStruct (@{$styleSectionExpanded{$element}})
+    {
+        print IMPROVEDFEEDBACKFILE '<h2>', $errorStruct->entityName, '</h2>',
+            '<p class="errorType">', htmlEscape($errorStruct->errorMessage),
+            "</p>\n";
+
+        my @linesOfCode = split /\n/, $errorStruct->linesOfCode;
+
+        if (@linesOfCode)
+        {
+            print IMPROVEDFEEDBACKFILE '<pre class="prettyprint lang-java">',
+                "\n";
+
+            foreach my $line (@linesOfCode)
+            {
+                if (index(lc($line), $errorStruct->lineNum) != -1)
+                {
+                    print IMPROVEDFEEDBACKFILE
+                        '<span class="nocode highlight">', htmlEscape($line),
+                        '</span>', "\n";
+                    next;
+                }
+
+                print IMPROVEDFEEDBACKFILE htmlEscape($line), "\n";
+            }
+
+            print IMPROVEDFEEDBACKFILE '</pre>';
+        }
+
+        if ($errorStruct->enhancedMessage)
+        {
+            print IMPROVEDFEEDBACKFILE '<p><span>',
+                htmlEscape($errorStruct->enhancedMessage), '</span></p>';
+        }
+    }
+}
+
+print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
+  </div>
+</div>
+END_MESSAGE
+}
+}
+
+print IMPROVEDFEEDBACKFILE "</div>\n";
+close IMPROVEDFEEDBACKFILE;
+
+#print compilerErrorHintKey('final parameter abc may not be assigned');
 
 # PDF printout
 # -----------
@@ -3634,6 +6275,7 @@ if ($debug)
         print $key, " => ", $value, "\n";
     }
 }
+
 
 
 #-----------------------------------------------------------------------------

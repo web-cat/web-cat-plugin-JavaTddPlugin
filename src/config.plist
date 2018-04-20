@@ -676,6 +676,16 @@
   "Set to true to generate GZoltar-based defect heatmaps.  This option is
   <b>experimental</b> and for research use only.  Using it will slow down
   generation of student feedback.";
+        },
+        {
+            property    = useEnhancedFeedback;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use Enhanced Feedback (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to use the new (experimental) enhanced feedback layout.";
         }
     );
     globalOptions = (

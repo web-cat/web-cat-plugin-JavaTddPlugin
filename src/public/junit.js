@@ -35,14 +35,17 @@
         var selectedPosX = 0;
         var selectedPosY = 0;
 
-        while (element != container)
+        while (element != container && element != null)
         {
             selectedPosX += element.offsetLeft;
             selectedPosY += element.offsetTop;
             element = element.offsetParent;
         }
 
-        element.scrollTop = selectedPosY;
+        if (element != null)
+        {
+            element.scrollTop = selectedPosY;
+        }
     };
 
     var junitViewLastSelectedTest = null;
@@ -93,7 +96,7 @@
             $(newBlock).style.display = "block";
         }
 
-        if (scroll)
+        if (scroll && $(newBlock))
         {
             scrollToElement($C('junit-tests')[0], $(id));
         }
