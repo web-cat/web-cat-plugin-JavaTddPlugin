@@ -2,19 +2,23 @@ package Web_CAT::ExpandedFeedbackUtil;
 
 use warnings;
 use strict;
-use Carp;
+use Carp qw(carp cluck longmess);
 use File::stat;
 use Web_CAT::Utilities qw(htmlEscape);
 use Data::Dumper;
 use Class::Struct;
-use vars qw( @ISA @EXPORT_OK  );
+use vars qw(@ISA @EXPORT_OK);
 
-use Exporter qw( import );
+use Exporter qw(import);
 
-@ISA = qw( Exporter );
+@ISA = qw(Exporter);
 
-@EXPORT_OK = qw( extractAboveBelowLinesOfCode checkForPatternInFile
-negateValueZeroToOneAndOneToZero extractLineOfCode);
+@EXPORT_OK = qw(
+    extractAboveBelowLinesOfCode
+    checkForPatternInFile
+    negateValueZeroToOneAndOneToZero
+    extractLineOfCode
+    );
 
 #Always use long file name for "entityName"
 struct expandedMessage =>
@@ -34,6 +38,12 @@ sub extractAboveBelowLinesOfCode
 	my $filePath = shift;
 	my $errorLineNum = shift;
 
+    if (!defined $filePath)
+    {
+        # cluck, but on stdout
+        print longmess("file name required");
+        return '';
+    }
     if (-e 'src/' . $filePath)
     {
         $filePath = 'src/' . $filePath;
@@ -43,7 +53,11 @@ sub extractAboveBelowLinesOfCode
         return '';
     }
 
-	open(CODESUB, $filePath) || carp "could not read $filePath";
+    if (!open(CODESUB, $filePath))
+    {
+        # cluck, but on stdout
+        print longmess("could not read $filePath");
+    }
 
 	my $lineNum = 0;
 	my $returnCode = '';
@@ -74,7 +88,26 @@ sub extractLineOfCode
 	my $filePath = shift;
 	my $errorLineNum = shift;
 
-	open(CODESUB, $filePath) or carp "could not read $filePath";
+    if (!defined $filePath)
+    {
+        # cluck, but on stdout
+        print longmess("file name required");
+        return '';
+    }
+    if (-e 'src/' . $filePath)
+    {
+        $filePath = 'src/' . $filePath;
+    }
+    if (! -e $filePath)
+    {
+        return '';
+    }
+
+    if (!open(CODESUB, $filePath))
+    {
+        # cluck, but on stdout
+        print longmess("could not read $filePath");
+    }
 
 	my $lineNum = 0;
 	my $returnCode = '';
@@ -102,11 +135,27 @@ sub checkForPatternInFile
 	my $fileName = shift;
 	my $pattern = shift;
 
-	open FILECONTENT, $fileName or return 0;
+    if (!defined $fileName)
+    {
+        # cluck, but on stdout
+        print longmess("file name required");
+        return 0;
+    }
+    if ($fileName !~ m,^/,o && (-e 'src/' . $fileName))
+    {
+        $fileName = 'src/' . $fileName;
+    }
+
+	if (!open(FILECONTENT, $fileName))
+	{
+        # cluck, but on stdout
+        print longmess("cannot open $fileName");
+	    return 0;
+	}
 
 	while (<FILECONTENT>)
 	{
-		if (index(lc($_),lc($pattern)) != -1)
+		if (index(lc($_), lc($pattern)) != -1)
 		{
 			return 1;
 		}

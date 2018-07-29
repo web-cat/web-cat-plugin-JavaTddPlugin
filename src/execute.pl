@@ -2791,8 +2791,7 @@ sub computeFileNameUsingClassName
     # pattern we are looking for is "class $className "
     for my $longName (keys %codeMarkupIds)
     {
-        if (checkForPatternInFile($workingDir . '/' . $longName,
-            'class' . ' ' .$className. ' '))
+        if (checkForPatternInFile($longName, 'class' . ' ' .$className. ' '))
         {
             return $longName;
         }
@@ -2951,7 +2950,7 @@ sub generateStatementsUncoveredErrorStruct
 
     # The line above the beginning of the uncovered statement.
     $codeLines .=
-        extractLineOfCode($workingDir. "/" . $fileName, $startLineNum-1);
+        extractLineOfCode($fileName, $startLineNum - 1);
 
     # If the block contains less than or equal to 8 statements then
     # show all of them
@@ -2960,8 +2959,7 @@ sub generateStatementsUncoveredErrorStruct
         my $tempStartLineNum = $startLineNum;
         while ($tempStartLineNum <= $endLineNum)
         {
-            $codeLines .= extractLineOfCode(
-                $workingDir. "/" . $fileName, $tempStartLineNum);
+            $codeLines .= extractLineOfCode($fileName, $tempStartLineNum);
             $tempStartLineNum++;
         }
     }
@@ -2972,8 +2970,7 @@ sub generateStatementsUncoveredErrorStruct
         # First four uncovered statements
         while ($tempStartLineNum <= $startLineNum+3)
         {
-            $codeLines .= extractLineOfCode(
-                $workingDir. "/" . $fileName, $tempStartLineNum);
+            $codeLines .= extractLineOfCode($fileName, $tempStartLineNum);
             $tempStartLineNum++;
         }
 
@@ -2984,15 +2981,14 @@ sub generateStatementsUncoveredErrorStruct
         $tempStartLineNum = $endLineNum - 3;
         while ($tempStartLineNum <= $endLineNum)
         {
-            $codeLines .= extractLineOfCode(
-                $workingDir. "/" . $fileName, $tempStartLineNum);
+            $codeLines .= extractLineOfCode($fileName, $tempStartLineNum);
             $tempStartLineNum++;
         }
     }
 
     # The line after the end of the uncovered statements.
     $codeLines .=
-        extractLineOfCode($workingDir. "/" . $fileName,$endLineNum+1);
+        extractLineOfCode($fileName, $endLineNum + 1);
 
     my $errorStruct = expandedMessage->new(
         entityName => $fileName,
@@ -3664,7 +3660,7 @@ if ($status{'studentHasSrcs'}
 
     # Mark the Errors and Failures flags for the testingSectionStatus.
     $testingSectionStatus{'errors'} = negateValueZeroToOneAndOneToZero(
-        checkForPatternInFile( "$resultDir/student-results.txt",
+        checkForPatternInFile("$resultDir/student-results.txt",
         'Caused an ERROR'));
     $testingSectionStatus{'failures'} = negateValueZeroToOneAndOneToZero(
         checkForPatternInFile("$resultDir/student-results.txt", 'FAILED'));
@@ -3849,7 +3845,7 @@ sub markBehaviorSectionUsingInstrTests
 # Note that https://docs.oracle.com/javase/7/docs/api/java/util/concurrent/TimeoutException.html,
 # that's different from a test being timedout. TimeoutException is caught under errors
         }
-        elsif ($suite->{'level'} == 5 && index(lc($suite->{'stackTrace'}),
+        elsif ($suite->{'level'} == 5 && index(lc($suite->{'trace'}),
             lc("TestTimedOutException")) != -1)
         {
             $behaviorSectionStatus{'testsTakeTooLong'} = 0;
@@ -4332,8 +4328,7 @@ sub generateCompleteErrorStruct
     my $errorMessage = shift;
     my $enhancedMessage = shift || '';
 
-    my $codeLines = extractAboveBelowLinesOfCode(
-        $workingDir . '/' . $fileName, $lineNum);
+    my $codeLines = extractAboveBelowLinesOfCode($fileName, $lineNum);
 
     my $errorStruct = expandedMessage->new(
         entityName => $fileName,
@@ -4552,7 +4547,7 @@ sub addLinesAboveAssertionFailure
     while ($startLineNum < $failureLine - 1)
     {
         $codeLines .= extractLineOfCode(
-            $workingDir . "/" . $assertionStruct->entityName, $startLineNum);
+            $assertionStruct->entityName, $startLineNum);
         $startLineNum++;
     }
 
@@ -4589,7 +4584,7 @@ sub computeTestingErrorFailureStructs
             my $assertionStruct;
 
            ($fileName, $lineNum) =
-               extractFileNameFromStackTrace($suite->{'stackTrace'}, 1);
+               extractFileNameFromStackTrace($suite->{'trace'}, 1);
 
             if (!defined $fileName || !defined $lineNum)
             {
@@ -4615,9 +4610,9 @@ sub computeTestingErrorFailureStructs
         my $errorStruct;
         my $message = $suite->{'message'};
 
-        if (defined $suite->{'exceptionName'})
+        if (defined $suite->{'exception'})
         {
-            my $exName = $suite->{'exceptionName'};
+            my $exName = $suite->{'exception'};
             $exName =~ s/^.*\.//o;
             $message = $exName . ': ' . $message;
         }
@@ -4625,7 +4620,7 @@ sub computeTestingErrorFailureStructs
         if ($suite->{'level'} == 4 && $suite->{'code'} == 32)
         {
             $errorStruct =
-                generateStackOverflowErrorStruct($suite->{'stackTrace'});
+                generateStackOverflowErrorStruct($suite->{'trace'});
 
             if (!defined $errorStruct)
             {
@@ -4635,7 +4630,7 @@ sub computeTestingErrorFailureStructs
         else
         {
             ($fileName, $lineNum) =
-                extractFileNameFromStackTrace($suite->{'stackTrace'}, 1);
+                extractFileNameFromStackTrace($suite->{'trace'}, 1);
 
             if (!defined $fileName || !defined $lineNum)
             {
@@ -4648,14 +4643,14 @@ sub computeTestingErrorFailureStructs
             }
         }
 
-        if (!defined $suite->{'exceptionName'})
+        if (!defined $suite->{'exception'})
         {
             addErrorFailureStructToHash('errors', $message, $errorStruct);
         }
         else
         {
             addErrorFailureStructToHash(
-                'errors', $suite->{'exceptionName'}, $errorStruct);
+                'errors', $suite->{'exception'}, $errorStruct);
         }
     }
 }
@@ -4715,7 +4710,7 @@ sub computeBehaviorSectionSignatureStructs
             my $signatureErrorStruct;
 
             ($fileName, $lineNum) =
-                extractFileNameFromStackTrace($suite->{'stackTrace'}, 0);
+                extractFileNameFromStackTrace($suite->{'trace'}, 0);
 
             if (!defined $fileName || !defined $lineNum)
             {
@@ -4738,7 +4733,7 @@ sub computeBehaviorSectionSignatureStructs
         {
             my $stackOverflowErrorStruct;
             $stackOverflowErrorStruct =
-                generateStackOverflowErrorStruct($suite->{'stackTrace'});
+                generateStackOverflowErrorStruct($suite->{'trace'});
 
             if (!defined $stackOverflowErrorStruct)
             {
@@ -4761,7 +4756,7 @@ sub computeBehaviorSectionSignatureStructs
             my $outOfMemoryStruct;
 
             ($fileName, $lineNum) =
-                extractFileNameFromStackTrace($suite->{'stackTrace'}, 1);
+                extractFileNameFromStackTrace($suite->{'trace'}, 1);
 
             if (!defined $fileName || !defined $lineNum)
             {
@@ -4781,7 +4776,7 @@ sub computeBehaviorSectionSignatureStructs
 
         # Test Timedout
         if ($suite->{'level'} == 5
-            && index(lc($suite->{'stackTrace'}), lc('TestTimedOutException'))
+            && index(lc($suite->{'trace'}), lc('TestTimedOutException'))
             != -1)
         {
             my $testsTakeLongStruct =
@@ -4797,15 +4792,15 @@ sub computeBehaviorSectionSignatureStructs
         my $errorStruct;
         my $message = $suite->{'message'};
 
-        if (defined $suite->{'exceptionName'})
+        if (defined $suite->{'exception'})
         {
-            my $exName = $suite->{'exceptionName'};
+            my $exName = $suite->{'exception'};
             $exName =~ s/^.*\.//o;
             $message = $exName . ': ' . $message;
         }
 
         ($fileName, $lineNum) =
-            extractFileNameFromStackTrace($suite->{'stackTrace'}, 1);
+            extractFileNameFromStackTrace($suite->{'trace'}, 1);
 
         if (!defined $fileName || !defined $lineNum)
         {
@@ -4819,7 +4814,7 @@ sub computeBehaviorSectionSignatureStructs
 
         # note that the key is 'behaviorErrors', so that there is no conflict
         # with 'errors' which is key for testing
-        if (!defined $suite->{'exceptionName'})
+        if (!defined $suite->{'exception'})
         {
             addErrorFailureStructToHash(
                 'behaviorErrors', $message, $errorStruct);
@@ -4827,10 +4822,9 @@ sub computeBehaviorSectionSignatureStructs
         else
         {
             addErrorFailureStructToHash(
-                'behaviorErrors', $suite->{'exceptionName'}, $errorStruct);
+                'behaviorErrors', $suite->{'exception'}, $errorStruct);
         }
     }
-
 }
 
 # Obtain LongName of a file
@@ -4964,8 +4958,8 @@ sub generateStackOverflowErrorStruct
         {
             @fileDetails = split(':', $cycleDetails[$methodIndex]);
             $errorStructMessage .= $fileDetails[0] . ':'
-                . extractLineOfCode($workingDir . "/" .
-                getLongName($fileDetails[0]),$fileDetails[1]);
+                . extractLineOfCode(
+                getLongName($fileDetails[0]), $fileDetails[1]);
             $errorStructMessage =~ tr/ //s;
             chomp($errorStructMessage);
 
@@ -5791,10 +5785,19 @@ END_MESSAGE
 
 # Values going into the spans don't add any meaning; adding two spans for
 # css sake
+my $roundedPct = int ($testingPct + 0.5);
+if ($roundedPct == 100 && $testingPct < 100)
+{
+    $roundedPct--;
+}
+if ($roundedPct < 10)
+{
+    $roundedPct = "&nbsp;$roundedPct";
+}
 print IMPROVEDFEEDBACKFILE '<li><span>',
-    "$testingPct%", '</span></li>',
-    '<li><span>',
-    "$testingPct%", '</span></li>', "</ul>\n";
+    $testingPct, '%</span></li>',
+    '<li><span>', $testingPct, '%</span></li><span class="percentage">',
+    $roundedPct, '%</span>', "</ul>\n";
 }
 print IMPROVEDFEEDBACKFILE "<ul class=\"checklist\">\n";
 
@@ -5985,11 +5988,21 @@ END_MESSAGE
 
 # Values going into the spans don't add any meaning; adding two spans for
 # css sake
+my $roundedPct = int ($behaviorSectionStatus{'problemCoveragePercent'} + 0.5);
+if ($roundedPct == 100 && $behaviorSectionStatus{'problemCoveragePercent'} < 100)
+{
+    $roundedPct--;
+}
+if ($roundedPct < 10)
+{
+    $roundedPct = "&nbsp;$roundedPct";
+}
 print IMPROVEDFEEDBACKFILE '<li><span>',
-    "$behaviorSectionStatus{'problemCoveragePercent'}%", '</span></li>',
-    '<li> <span>',
-    "$behaviorSectionStatus{'problemCoveragePercent'}%",
-    '</span></li>', "</ul>\n";
+    $behaviorSectionStatus{'problemCoveragePercent'},
+    '%</span></li><li><span>',
+    $behaviorSectionStatus{'problemCoveragePercent'},
+    '%</span></li><span class="percentage">',
+    $roundedPct, '%</span>', "</ul>\n";
 }
 print IMPROVEDFEEDBACKFILE "<ul class=\"checklist\">\n";
 
@@ -6126,10 +6139,20 @@ END_MESSAGE
 
 # Values going into the spans don't add any meaning; adding two spans for
 # css sake
+my $roundedPct = int ($styleSectionStatus{'pointsGainedPercent'} + 0.5);
+if ($roundedPct == 100 && $styleSectionStatus{'pointsGainedPercent'} < 100)
+{
+    $roundedPct--;
+}
+if ($roundedPct < 10)
+{
+    $roundedPct = "&nbsp;$roundedPct";
+}
 print IMPROVEDFEEDBACKFILE '<li><span>',
-    "$styleSectionStatus{'pointsGainedPercent'}%", '</span></li>',
-    '<li><span>',
-    "$styleSectionStatus{'pointsGainedPercent'}%", '</span></li>',
+    $styleSectionStatus{'pointsGainedPercent'}, '%</span></li><li><span>',
+    $styleSectionStatus{'pointsGainedPercent'},
+    '%</span></li><span class="percentage">',
+    $roundedPct, '%</span>',
     "</ul>\n<ul class=\"checklist\">\n";
 
 for my $element (@styleSectionOrder)

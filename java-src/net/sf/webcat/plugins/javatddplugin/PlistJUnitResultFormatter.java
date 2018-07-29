@@ -174,6 +174,8 @@ public class PlistJUnitResultFormatter
         public int       priority = 0;
         /** A message associated with the exception object, if any. */
         public String    message;
+        /** A stack trace associated with the exception object, if any. */
+        public String    stackTrace;
 
         /**
          * Create a new descriptor.
@@ -190,7 +192,8 @@ public class PlistJUnitResultFormatter
             Throwable error,
             int       code,
             int       level,
-            String    message )
+            String    message,
+            String    stackTrace)
         {
             this.suite   = suite;
             this.test    = test;
@@ -198,6 +201,7 @@ public class PlistJUnitResultFormatter
             this.code    = code;
             this.level   = level;
             this.message = message;
+            this.stackTrace = stackTrace;
         }
 
     }
@@ -303,7 +307,8 @@ public class PlistJUnitResultFormatter
         }
 
         return new TestResultDescriptor(
-            currentSuite, test, error, code, level, msg );
+            currentSuite, test, error, code, level, msg,
+            stackTraceMessage(error, false));
     }
 
 
@@ -313,9 +318,9 @@ public class PlistJUnitResultFormatter
      * @param test the test to print
      * @param error the exception produced by the test, or null
      */
-    protected void formatTestResultAsPlist( Test test, Throwable error )
+    protected void formatTestResultAsPlist(Test test, Throwable error)
     {
-        formatTestResultAsPlist( describe( test, error ) );
+        formatTestResultAsPlist( describe(test, error));
     }
 
 
@@ -420,6 +425,18 @@ public class PlistJUnitResultFormatter
         {
             appendResultsLabel("message");
             appendResultsQuotedValue(result.message);
+            appendResultsValueSeparator();
+        }
+        if (result.error != null)
+        {
+            appendResultsLabel("exception");
+            appendResultsQuotedValue(result.error.getClass().getName());
+            appendResultsValueSeparator();
+        }
+        if (result.stackTrace != null)
+        {
+            appendResultsLabel("trace");
+            appendResultsQuotedValue(result.stackTrace);
             appendResultsValueSeparator();
         }
         appendResults("},");
@@ -657,6 +674,125 @@ public class PlistJUnitResultFormatter
     }
 
 
+    // ----------------------------------------------------------
+    /**
+     * Get a printable, filtered stack trace.
+     * @param error the throwable containing the stack trace
+     * @param filterSuite if true, the test suite's stack frame will also
+     * be removed
+     * @return the formatted stack trace
+     */
+    protected String stackTraceMessage(Throwable error, boolean filterSuite)
+    {
+        if (error == null)
+        {
+            return null;
+        }
+        StringBuffer sb = new StringBuffer();
+        sb.append(error);
+        sb.append(StringUtils.LINE_SEP);
+        while (error.getCause() != null)
+        {
+            error = error.getCause();
+        }
+        String suiteName = currentSuite.getName();
+        int frameCount = 0;
+        for (StackTraceElement frame : error.getStackTrace())
+        {
+            ++frameCount;
+            if (frameCount > 20)
+            {
+                sb.append("... ");
+                sb.append(Integer.toString(
+                    error.getStackTrace().length - frameCount + 1));
+                sb.append(" more omitted\n");
+                break;
+            }
+            boolean inSuite =
+                suiteName != null && suiteName.equals(frame.getClassName());
+            if (inSuite && filterSuite)
+            {
+                break;
+            }
+            else if (!filterOut(frame))
+            {
+                sb.append("at ");
+                sb.append(frame.getClassName());
+                sb.append('.');
+                sb.append(frame.getMethodName());
+                String fileName = frame.getFileName();
+                if (fileName != null)
+                {
+                    sb.append("(");
+                    // Remove directory component for safety
+                    int pos = fileName.lastIndexOf('/');
+                    if (pos >= 0)
+                    {
+                        fileName = fileName.substring(pos + 1);
+                    }
+                    pos = fileName.lastIndexOf('\\');
+                    if (pos >= 0)
+                    {
+                        fileName = fileName.substring(pos + 1);
+                    }
+                    sb.append(fileName);
+                    int lineNo = frame.getLineNumber();
+                    if (lineNo > 0)
+                    {
+                        sb.append(':');
+                        sb.append(lineNo);
+                    }
+                    sb.append(")");
+                }
+                sb.append(StringUtils.LINE_SEP);
+            }
+            if (inSuite)
+            {
+                break;
+            }
+        }
+        return sb.toString();
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Determine if a stack trace element should be excluded from.
+     * A student-visible stack trace.
+     * @param frame the stack trace element to match against
+     * @return true if the frame should be hidden/removed/filtered
+     */
+    protected boolean filterOut(StackTraceElement frame)
+    {
+        return matches(frame, defaultStackFilters);
+    }
+
+
+    // ----------------------------------------------------------
+    /**
+     * Check a stack trace element against a list of filters.
+     * @param frame the stack trace element to match against
+     * @param filters a list of class prefixes to check for
+     * @return true if the frame matches any filter in the list
+     */
+    protected boolean matches(StackTraceElement frame, String[] filters)
+    {
+        if (filters == null || filters.length == 0)
+        {
+            return false;
+        }
+        String frameClass = frame.getClassName();
+        for (String filter : filters)
+        {
+            if (frameClass.startsWith(filter))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
     //~ Instance/static variables .............................................
 
     /** The current suite name. */
@@ -748,6 +884,22 @@ public class PlistJUnitResultFormatter
         java.net.URISyntaxException.class,                  //   41
         Exception.class,                                    //   42
         Throwable.class                                     //   43
+    };
+
+    private static final String[] defaultStackFilters = {
+        // JUnit 4 support:
+        "org.junit.",
+        // JUnit 3 support:
+        "junit.",
+        "java.",
+        "javax.",
+        "sun.",
+        "org.apache.",
+        // Web-CAT infrastructure
+        "net.sf.webcat.",
+        "student.",
+        "sofia.",
+        "cs1705.TestCase"
     };
 
     private static final int MAX_MSG_LENGTH = 256;

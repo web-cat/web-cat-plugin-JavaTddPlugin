@@ -180,31 +180,28 @@ public class HintingJUnitResultFormatter
 
 
     // ----------------------------------------------------------
-    protected TestResultDescriptor describe( Test test, Throwable error )
+    protected TestResultDescriptor describe(Test test, Throwable error)
     {
-        TestResultDescriptor result = super.describe( test, error );
-        result.message = removeClassNameFromMessage(
-            result.message, error );
+        TestResultDescriptor result = super.describe(test, error);
+        result.message = removeClassNameFromMessage(result.message, error);
         if (result.message != null && "null".equals(result.message.trim()))
         {
             result.message = null;
         }
-        if ( error != null )
+        if (error != null)
         {
-//            System.out.println(
-//                "generating hint for: '" + result.message);
-//            output.write(
-//                "generating hint for: '" + result.message + "'\n" );
+            // System.out.println(
+            //    "generating hint for: '" + result.message);
             // Figure out hint text
             String hint = null;
-            TestPhase phase = stoppedInPhase( error );
+            TestPhase phase = stoppedInPhase(error);
             int mandatory =
-                ( phase != TestPhase.TEST_CASE
-                  || (result.level == 4 && result.code != 29) )
+                (phase != TestPhase.TEST_CASE
+                  || (result.level == 4 && result.code != 29))
                 ? 1 : 0;  // AssertionError
 
             // Provide a mandatory hint in setup/teardown phases
-            switch ( phase )
+            switch (phase)
             {
                 case SETUP:
                     hint = "Failure during test case setup";
@@ -224,22 +221,22 @@ public class HintingJUnitResultFormatter
                     break;
             }
 
-            TestOptions options = testOptionsFor( result.test );
-            result.priority = options.hintPriority();
+            describeOptions = testOptionsFor(result.test);
+            result.priority = describeOptions.hintPriority();
 
             // Look for mandatory JUnit errors
             //     Method "fName" not found
             //     Method "fName" should be public
-            if ( result.code == 13 && result.message != null )
+            if (result.code == 13 && result.message != null)
             {
-                if ( result.message.matches(
-                         "Method .* (not found|should be public)" ) )
+                if (result.message.matches(
+                    "Method .* (not found|should be public)"))
                 {
                     mandatory = 2;
                     hint = result.message;
                 }
             }
-            else if ( result.code == 10 )
+            else if (result.code == 10)
             {
                 hint = result.message;
                 mandatory = 2; // Force instructor to see it!
@@ -247,29 +244,29 @@ public class HintingJUnitResultFormatter
 
 
             // Look for explicit hint first
-            if ( hint == null
-                 && result.message != null
-                 && !Pattern.compile("In file .*( which reads|on this line):")
-                     .matcher(result.message).find()
-                 /* && result.message.matches( HINT_MARKER_PLUS_ALL_RE )*/ )
+            if (hint == null
+                && result.message != null
+                && !Pattern.compile("In file .*( which reads|on this line):")
+                    .matcher(result.message).find()
+                /* && result.message.matches(HINT_MARKER_PLUS_ALL_RE) */)
             {
-                hint = result.message.replaceFirst( HINT_MARKER_RE, "" );
+                hint = result.message.replaceFirst(HINT_MARKER_RE, "");
                 hint = result.message.replaceFirst(
-                    "^java.lang.AssertionError:", "assertion failed:" );
+                    "^java.lang.AssertionError:", "assertion failed:");
 
                 // remove trailing "expected" fragments
 //                output.write(
-//                     "explicit hint, before trimming: " + hint + "\n" );
+//                     "explicit hint, before trimming: " + hint + "\n");
 //                output.write(
-//                    "    hint level: " + result.level + "\n" );
+//                    "    hint level: " + result.level + "\n");
 //                output.write(
-//                    "    hint code: " + result.code + "\n" );
-                if ( result.level == 2 )
+//                    "    hint code: " + result.code + "\n");
+                if (result.level == 2)
                 {
                     Pattern regex = expectedOutputRegExps[result.code];
-                    if ( regex != null )
+                    if (regex != null)
                     {
-                        hint = regex.matcher( hint ).replaceFirst( "" );
+                        hint = regex.matcher(hint).replaceFirst("");
                     }
                 }
 
@@ -281,193 +278,119 @@ public class HintingJUnitResultFormatter
                 {
                     // Add the required prefix, if any, by pushing the message
                     // back through the options object
-                    options.setHint( hint );
-                    hint = options.fullHintText();
+                    describeOptions.setHint(hint);
+                    hint = describeOptions.fullHintText();
                 }
 //                output.write(
-//                     "explicit hint, after trimming: " + hint + "\n" );
+//                     "explicit hint, after trimming: " + hint + "\n");
             }
 
             // if none, generate default hint
-            if ( hint == null && !options.onlyExplicitHints() )
+            if (hint == null && !describeOptions.onlyExplicitHints())
             {
 //                 output.write(
-//                     "no explicit hint, looking for default ...\n" );
-                hint = options.fullHintText();
+//                     "no explicit hint, looking for default ...\n");
+                hint = describeOptions.fullHintText();
 //                 output.write(
-//                     "default hint: '" + hint + "'\n" );
+//                     "default hint: '" + hint + "'\n");
             }
 
             // Determine stack trace, if any
             String traceMsg = null;
 
-            if ( ( mandatory == 1 && result.level != 4 )
-                 || ( result.level > 2
-                      // Not a reflection failure
-                      && (result.level != 4 || result.code != 29)
-                      // Then it was an unexpected exception thrown by the
-                      // code under test, or something called by the code
-                      // under test
-                      && ( ( result.level == 4 // assertion or other error
-                             && !options.noStackTracesForAsserts() )
-                           || !options.noStackTraces() ) ) )
+            if ((mandatory == 1 && result.level != 4)
+                || (result.level > 2
+                    // Not a reflection failure
+                    && (result.level != 4 || result.code != 29)
+                    // Then it was an unexpected exception thrown by the
+                    // code under test, or something called by the code
+                    // under test
+                    && ((result.level == 4 // assertion or other error
+                         && !describeOptions.noStackTracesForAsserts())
+                        || !describeOptions.noStackTraces())))
             {
-                traceMsg = stackTraceMessage(
-                    result.error,
-                    options.filterFromStackTraces()
-                );
+                traceMsg = stackTraceMessage(result.error, true);
+                if (traceMsg != null)
+                {
+                    traceMsg = "symptom: " + traceMsg;
+                }
             }
 
             // Replace message content
-            if ( hint != null )
+            if (hint != null)
             {
                 result.message = hint;
             }
 
             // Generate output for hint feedback
-            if ( output != null && hint != null )
+            System.out.println(currentSuite + ", hint = " + hint);
+            if (output != null && hint != null)
             {
-                synchronized ( output )
+                synchronized (output)
                 {
-                    outBuffer.append( "$results->addHint( " );
-                    outBuffer.append( mandatory );
-                    outBuffer.append( ", " );
-                    outBuffer.append( result.priority );
-                    outBuffer.append( ", " );
-                    outBuffer.append( perlStringLiteral( hint ) );
+                    outBuffer.append("$results->addHint(");
+                    outBuffer.append(mandatory);
+                    outBuffer.append(", ");
+                    outBuffer.append(result.priority);
+                    outBuffer.append(", ");
+                    outBuffer.append(perlStringLiteral(hint));
                     if ( traceMsg == null )
                     {
-                        outBuffer.append( ", undef );" );
+                        outBuffer.append( ", undef);" );
                     }
                     else
                     {
-                        outBuffer.append( ", <<TRACE );" );
-                        outBuffer.append( StringUtils.LINE_SEP );
-                        outBuffer.append( perlEscape( traceMsg ) );
-                        outBuffer.append( "TRACE" );
+                        outBuffer.append(", <<TRACE);");
+                        outBuffer.append(StringUtils.LINE_SEP);
+                        outBuffer.append(perlEscape(traceMsg));
+                        outBuffer.append("TRACE");
                     }
-                    outBuffer.append( StringUtils.LINE_SEP );
-                    output.write( outBuffer.toString() );
-                    outBuffer.setLength( 0 );
+                    outBuffer.append(StringUtils.LINE_SEP);
+                    output.write(outBuffer.toString());
+                    outBuffer.setLength(0);
                 }
             }
         }
+        describeOptions = null;
         return result;
     }
 
 
     // ----------------------------------------------------------
     /**
-     * Get a printable, filtered stack trace.
-     * @param error the throwable containing the stack trace
-     * @param filters classes (or class prefixes) to hide in the
-     * generated trace
-     * @return the formatted stack trace
-     */
-    private String stackTraceMessage( Throwable error, String[] filters )
-    {
-        if ( error == null ) return null;
-        StringBuffer sb = new StringBuffer( "symptom: " );
-        sb.append( error );
-        sb.append( StringUtils.LINE_SEP );
-        while ( error.getCause() != null )
-        {
-            error = error.getCause();
-        }
-        String suiteName = suiteOptions().suite().getName();
-        int frameCount = 0;
-        for ( StackTraceElement frame : error.getStackTrace() )
-        {
-            ++frameCount;
-            if (frameCount > 20)
-            {
-                sb.append("... ");
-                sb.append(Integer.toString(
-                    error.getStackTrace().length - frameCount + 1));
-                sb.append(" more omitted\n");
-                break;
-            }
-            if ( suiteName != null && suiteName.equals( frame.getClassName() ) )
-            {
-                break;
-            }
-            else if ( !matches( frame, defaultStackFilters )
-                      && !matches( frame, filters ) )
-            {
-                sb.append( "at " );
-                sb.append( frame.getClassName() );
-                sb.append( '.' );
-                sb.append( frame.getMethodName() );
-                String fileName = frame.getFileName();
-                if ( fileName != null )
-                {
-                    sb.append("(");
-                    // Remove directory component for safety
-                    int pos = fileName.lastIndexOf( '/' );
-                    if ( pos >= 0 )
-                    {
-                        fileName = fileName.substring( pos + 1 );
-                    }
-                    pos = fileName.lastIndexOf( '\\' );
-                    if ( pos >= 0 )
-                    {
-                        fileName = fileName.substring( pos + 1 );
-                    }
-                    sb.append( fileName );
-                    int lineNo = frame.getLineNumber();
-                    if ( lineNo > 0 )
-                    {
-                        sb.append( ':' );
-                        sb.append( lineNo );
-                    }
-                    sb.append(")");
-                }
-                sb.append( StringUtils.LINE_SEP );
-            }
-        }
-        return sb.toString();
-    }
-
-
-    // ----------------------------------------------------------
-    /**
-     * Check a stack trace element against a list of filters.
+     * Determine if a stack trace element should be excluded from.
+     * A student-visible stack trace.
      * @param frame the stack trace element to match against
-     * @param filters a list of class prefixes to check for
-     * @return true if the frame matches any filter in the list
+     * @return true if the frame should be hidden/removed/filtered
      */
-    protected boolean matches( StackTraceElement frame, String[] filters )
+    protected boolean filterOut(StackTraceElement frame)
     {
-        if ( filters == null || filters.length == 0 ) return false;
-        String frameClass = frame.getClassName();
-        for ( String filter : filters )
+        boolean result = super.filterOut(frame);
+        if (!result && describeOptions != null)
         {
-            if ( frameClass.startsWith( filter ) )
-            {
-                return true;
-            }
+            result = matches(frame, describeOptions.filterFromStackTraces());
         }
-        return false;
+        return result;
     }
 
 
     // ----------------------------------------------------------
-    private TestPhase stoppedInPhase( Throwable error )
+    private TestPhase stoppedInPhase(Throwable error)
     {
         TestPhase result = TestPhase.TEST_CASE;
         Class<?> suiteClass = suiteOptions().suiteClass();
         String suiteName = suiteOptions().suite().getName();
-        if ( error != null  &&  suiteClass != null  &&  suiteName != null )
+        if (error != null  &&  suiteClass != null  &&  suiteName != null)
         {
             boolean isJUnit3 = junit.framework.TestCase.class
-                .isAssignableFrom( suiteClass );
-            while ( error.getCause() != null )
+                .isAssignableFrom(suiteClass);
+            while (error.getCause() != null)
             {
                 error = error.getCause();
             }
-            for ( StackTraceElement frame : error.getStackTrace() )
+            for (StackTraceElement frame : error.getStackTrace())
             {
-                if ( suiteName.equals( frame.getClassName() ) )
+                if (suiteName.equals( frame.getClassName()))
                 {
                     String methodName = frame.getMethodName();
                     java.lang.reflect.Method method = null;
@@ -476,59 +399,59 @@ public class HintingJUnitResultFormatter
                         method =
                             suiteClass.getMethod(methodName, (Class[])null);
                     }
-                    catch ( NoSuchMethodException e )
+                    catch (NoSuchMethodException e)
                     {
                         // Leave method == null
                     }
 
                     // Check for special methods
-                    if ( method != null )
+                    if (method != null)
                     {
-                        if ( isJUnit3 )
+                        if (isJUnit3)
                         {
-                            if ( methodName.equals( "setUp" ) )
+                            if (methodName.equals("setUp"))
                             {
                                 result = TestPhase.SETUP;
                                 break;
                             }
-                            else if ( methodName.equals( "tearDown" ) )
+                            else if (methodName.equals("tearDown"))
                             {
                                 result = TestPhase.TEAR_DOWN;
                                 break;
                             }
-                            else if ( methodName.startsWith( "test" ) )
+                            else if (methodName.startsWith("test"))
                             {
                                 break;
                             }
                         }
                         else // JUnit4
                         {
-                            if ( method.isAnnotationPresent(
-                                     org.junit.Before.class ) )
+                            if (method.isAnnotationPresent(
+                                org.junit.Before.class))
                             {
                                 result = TestPhase.SETUP;
                                 break;
                             }
-                            else if ( method.isAnnotationPresent(
-                                          org.junit.BeforeClass.class ) )
+                            else if (method.isAnnotationPresent(
+                                org.junit.BeforeClass.class))
                             {
                                 result = TestPhase.CLASS_SETUP;
                                 break;
                             }
-                            else if ( method.isAnnotationPresent(
-                                          org.junit.After.class ) )
+                            else if (method.isAnnotationPresent(
+                                org.junit.After.class))
                             {
                                 result = TestPhase.TEAR_DOWN;
                                 break;
                             }
-                            else if ( method.isAnnotationPresent(
-                                          org.junit.AfterClass.class ) )
+                            else if (method.isAnnotationPresent(
+                                org.junit.AfterClass.class))
                             {
                                 result = TestPhase.CLASS_TEAR_DOWN;
                                 break;
                             }
-                            else if ( method.isAnnotationPresent(
-                                          org.junit.Test.class ) )
+                            else if (method.isAnnotationPresent(
+                                org.junit.Test.class))
                             {
                                 break;
                             }
@@ -559,27 +482,6 @@ public class HintingJUnitResultFormatter
     //~ Instance/static variables .............................................
 
     private static final String HINT_MARKER_RE = "^(?i)hint:\\s*";
-
-    private static final String[] defaultStackFilters = {
-        // JUnit 4 support:
-        "org.junit.",
-        // JUnit 3 support:
-        "junit.framework.",
-        "junit.swingui.TestRunner",
-        "junit.awtui.TestRunner",
-        "junit.textui.TestRunner",
-        "java.lang.reflect.",
-        "sun.reflect.",
-        "org.apache.tools.ant.",
-        // Web-CAT infrastructure
-        "net.sf.webcat.plugins.",
-        "net.sf.webcat.ReflectionSupport",
-        "net.sf.webcat.TestCase",
-        "student.GUITestCase",
-        "student.TestCase",
-        "student.testingsupport.ReflectionSupport",
-        "cs1705.TestCase"
-    };
 
     private static final Pattern[] expectedOutputRegExps = {
         null,                               // 0: not used
@@ -656,4 +558,5 @@ public class HintingJUnitResultFormatter
 
     private TestSuiteOptions suiteOptions;
     private TestOptions testOptions;
+    private TestOptions describeOptions;
 }
