@@ -505,7 +505,7 @@ sub compilerErrorHintKey
     foreach my $compilerErrorMsg (sort {length($b) <=>
         length($a)} keys %compilerErrors)
     {
-        if ($errorMsg =~ m/$compilerErrorMsg/i)
+        if (index($errorMsg, lc($compilerErrorMsg)) != -1)
         {
             writeToErrorMapperLog('#compilerError', $errorMsg,
                 $compilerErrors{$compilerErrorMsg});

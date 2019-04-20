@@ -85,6 +85,10 @@ setResultDir($resultDir);
 
 my $useEnhancedFeedback = $cfg->getProperty('useEnhancedFeedback', 0);
 $useEnhancedFeedback = ($useEnhancedFeedback =~ m/^(true|on|yes|y|1)$/i);
+my $showAllTestOutcomes = $cfg->getProperty('showAllTestOutcomes', 0);
+$showAllTestOutcomes = ($showAllTestOutcomes =~ m/^(true|on|yes|y|1)$/i);
+my $allTestOutcomeResults = '';
+my $allTestOutcomesLeader = '';
 
 my @beautifierIgnoreFiles = ();
 my $timeout    = $cfg->getProperty('timeout', 45);
@@ -756,10 +760,13 @@ if ($debug)
     {
         my $lf = confirmExists($scriptData, $localFiles);
         print "localFiles = $lf\n" if $debug;
+        mkdir($resultDir . "/studentbin.raw");
         if (-d $lf)
         {
             print "localFiles is a directory\n" if $debug;
-            copyHere($lf, $lf, \@beautifierIgnoreFiles);
+            copyHere($lf, $lf);
+            copyHere($lf, $lf, \@beautifierIgnoreFiles,
+                $resultDir . "/studentbin.raw");
         }
         else
         {
@@ -767,7 +774,9 @@ if ($debug)
             $lf =~ tr/\\/\//;
             my $base = $lf;
             $base =~ s,/[^/]*$,,;
-            copyHere($lf, $base, \@beautifierIgnoreFiles);
+            copyHere($lf, $base);
+            copyHere($lf, $base, \@beautifierIgnoreFiles,
+                $resultDir . "/studentbin.raw");
         }
     }
 }
@@ -3958,7 +3967,7 @@ EOF
     {
         my $hints = $status{'instrTestResults'}->formatHints(
             1, $hintsLimit);
-    print "hints = $hints\n";
+        # print "hints = $hints\n";
         if (defined $hints && $hints ne "" && $hints =~ /honor code viol/i)
         {
             $hints =~ s/<p>Failure during test case setup[^<]*<\/p>//g;
@@ -4099,18 +4108,27 @@ EOF
         }
         else
         {
-            my $hints = $status{'instrTestResults'}->formatHints(
-                0, $hintsLimit);
+            my $hints = $showAllTestOutcomes
+                ? $status{'instrTestResults'}->formatAllTestOutcomes
+                : $status{'instrTestResults'}->formatHints(
+                    0, $hintsLimit);
+            if ($showAllTestOutcomes) { $allTestOutcomeResults = $hints; }
+            # print "hints = $hints\n";
+            my $label = $showAllTestOutcomes
+                ? 'instructor reference test outcomes' : 'hint(s)';
             if (defined $hints && $hints ne "")
             {
-                my $extra = "";
+                my $extra = '';
                 if ($studentsMustSubmitTests)
                 {
-                    $extra = "and your testing ";
+                    $extra = 'and your testing';
                 }
+                $allTestOutcomesLeader = '<p>The following ' . $label
+                    . ' may help you locate some ways in which your solution '
+                    . $extra
+                    . ' may be improved:</p>';
                 $status{'feedback'}->print(<<EOF);
-<p>The following hint(s) may help you locate some ways in which your solution
-$extra may be improved:</p>
+$allTestOutcomesLeader
 $hints
 EOF
             }
@@ -6066,6 +6084,14 @@ for my $element (@behaviorSectionOrder)
     print IMPROVEDFEEDBACKFILE
         '<h1>', $behaviorSectionTitles{$element}, '</h1>' ;
 
+    if (defined $allTestOutcomeResults && $allTestOutcomeResults ne '')
+    {
+        print IMPROVEDFEEDBACKFILE $allTestOutcomesLeader;
+        print IMPROVEDFEEDBACKFILE $allTestOutcomeResults;
+    }
+    else
+    {
+
     if ($element eq 'failures')
     {
         print IMPROVEDFEEDBACKFILE '<p>Instructor reference tests found '
@@ -6106,6 +6132,7 @@ for my $element (@behaviorSectionOrder)
             print IMPROVEDFEEDBACKFILE '<p><span>',
                 htmlEscape($errorStruct->enhancedMessage), '</span></p>';
         }
+    }
     }
 }
 

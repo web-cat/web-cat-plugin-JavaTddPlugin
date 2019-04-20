@@ -1,31 +1,21 @@
 package org.webcat.plugins.javatddplugin;
 
-import com.gzoltar.core.GZoltar;
+import java.io.*;
+import java.util.*;
+
+import com.gzoltar.core.*;
+import com.gzoltar.core.instr.testing.TestResult;
 import com.gzoltar.core.components.Component;
 import com.gzoltar.core.components.Statement;
-import com.gzoltar.core.instr.testing.TestResult;
 import com.gzoltar.core.spectra.Spectra;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
+
+import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -34,169 +24,272 @@ import org.w3c.dom.Element;
 
 public class ZoltarTest
 {
-    static Logger log = Logger.getLogger(ZoltarTest.class);
-    static String basePath = System.getProperty("user.dir");
-    static String gzXmlFile = System.getProperty("gzoltar.xml.output");
-    static String gzCsvFile = System.getProperty("gzoltar.csv.output");
-    static String gzStudentPid = System.getProperty("gzoltar.student.pid");
-    static String gzStudentBinDir = System.getProperty("gzoltar.student.bin");
-    static String gzTestsDir = System.getProperty("gzoltar.tests.dir");
-    static String gzLibs = System.getProperty("gzoltar.libs");
+    private static Logger log = Logger.getLogger(ZoltarTest.class);
+    private static String gzXmlFile = System.getProperty("gzoltar.xml.output");
+    private static String gzCsvFile = System.getProperty("gzoltar.csv.output");
+    private static String gzStudentPid =
+        System.getProperty("gzoltar.student.pid");
+    private static String gzStudentBinDir =
+        System.getProperty("gzoltar.student.bin");
+    private static String gzTestsDir = System.getProperty("gzoltar.tests.dir");
+    private static String gzLibs = System.getProperty("gzoltar.libs");
+    private static Integer gzTestDepth =
+        Integer.parseInt(System.getProperty("gzoltar.test.depth", "1"));
 
     public static void main(String[] args)
     {
         BasicConfigurator.configure();
-
         log.setLevel(Level.DEBUG);
 
         String paramSortOrder = "CLMS";
         if (log.isDebugEnabled())
         {
-            log.debug("gzXmlFile: " + gzXmlFile);
-            log.debug("gzCsvFile: " + gzCsvFile);
-            log.debug("gzStudentPid: " + gzStudentPid);
+          log.debug("gzXmlFile: " + gzXmlFile);
+          log.debug("gzCsvFile: " + gzCsvFile);
+          log.debug("gzStudentPid: " + gzStudentPid);
 
-            log.debug("gzStudentBinDir: " + gzStudentBinDir);
-            log.debug("gzTestsDir: " + gzTestsDir);
-            log.debug("gzLibs: " + gzLibs);
+          log.debug("gzStudentBinDir: " + gzStudentBinDir);
+          log.debug("gzTestsDir: " + gzTestsDir);
+          log.debug("gzLibs: " + gzLibs);
 
-            log.debug("Sort: " + paramSortOrder);
-            log.debug("Project: " + gzStudentPid);
+          log.debug("Sort: " + paramSortOrder);
+          log.debug("Project: " + gzStudentPid);
         }
+
         try
         {
-            log.info("Create new GZoltar instance..." + gzStudentBinDir);
-            GZoltar gz = new GZoltar(gzStudentBinDir);
-            log.info("Adding classes to instrument...");
-
-            addClassesToInstrument(gz, new File(gzStudentBinDir));
-
-            log.info("Adding libraries...");
-            ArrayList<String> classPaths = new ArrayList();
-
-            log.debug("building gzoltar student classpath");
-            for (String libname : gzLibs.split(System.getProperty("path.separator")))
-            {
-                if (libname.endsWith("jar"))
-                {
-                    classPaths.add(libname);
-                    log.debug("...." + libname + " added");
-                }
-                else
-                {
-                    log.debug("...." + libname + " skipped");
-                }
-            }
-            classPaths.add(gzTestsDir);
-            if (log.isDebugEnabled())
-            {
-                log.debug("classPaths added:");
-                for (String s : classPaths)
-                {
-                    log.debug("...." + s);
-                }
-            }
-            gz.setClassPaths(classPaths);
-
-            log.info("Adding Test classes...");
-
+            ArrayList<String> allTestNames = new ArrayList<String>();
+            ArrayList<String> failedTestNames = new ArrayList<String>();
             File[] testList = new File(gzTestsDir).listFiles();
+
             log.info(testList.length + " files found");
             for (File testfile : testList)
             {
                 String testname = testfile.getName();
-                int dot = testname.lastIndexOf(".");
-                if (dot > 0) {
-                    testname = testname.substring(0, dot);
-                }
-                if ((!testname.contains("$")) && (
-                    (testname.endsWith("Test")) ||
-                    (testname.endsWith("Tests"))))
+
+                if (testname.indexOf("Test") != -1)
                 {
-                    gz.addTestToExecute(testname);
-                    log.debug("...." + testname + " added");
+                    //File is a test file
+                    int dot = testname.lastIndexOf(".");
+                    String name = testname.substring(0, dot);
+                    allTestNames.add(name);
+                    log.debug("...."+ testname + " added");
                 }
                 else
                 {
-                    log.debug("...." + testname + " skipped");
+                    log.debug("...."+ testname + " skipped");
                 }
             }
-            log.info("Run GZoltar...");
-            gz.run();
-            Spectra spectra = gz.getSpectra();
-            log.info("Get Test Results...");
 
-            List<TestResult> results = spectra.getTestResults();
+            Spectra spectra = execGzoltar(allTestNames);
 
-            log.info("Get Suspicious Statements To Map...");
+            Thread.sleep(4000);
+
+            Spectra failedOnlySpectra = null;
+            List<Component> suspectStatesAllTests = null;
+            List<Component> suspectStatesFailedOnly = null;
+
+
+            // if gzTestDepth is non-zero, return the suspiciousness for the
+            // first gzTestDepth-th failed cases
+            // if gzTestDepth is zero, return results for all failed cases
+            int failedTests = 0;
+
+            if (gzTestDepth > 0)
+            {
+                log.info("Getting Suspicious Results from first "
+                    + gzTestDepth + " failed tests...");
+
+                for (TestResult result : spectra.getTestResults())
+                {
+                    if (!result.wasSuccessful() && failedTests < gzTestDepth)
+                    {
+                        String testname = result.getName();
+                        int dot = testname.lastIndexOf("#");
+                        String name = testname.substring(0, dot);
+                        failedTestNames.add(name);
+                        log.debug(result.getName() + "(" + name
+                            + ")...FAILED!");
+                        //log.debug(result.getCoveredComponents().toString());
+                        failedTests++;
+                    }
+                    else
+                    {
+                        log.debug(result.getName() + "...passed");
+                    }
+                }
+                if (log.isDebugEnabled())
+                {
+                    log.debug("failedTest Names :");
+                    for (String s : failedTestNames)
+                    {
+                        log.debug("...." + s);
+                    }
+                }
+                if (failedTestNames.size() > 0)
+                {
+                    //rerun zoltar for the failed cases only.
+                    failedOnlySpectra = execGzoltar(failedTestNames);
+                }
+            }
+
+            suspectStatesAllTests = spectra.getComponentsBySuspiciousness();
+            if (failedOnlySpectra != null)
+            {
+                suspectStatesFailedOnly =
+                    failedOnlySpectra.getComponentsBySuspiciousness();
+                for (TestResult result : failedOnlySpectra.getTestResults())
+                {
+                    if (!result.wasSuccessful())
+                    {
+                        log.debug(result.getName() + "...FAILED!");
+                    }
+                    else
+                    {
+                        log.debug(result.getName() + "...passed");
+                    }
+                }
+            }
+
+            System.out.println("");
+            System.out.println("");
+
             List<String> suspectsLines = new ArrayList<String>();
+//            List<String> failedOnlySuspectsLines = new ArrayList<String>();
             String encodedLine = "";
 
-            List<Component> suspectStates2 =
-                spectra.getComponentsBySuspiciousness();
             Map<String, Double> maxMethods = new HashMap<String, Double>();
             Map<String, Double> sortedMaxMethods =
                 new HashMap<String, Double>();
             Map<String, Double> mostSuspectMethods =
                 new HashMap<String, Double>();
-            Map<String, String> splitResults;
-            if (!suspectStates2.isEmpty())
+            Map<String, Double> fullSuspectMap = new HashMap<String, Double>();
+
+            if (!suspectStatesAllTests.isEmpty())
             {
-                for (Component component : suspectStates2)
+                for (Component statement : suspectStatesAllTests)
                 {
-                    Statement statement = (Statement)component;
-                    if (statement.getSuspiciousness() != 0.0D)
+                    fullSuspectMap.put(statement.getLabel(),
+                        statement.getSuspiciousness());
+                    if (statement.getSuspiciousness() != 0.0)
                     {
-                        log.debug(statement.getLabel() + statement.getSuspiciousness());
-                        splitResults = splitZoltarReportLineWithoutSize(statement.getLabel());
-                        String currMethodSig = splitResults.get("class") + "|" + splitResults.get("method");
+                        Map<String, String> splitResults =
+                            splitZoltarReportLineWithoutSize(
+                            statement.getLabel());
+                        String currMethodSig = splitResults.get("class") + "|"
+                            + splitResults.get("method");
+
                         if (maxMethods.containsKey(currMethodSig))
                         {
-                            if (maxMethods.get(currMethodSig).doubleValue() < statement.getSuspiciousness())
+                            if (maxMethods.get(currMethodSig) <
+                                statement.getSuspiciousness())
                             {
-                                maxMethods.put(currMethodSig, Double.valueOf(statement.getSuspiciousness()));
+                                maxMethods.put(currMethodSig,
+                                    statement.getSuspiciousness());
                             }
                         }
                         else
                         {
-                            maxMethods.put(currMethodSig, Double.valueOf(statement.getSuspiciousness()));
+                            maxMethods.put(currMethodSig,
+                                statement.getSuspiciousness());
                         }
-                        if ("CLMS".equals(paramSortOrder))
-                        {
-                            encodedLine = splitResults.get("class") + "|" + statement.getLineNumber() + "|" + splitResults.get("method") + "|" + statement.getSuspiciousness();
-                        }
-                        else if ("CSLM".equals(paramSortOrder))
-                        {
-                            encodedLine = splitResults.get("class") + "|" + statement.getSuspiciousness() + "|" + statement.getLineNumber() + "|" + splitResults.get("method");
-                        }
-                        else
-                        {
-                            encodedLine = splitResults.get("class") + "|" + splitResults.get("method") + "|" + statement.getLineNumber() + "|" + statement.getSuspiciousness();
-                        }
-                        suspectsLines.add(encodedLine);
                     }
                 }
-                log.info("..." + suspectsLines.size() + " suspicious lines found");
+
+                if (log.isDebugEnabled())
+                {
+                    printMap(sortByValue(fullSuspectMap));
+                }
+
+                if (suspectStatesFailedOnly != null)
+                {
+                    for (Component component : suspectStatesFailedOnly)
+                    {
+                        Statement statement = (Statement)component;
+                        if (statement.getSuspiciousness() != 0.0)
+                        {
+                            log.debug(statement.getLabel() + ' '
+                                + statement.getSuspiciousness());
+                            Map<String, String> splitResults =
+                                splitZoltarReportLineWithoutSize(
+                                statement.getLabel());
+ /*                       String currMethodSig = splitResults.get("class").toString() + "|" + splitResults.get("method").toString();
+
+
+                        if ( maxMethods.containsKey(currMethodSig)){
+                            if ( maxMethods.get(currMethodSig) < statement.getSuspiciousness() ){
+                                maxMethods.put(currMethodSig, statement.getSuspiciousness());
+                            }
+                        }else{
+                            maxMethods.put(currMethodSig, statement.getSuspiciousness());
+                        }
+*/
+
+                            if ("CLMS".equals(paramSortOrder))
+                            {
+                                encodedLine = splitResults.get("class")
+                                    + "|" + statement.getLineNumber()
+                                    + "|" + splitResults.get("method")
+                                    + "|"
+                                    + fullSuspectMap.get(statement.getLabel());
+                            }
+                            else if ("CSLM".equals(paramSortOrder))
+                            {
+                                encodedLine = splitResults.get("class")
+                                    + "|"
+                                    + fullSuspectMap.get(statement.getLabel())
+                                    + "|" + statement.getLineNumber()
+                                    + "|" + splitResults.get("method");
+                            }
+                            else if ("CMLS".equals(paramSortOrder))
+                            {
+                                encodedLine = splitResults.get("class")
+                                    + "|" + splitResults.get("method")
+                                    + "|" + statement.getLineNumber()
+                                    + "|"
+                                    + fullSuspectMap.get(statement.getLabel());
+                            }
+                            else
+                            {
+                                throw new IllegalStateException(" parameter "
+                                    + "sort order " + paramSortOrder + " is "
+                                    + "not supported.");
+                            }
+                            suspectsLines.add(encodedLine);
+                        }
+                    }
+                }
+                else
+                {
+                    log.info("No suspicious lines found for failed tests");
+                }
+                log.info("..." + suspectsLines.size()
+                    + " suspicious lines found");
             }
             else
             {
                 log.info("... 0 (zero) suspicious lines found");
             }
+
             sortedMaxMethods = sortByValue(maxMethods);
 
+            // @TODO remote the lastX value here
             mostSuspectMethods = returnLastXFromMap(sortedMaxMethods, 3);
-
-            System.out.println("Most suspicious methods...");
-            printMap(mostSuspectMethods);
+            if (log.isDebugEnabled())
+            {
+                log.debug("Most suspicious methods...");
+                printMap(mostSuspectMethods);
+            }
 
             Collections.sort(suspectsLines);
             if ((gzCsvFile != null) && (!gzCsvFile.isEmpty()))
             {
-                log.info("Writing to file (" + gzCsvFile + ")...");
-                FileWriter writer = new FileWriter(gzCsvFile, true);
-                for (String s : suspectsLines)
-                {
-                    Map<String, String> suspectMap = splitSuspectLineWithFormat(s, paramSortOrder);
+              log.info("Writing to file (" + gzCsvFile + ")...");
+              FileWriter writer = new FileWriter(gzCsvFile, true);
+              for (String s : suspectsLines)
+              {
+                    Map<String, String> suspectMap =
+                        splitSuspectLineWithFormat(s, paramSortOrder);
                     writer.append(gzStudentPid);
                     writer.append(',');
                     writer.append(suspectMap.get("class"));
@@ -210,26 +303,40 @@ public class ZoltarTest
                     if (log.isDebugEnabled())
                     {
                         log.debug("Class: " + suspectMap.get("class") +
-                            " Method: " + suspectMap.get("method") +
-                            " Line: " + suspectMap.get("line") +
+                            " Method: "  + suspectMap.get("method") +
+                            " Line: " + suspectMap.get("line")+
                             " Suspect: " + suspectMap.get("score"));
                     }
                 }
                 writer.flush();
                 writer.close();
             }
-            DocumentBuilder docBuilder;
+
             if ((gzXmlFile != null) && (!gzXmlFile.isEmpty()))
             {
-                log.info("Writing to file (" + gzXmlFile + ")...");
+                //We want to build an xml file with this format:
+                //<root>
+                //	<classname>
+                //		<suspect>
+                //			<method>
+                //			<line>
+                //			<score>
+                //          <most>
+                //		</suspect>
+                //		(repeat for all suspects in class)
+                //	</classname>
+                //	(repeat for all classes with suspects)
+                //</root>
 
+                //Initialize XML
                 DocumentBuilderFactory docFactory =
                     DocumentBuilderFactory.newInstance();
-                docBuilder = docFactory.newDocumentBuilder();
-
+                DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+                // root elements
                 Document doc = docBuilder.newDocument();
                 Element rootElement = doc.createElement("gzoltar");
                 doc.appendChild(rootElement);
+
                 if (suspectsLines.size() > 0)
                 {
                     String lastClass = "";
@@ -239,51 +346,78 @@ public class ZoltarTest
                     {
                         Map<String, String> suspectMap =
                             splitSuspectLineWithFormat(s, paramSortOrder);
+
                         if (log.isDebugEnabled())
                         {
                             log.debug("Class: " + suspectMap.get("class") +
-                                " Method: " + suspectMap.get("method") +
-                                " Line: " + suspectMap.get("line") +
-                                " Suspect: " + suspectMap.get("score"));
+                        		" Method: "  + suspectMap.get("method") +
+                        		" Line: " + suspectMap.get("line")+
+                        		" Suspect: " + suspectMap.get("score"));
                         }
+
+                        // Get the name of the current class.
                         String currentClass = suspectMap.get("class");
                         String classname = "";
-                        log.debug("currentClass: " + suspectMap.get("class"));
-                        if (mostSuspectMethods.containsKey(suspectMap.get("class") + "|" + suspectMap.get("method")))
+                        // System.out.println("currentClass: " + suspectMap.get("class").toString());
+
+                        // Is this one of the maxSuspect methods:
+                        // System.out.println("looking for " + suspectMap.get("class").toString() + "|" + suspectMap.get("method"));
+                        if (mostSuspectMethods.containsKey(
+                            suspectMap.get("class") + "|"
+                            + suspectMap.get("method")))
                         {
                             mostSuspectFlag = "yes";
+                            // System.out.println("...FOUND...");
                         }
                         else
                         {
                             mostSuspectFlag = "no";
                         }
+                        // If it is a private helper class (ie
+                        // LinkedQueue$Node), we really care about the base
+                        // class name. Also the $ is not allowed as an XML
+                        // node name. So we test to see if we get the $, and
+                        // if we do, get the string in front of $ as the class
+                        // name.
                         if (currentClass.indexOf("$") != -1)
                         {
+                            // is a class within a class
                             int dot = currentClass.lastIndexOf("$");
-
                             classname = currentClass.substring(0, dot);
                         }
                         else
                         {
                             classname = currentClass;
                         }
-                        log.debug("classname: " + classname);
+
+                        // System.out.println("classname: " + classname);
+
+                        // Now, see if the class is the same as the last one
+                        // we populated
                         if (!lastClass.equals(classname))
                         {
-                            log.debug("Creating new class node. Was: " + lastClass + " now: " + classname);
+                            // System.out.println("Creating new class node.
+                            // Was: " + lastClass +" now: " + classname);
+                            // new class, so update the lastClass flag, append
+                            // the current class node to root and create a new
+                            // class node for the new class to be processed.
                             if (!lastClass.equals(""))
                             {
                                 rootElement.appendChild(suspectsElement);
                             }
+                            // suspectsElement = null;
                             lastClass = classname;
                             suspectsElement = doc.createElement(classname);
                         }
                         else
                         {
-                            log.debug("Using same class as before: " + lastClass);
+                            // System.out.println("Using same class as before: " + lastClass);
                         }
+
                         Element suspiciousStatementElement =
                             doc.createElement("suspect");
+
+                        // Element suspiciousStatementClassElement = doc.createElement("class");
 
                         Element suspiciousStatementMethodElement =
                             doc.createElement("method");
@@ -294,40 +428,63 @@ public class ZoltarTest
                         Element suspiciousStatementMostSuspectElement =
                             doc.createElement("most");
 
-                        suspiciousStatementMethodElement.appendChild(doc.createTextNode(suspectMap.get("method")));
-                        suspiciousStatementLineElement.appendChild(doc.createTextNode(suspectMap.get("line")));
-                        suspiciousStatementScoreElement.appendChild(doc.createTextNode(suspectMap.get("score")));
-                        suspiciousStatementMostSuspectElement.appendChild(doc.createTextNode(mostSuspectFlag));
+                        // suspiciousStatementClassElement.appendChild(doc.createTextNode(suspectMap.get("class").toString()));
 
-                        suspiciousStatementElement.appendChild(suspiciousStatementMethodElement);
-                        suspiciousStatementElement.appendChild(suspiciousStatementLineElement);
-                        suspiciousStatementElement.appendChild(suspiciousStatementScoreElement);
-                        suspiciousStatementElement.appendChild(suspiciousStatementMostSuspectElement);
+                        suspiciousStatementMethodElement.appendChild(
+                            doc.createTextNode(suspectMap.get("method")));
+                        suspiciousStatementLineElement.appendChild(
+                            doc.createTextNode(suspectMap.get("line")));
+                        suspiciousStatementScoreElement.appendChild(
+                            doc.createTextNode(suspectMap.get("score")));
+                        suspiciousStatementMostSuspectElement.appendChild(
+                            doc.createTextNode(mostSuspectFlag));
 
-                        suspectsElement.appendChild(suspiciousStatementElement);
+                        // suspiciousStatementElement.appendChild(suspiciousStatementClassElement);
+                        suspiciousStatementElement.appendChild(
+                            suspiciousStatementMethodElement);
+                        suspiciousStatementElement.appendChild(
+                            suspiciousStatementLineElement);
+                        suspiciousStatementElement.appendChild(
+                            suspiciousStatementScoreElement);
+                        suspiciousStatementElement.appendChild(
+                            suspiciousStatementMostSuspectElement);
+
+                        suspectsElement.appendChild(
+                            suspiciousStatementElement);
                     }
+                    // Need to have this here so that the last class node
+                    // is added to the root node.
                     rootElement.appendChild(suspectsElement);
                 }
-                TransformerFactory transformerFactory = TransformerFactory.newInstance();
+
+                // write the content into xml file
+                TransformerFactory transformerFactory =
+                    TransformerFactory.newInstance();
                 Transformer transformer = transformerFactory.newTransformer();
-                transformer.setOutputProperty("indent", "yes");
-                transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+                transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+                transformer.setOutputProperty(
+                    "{http://xml.apache.org/xslt}indent-amount", "2");
                 DOMSource source = new DOMSource(doc);
-                StreamResult resultStream = new StreamResult(new File(gzXmlFile));
+                StreamResult resultStream = new StreamResult(
+                    new File(gzXmlFile));
+
+                // Output to console for testing
+                // StreamResult resultStream = new StreamResult(System.out);
 
                 transformer.transform(source, resultStream);
                 log.info("Data written to " + gzXmlFile);
             }
             else
             {
-                for (String s : suspectsLines)
+                for(String s : suspectsLines)
                 {
-                    Map<String, String> suspectMap = splitSuspectLineWithFormat(s, paramSortOrder);
+                    Map<String, String> suspectMap =
+                        splitSuspectLineWithFormat(s, paramSortOrder);
                     if (log.isDebugEnabled())
                     {
                         log.debug("Class: " + suspectMap.get("class") +
-                            " Method: " + suspectMap.get("method") +
-                            " Line: " + suspectMap.get("line") +
+                            " Method: "  + suspectMap.get("method") +
+                            " Line: " + suspectMap.get("line")+
                             " Suspect: " + suspectMap.get("score"));
                     }
                 }
@@ -339,38 +496,12 @@ public class ZoltarTest
         }
     }
 
-    protected static void addClassesToInstrument(GZoltar gz, File dir)
-    {
-        for (File file : dir.listFiles())
-        {
-            if (file.isDirectory())
-            {
-                addClassesToInstrument(gz, file);
-            }
-            else
-            {
-                String filename = file.getName();
-                if (filename.indexOf("Test") == -1)
-                {
-                    int dot = filename.lastIndexOf(".");
-
-                    String name = filename.substring(0, dot);
-                    gz.addClassToInstrument(name);
-                    log.debug("...." + filename + " added");
-                }
-                else
-                {
-                    log.debug("...." + filename + " skipped");
-                }
-            }
-        }
-    }
-
     protected static Map<String, String> splitZoltarReportLine(
         String reportLine)
     {
         Map<String, String> reportItems = new HashMap<String, String>();
 
+        //Get the class
         String[] splitResults = reportLine.split("\\{");
         reportItems.put("class", splitResults[0]);
         String[] splitResults2 = splitResults[1].split("\\[");
@@ -386,10 +517,11 @@ public class ZoltarTest
     {
         Map<String, String> reportItems = new HashMap<String, String>();
 
+        //Get the class
         String[] splitResults = reportLine.split("\\{");
         reportItems.put("class", splitResults[0]);
         String[] splitResults2 = splitResults[1].split("\\)");
-        reportItems.put("method", splitResults2[0] + ")");
+        reportItems.put("method", splitResults2[0]  + ")");
 
         return reportItems;
     }
@@ -398,6 +530,7 @@ public class ZoltarTest
     {
         Map<String, String> reportItems = new HashMap<String, String>();
 
+        //Get the class
         String[] splitResults = reportLine.split("\\|");
         reportItems.put("class", splitResults[0]);
         reportItems.put("method", splitResults[1]);
@@ -409,9 +542,10 @@ public class ZoltarTest
 
     protected static Map<String, String> splitSuspectLineWithFormat(
         String reportLine, String format)
-        {
-        Map<String, String> reportItems = new HashMap();
+    {
+        Map<String, String> reportItems = new HashMap<String, String>();
         String[] splitResults = reportLine.split("\\|");
+
         if ("CLMS".equals(format))
         {
             reportItems.put("class", splitResults[0]);
@@ -426,35 +560,44 @@ public class ZoltarTest
             reportItems.put("line", splitResults[2]);
             reportItems.put("method", splitResults[3]);
         }
-        else
+        else if ("CMLS".equals(format))
         {
             reportItems.put("class", splitResults[0]);
             reportItems.put("method", splitResults[1]);
             reportItems.put("line", splitResults[2]);
             reportItems.put("score", splitResults[3]);
         }
-        return reportItems;
+        else
+        {
+            throw new IllegalArgumentException("unknown format: " + format);
         }
+
+        return reportItems;
+    }
 
     private static Map<String, Double> sortByValue(
         Map<String, Double> unsortMap)
     {
+        // 1. Convert Map to List of Map
         List<Map.Entry<String, Double>> list =
-            new LinkedList<Map.Entry<String, Double>>(unsortMap.entrySet());
+                new LinkedList<Map.Entry<String, Double>>(unsortMap.entrySet());
 
-        Collections.sort(list, new Comparator<Map.Entry<String, Double>>()
-            {
-            public int compare(
-                Map.Entry<String, Double> o1, Map.Entry<String, Double> o2)
-            {
-                return o1.getValue().compareTo(o2.getValue());
+        // 2. Sort list with Collections.sort(), provide a custom Comparator
+        //    Try switch the o1 o2 position for a different order
+        Collections.sort(list, new Comparator<Map.Entry<String, Double>>() {
+            public int compare(Map.Entry<String, Double> o1,
+                               Map.Entry<String, Double> o2) {
+                return (o1.getValue()).compareTo(o2.getValue());
             }
-            });
+        });
+
+        // 3. Loop the sorted list and put it into a new insertion
+        //    order Map LinkedHashMap
         Map<String, Double> sortedMap = new LinkedHashMap<String, Double>();
-        for (Map.Entry<String, Double> entry : list)
-        {
+        for (Map.Entry<String, Double> entry : list) {
             sortedMap.put(entry.getKey(), entry.getValue());
         }
+
         return sortedMap;
     }
 
@@ -462,28 +605,30 @@ public class ZoltarTest
     {
         for (Map.Entry<K, V> entry : map.entrySet())
         {
-            System.out.println("Key : " + entry.getKey() +
-                " Value : " + entry.getValue());
+            System.out.println("Key : " + entry.getKey()
+                    + " Value : " + entry.getValue());
         }
     }
 
     public static <K, V> Map<String, Double> returnLastXFromMap(
         Map<String, Double> map, int lastX)
-        {
+    {
         int mapSize = map.size();
         Map<String, Double> subMap = new LinkedHashMap<String, Double>();
 
         int inx = 1;
-        for (Map.Entry<String, Double> entry : map.entrySet())
+        for (Map.Entry<String, Double>entry : map.entrySet())
         {
             if (inx > mapSize - lastX)
             {
-                subMap.put(entry.getKey(), entry.getValue());
+                subMap.put(entry.getKey(),  entry.getValue());
+                //System.out.println("Inx: " +inx+ " Key : " + entry.getKey()
+                //	+ " Value : " + entry.getValue());
             }
             inx++;
         }
         return subMap;
-        }
+    }
 
     public static <K, V> void printLastXMap(Map<K, V> map, int lastX)
     {
@@ -492,8 +637,8 @@ public class ZoltarTest
         {
             for (Map.Entry<K, V> entry : map.entrySet())
             {
-                System.out.println("Key : " + entry.getKey() +
-                    " Value : " + entry.getValue());
+                log.debug("Key : " + entry.getKey()
+                        + " Value : " + entry.getValue());
             }
         }
         else
@@ -503,12 +648,141 @@ public class ZoltarTest
             {
                 if (inx > mapSize - lastX)
                 {
-                    System.out.println("Inx: " + inx
-                        + " Key : " + entry.getKey()
+                    log.debug("Inx: " +inx+ " Key : " + entry.getKey()
                         + " Value : " + entry.getValue());
                 }
                 inx++;
             }
         }
+    }
+
+    private static Spectra execGzoltar(ArrayList<String> testList)
+    {
+        Spectra spectra = null;
+        try
+        {
+            GZoltar gz = new GZoltar(gzStudentBinDir);
+            log.info("Create new GZoltar instance..." + gzStudentBinDir);
+            log.info("Adding classes to instrument...");
+
+            File[] fileList = new File(gzStudentBinDir).listFiles();
+            log.debug(fileList.length + " files found");
+
+            for (File file : fileList)
+            {
+                String filename = file.getName();
+
+                if (filename.indexOf("Test") == -1)
+                {
+                    // File is not a student test file
+                    int dot = filename.lastIndexOf(".");
+
+                    String name = filename.substring(0, dot);
+                    gz.addClassToInstrument(name);
+                    log.debug("...." + filename + " added");
+                }
+                else
+                {
+                    log.debug("...." + filename + " skipped");
+                }
+            }
+
+            log.debug("Adding libraries...");
+            ArrayList<String> classPaths = new ArrayList<String>();
+
+            // Get the files in the lib directory and add any jar files.
+//            File[] libList = new File(gzProjectLibDir).listFiles();
+//            log.debug( libList.length + " files found");
+//            for (File libfile : libList)
+//            {
+//                String libname = libfile.getName();
+//
+//                if (libname.indexOf("jar") != -1)
+//                {
+//                    //File is a jar file
+//                    classPaths.add(gzProjectLibDir + libname);
+//                    log.debug("...."+ gzProjectLibDir + libname + " added");
+//                }
+//                else
+//                {
+//                    log.debug("...."+ gzProjectLibDir + libname + " skipped");
+//                }
+//            }
+
+            log.debug("building gzoltar student classpath");
+            for (String libname :
+                gzLibs.split(System.getProperty("path.separator")))
+            {
+                if (libname.endsWith("jar"))
+                {
+                    classPaths.add(libname);
+                    log.debug("...." + libname + " added");
+                }
+                else
+                {
+                    log.debug("...." + libname + " skipped");
+                }
+            }
+
+            log.debug("Adding Test directory...");
+            log.debug(gzTestsDir);
+            classPaths.add(gzTestsDir);
+
+            if (log.isDebugEnabled())
+            {
+                log.debug("classPaths added:");
+                for (String s : classPaths)
+                {
+                    log.debug("...." + s);
+                }
+            }
+
+            gz.setClassPaths(classPaths);
+
+            log.debug("Adding Test classes...");
+
+            // File[] testList = new File(gzTestsDir).listFiles();
+
+            log.debug(testList.size() + " files found");
+            for (String testfile: testList)
+            {
+                gz.addTestToExecute(testfile);
+                log.debug(testfile + " added");
+            }
+
+            /*
+            if ( gzDebug ){
+                System.out.println( testList.length + " files found");
+            }
+            for ( File testfile: testList ){
+                String testname = testfile.getName();
+
+                if ( testname.indexOf("Test") != -1 ){ //File is a test file
+                    int dot = testname.lastIndexOf(".");
+
+                    String name = testname.substring(0, dot);
+                    gz.addTestToExecute(name);
+                    if ( gzDebug ){
+                        System.out.println("...."+ testname + " added");
+                    }
+                }else{
+                    if ( gzDebug ){
+                        System.out.println("...."+ testname + " skipped");
+                    }
+
+                }
+            }
+            */
+
+            log.info("Running GZoltar...");
+            gz.run();
+            log.info("Getting Test Results...");
+            spectra = gz.getSpectra();
+        }
+        catch (Exception e)
+        {
+            log.error(e);
+        }
+        return spectra;
     }
 }

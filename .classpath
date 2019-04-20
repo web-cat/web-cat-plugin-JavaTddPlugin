@@ -4,5 +4,8 @@
 	<classpathentry kind="lib" path="src/JavaTddPluginSupport.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/ant"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="src/gzoltar/gzoltar-0.0.10.jar"/>
+	<classpathentry kind="lib" path="src/gzoltar/javaparser-core-2.2.1.jar"/>
+	<classpathentry kind="lib" path="src/gzoltar/log4j-1.2.17.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

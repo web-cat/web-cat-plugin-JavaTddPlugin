@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 4;
     version.minor    = 1;
-    version.revision = 1;
-    version.date     = 20180729;
+    version.revision = 2;
+    version.date     = 20190420;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -686,6 +686,19 @@
             category    = "Developer Settings";
             description =
   "Set to true to use the new (experimental) enhanced feedback layout.";
+        },
+        {
+            property    = showAllTestOutcomes;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Show All Test Outcomes (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to use the new (experimental) feature to show all test outcomes
+  instead of limited hints. Students still need to meet the coverage
+  requirements and other requirements to see test outcomes, but will see
+  the full table of tests instead of limited hints.";
         }
     );
     globalOptions = (

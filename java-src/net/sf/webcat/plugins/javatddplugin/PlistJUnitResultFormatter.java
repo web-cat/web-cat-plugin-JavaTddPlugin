@@ -320,7 +320,7 @@ public class PlistJUnitResultFormatter
      */
     protected void formatTestResultAsPlist(Test test, Throwable error)
     {
-        formatTestResultAsPlist( describe(test, error));
+        formatTestResultAsPlist(describe(test, error));
     }
 
 
@@ -343,6 +343,15 @@ public class PlistJUnitResultFormatter
     // ----------------------------------------------------------
     private void appendResultsQuotedValue(String str)
     {
+        if (str == null)
+        {
+            str = "";
+        }
+        if (str.length() > 1024)
+        {
+            str = str.substring(0, 1024) + "...";
+        }
+
         testResultsPlist.append('"');
         testResultsPlist.append(str.replace("\"", "\\\""));
         testResultsPlist.append('"');

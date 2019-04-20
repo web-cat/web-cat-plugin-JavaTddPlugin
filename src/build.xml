@@ -179,7 +179,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <delete includeEmptyDirs="true">
       <fileset dir="${resultDir}" casesensitive="false">
         <include name="studentbin/"/>
-        <include name="studentbin.raw/"/>
+        <!-- include name="studentbin.raw/"/ -->
         <include name="instructorbin/"/>
         <include name="jacoco*"/>
         <include name="pmd*"/>

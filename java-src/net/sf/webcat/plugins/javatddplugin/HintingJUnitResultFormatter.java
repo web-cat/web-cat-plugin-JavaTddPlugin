@@ -246,6 +246,10 @@ public class HintingJUnitResultFormatter
             // Look for explicit hint first
             if (hint == null
                 && result.message != null
+                && (result.code == 29
+                    || result.code == 30
+                    || result.level == 2
+                    || result.message.toLowerCase().startsWith("hint:"))
                 && !Pattern.compile("In file .*( which reads|on this line):")
                     .matcher(result.message).find()
                 /* && result.message.matches(HINT_MARKER_PLUS_ALL_RE) */)
@@ -323,7 +327,7 @@ public class HintingJUnitResultFormatter
             }
 
             // Generate output for hint feedback
-            System.out.println(currentSuite + ", hint = " + hint);
+            // System.out.println(currentSuite + ", hint = " + hint);
             if (output != null && hint != null)
             {
                 synchronized (output)
@@ -333,7 +337,33 @@ public class HintingJUnitResultFormatter
                     outBuffer.append(", ");
                     outBuffer.append(result.priority);
                     outBuffer.append(", ");
-                    outBuffer.append(perlStringLiteral(hint));
+//                    outBuffer.append(result.code);
+//                    outBuffer.append(", ");
+//                    outBuffer.append(result.level);
+//                    outBuffer.append(", ");
+//                    if (hint == null)
+//                    {
+//                        outBuffer.append(" undef");
+//                    }
+//                    else
+//                    {
+                        outBuffer.append(perlStringLiteral(hint));
+//                    }
+//                    if (result.error == null)
+//                    {
+//                        outBuffer.append(", undef");
+//                    }
+//                    else
+//                    {
+//                        Throwable t = result.error;
+//                        while (t.getCause() != null)
+//                        {
+//                            t = t.getCause();
+//                        }
+//                        outBuffer.append(", '");
+//                        outBuffer.append(t.getClass().getName());
+//                        outBuffer.append("'");
+//                    }
                     if ( traceMsg == null )
                     {
                         outBuffer.append( ", undef);" );
