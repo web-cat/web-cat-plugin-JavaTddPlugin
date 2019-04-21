@@ -70,6 +70,8 @@ use Web_CAT::ErrorMapper qw(
     setResultDir
     codingStyleMessageValue
     );
+use Web_CAT::Indicators::ProgressTracker;
+use Web_CAT::Indicators::ProgressCommenter;
 
 
 #=============================================================================
@@ -85,10 +87,20 @@ setResultDir($resultDir);
 
 my $useEnhancedFeedback = $cfg->getProperty('useEnhancedFeedback', 0);
 $useEnhancedFeedback = ($useEnhancedFeedback =~ m/^(true|on|yes|y|1)$/i);
+my $useIndicatorFeedback = $cfg->getProperty('useIndicatorFeedback', 0);
+$useIndicatorFeedback = ($useIndicatorFeedback =~ m/^(true|on|yes|y|1)$/i);
+my $useMaria = $cfg->getProperty('useMaria', 0);
+$useMaria = ($useMaria =~ m/^(true|on|yes|y|1)$/i);
+my $useDailyMissions = $cfg->getProperty('useDailyMissions', 0);
+$useDailyMissions = ($useDailyMissions =~ m/^(true|on|yes|y|1)$/i);
+if ($useDailyMissions) { $useIndicatorFeedback = 1; }
 my $showAllTestOutcomes = $cfg->getProperty('showAllTestOutcomes', 0);
 $showAllTestOutcomes = ($showAllTestOutcomes =~ m/^(true|on|yes|y|1)$/i);
 my $allTestOutcomeResults = '';
 my $allTestOutcomesLeader = '';
+my $progressTracker = new Web_CAT::Indicators::ProgressTracker($cfg);
+my $progressCommenter =
+    new Web_CAT::Indicators::ProgressCommenter($progressTracker);
 
 my @beautifierIgnoreFiles = ();
 my $timeout    = $cfg->getProperty('timeout', 45);
@@ -3603,7 +3615,7 @@ if (!$buildFailed) # $can_proceed)
 
 
 }
-$cfg->setProperty("numCodeMarkups", $numCodeMarkups);
+$cfg->setProperty('numCodeMarkups', $numCodeMarkups);
 
 my $time7 = time;
 if ($debug)
@@ -5284,6 +5296,46 @@ $beautifier->beautifyCwd($cfg,
     \%codeMarkupIds,
     \%codeMessages
     );
+
+
+#=============================================================================
+# Update progress tracker, if needed
+#=============================================================================
+
+if (!$buildFailed && $useIndicatorFeedback)
+{
+    $progressTracker->collect_indicators;
+    my $comment = $progressCommenter->comment;
+    print "comment = $comment\n";
+    if (defined $comment && $comment ne '')
+    {
+        my $mindsetFeedbackFileName = "$resultDir/mindsetFeedback.html";
+        open(MINDSETFEEDBACKFILE, ">$mindsetFeedbackFileName")
+            || croak "Cannot open '$mindsetFeedbackFileName' for writing: $!";
+
+        print MINDSETFEEDBACKFILE <<END_MESSAGE;
+<div class="row">
+  <div class="col-12 col-md-6 mindset maria">
+    <div class="module flex">
+      <div class="talkbubble">
+        $comment
+      </div>
+      <img class="vta sm" width="70" height="84"
+        src="\${pluginResource:JavaTddPlugin}/maria-sm.png"/>
+    </div>
+  </div>
+</div>
+END_MESSAGE
+
+        close(MINDSETFEEDBACKFILE);
+        addReportFileWithStyle(
+            $cfg, 'mindsetFeedback.html', 'text/html', 1);
+        print "generated mindsetFeedback.html file\n";
+    }
+
+    # Also saves progress tracker in this call:
+    $progressCommenter->save;
+}
 
 
 #=============================================================================

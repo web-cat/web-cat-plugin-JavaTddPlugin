@@ -688,6 +688,37 @@
   "Set to true to use the new (experimental) enhanced feedback layout.";
         },
         {
+            property    = useIndicatorFeedback;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use Growth Mindset Feedback (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to use the new (experimental) growth mindset progress feedback.";
+        },
+        {
+            property    = useMaria;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use Maria (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to show Maria (experimental), the virtual teaching assistant
+  chatbot.";
+        },
+        {
+            property    = useDailyMissions;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use Daily Missions (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to give students daily mission challenges (experimental).";
+        },
+        {
             property    = showAllTestOutcomes;
             type        = boolean;
             advanced    = true;
