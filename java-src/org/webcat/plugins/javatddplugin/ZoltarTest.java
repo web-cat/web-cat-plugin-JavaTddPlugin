@@ -66,18 +66,18 @@ public class ZoltarTest
             for (File testfile : testList)
             {
                 String testname = testfile.getName();
-
+                log.debug("found "+ testname + "...");
                 if (testname.indexOf("Test") != -1)
                 {
                     //File is a test file
                     int dot = testname.lastIndexOf(".");
                     String name = testname.substring(0, dot);
                     allTestNames.add(name);
-                    log.debug("...."+ testname + " added");
+                    log.debug("....added");
                 }
                 else
                 {
-                    log.debug("...."+ testname + " skipped");
+                    log.debug("....skipped");
                 }
             }
 
