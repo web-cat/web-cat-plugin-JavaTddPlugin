@@ -72,6 +72,7 @@ use Web_CAT::ErrorMapper qw(
     );
 use Web_CAT::Indicators::ProgressTracker;
 use Web_CAT::Indicators::ProgressCommenter;
+use Web_CAT::Indicators::DailyMissionGenerator;
 
 
 #=============================================================================
@@ -5299,46 +5300,6 @@ $beautifier->beautifyCwd($cfg,
 
 
 #=============================================================================
-# Update progress tracker, if needed
-#=============================================================================
-
-if (!$buildFailed && $useIndicatorFeedback)
-{
-    $progressTracker->collect_indicators;
-    my $comment = $progressCommenter->comment;
-    print "comment = $comment\n";
-    if (defined $comment && $comment ne '')
-    {
-        my $mindsetFeedbackFileName = "$resultDir/mindsetFeedback.html";
-        open(MINDSETFEEDBACKFILE, ">$mindsetFeedbackFileName")
-            || croak "Cannot open '$mindsetFeedbackFileName' for writing: $!";
-
-        print MINDSETFEEDBACKFILE <<END_MESSAGE;
-<div class="row">
-  <div class="col-12 col-md-6 mindset maria">
-    <div class="module flex">
-      <div class="talkbubble">
-        $comment
-      </div>
-      <img class="vta sm" width="70" height="84"
-        src="\${pluginResource:JavaTddPlugin}/maria-sm.png"/>
-    </div>
-  </div>
-</div>
-END_MESSAGE
-
-        close(MINDSETFEEDBACKFILE);
-        addReportFileWithStyle(
-            $cfg, 'mindsetFeedback.html', 'text/html', 1);
-        print "generated mindsetFeedback.html file\n";
-    }
-
-    # Also saves progress tracker in this call:
-    $progressCommenter->save;
-}
-
-
-#=============================================================================
 # generate score
 #=============================================================================
 
@@ -5393,16 +5354,55 @@ if ($show_gzoltar && -f $gzoltar_file && ! -z $gzoltar_file)
         ++$expSectionId);
     $status{'feedback'}->print(<<EOF);
 <p>
-This color-coded view of your source code shows the <b>most suspicious</b>
-areas in your program--the lines that are most strongly associated with
-failing reference tests provided by your instructor.</p>
-<p>
-The lines highlighted in color are hints for place(s) you can look for
-bugs, with lines that are darker or more red being more suspicious.  Only
-classes containing suspicious lines are shown.</p>
-<p>
-Hover your mouse over colored lines to see line numbers.</p>
+To help you debug,
+this heat map highlights code
+used in instructor reference tests that failed.
+<em>This analysis <strong>cannot pinpoint the exact location
+of any bug</strong> because we do not know exactly where the defect is.</em> 
+</p><p>
+Colored lines indicate code <strong>executed during a failing
+instructor reference test</strong>, with more red/darker lines indicating
+code that is less commonly (or never) executed in other passing test cases. A
+colored/darker line is <strong>not necessarily defective itself</strong>, but
+it was definitely executed as part of a failing reference test. For example,
+if a method is defective, the line where that method is invoked would also
+be highlighted as suspicious.
+</p><p>
+Note that a reference test may fail <strong>because of missing code</strong>
+you have not written, such as an unimplemented <code>else</code>
+condition. That may cause other unrelated areas of your solution to be
+highlighted.
+</p><p>
+Hover your mouse over colored lines to see line numbers.
+Methods that are circled are the methods that are the most
+suspicious.
+<a href="https://canvas.vt.edu/courses/91356/wiki" target="_blank">Learn how
+heat maps work</a>.
+</p>
 EOF
+
+
+
+#This color-coded view of your source code shows the <b>most suspicious</b>
+#areas in your program--the lines that are most strongly associated with
+#failing reference tests provided by your instructor.</p>
+#<p>
+#The lines highlighted in color are hints for place(s) you can look for
+#bugs, with lines that are darker or more red being more suspicious.
+#<em>This feedback can’t pinpoint the exact location of the bug, nor do we
+#know exactly where the bug exists in your code that caused the test(s) to
+#fail</em>, but using this map will allow you to focus your attention on parts
+#of your code that were definitely involved in failed tests.  
+#</p>
+#<p>
+#Hover your mouse over colored lines to see line numbers.
+#Methods that are circled are the methods that Web-CAT considers the most
+#suspicious. 
+#</p><p>
+#<a href="https://canvas.vt.edu/courses/91356/wiki" target="_blank">This
+#Canvas site</a> has more information on how the heat maps work.
+#</p>
+
     open(GZOLTAR, $gzoltar_file);
     my $line;
     while ($line = <GZOLTAR>)
@@ -5514,6 +5514,81 @@ EOF
 
     $status{'feedback'}->print('</div>');
     $status{'feedback'}->endFeedbackSection;
+}
+
+
+#=============================================================================
+# Update progress tracker, if needed
+#=============================================================================
+
+my $rowOpened = 0;
+my $mindsetFeedbackFileName = "$resultDir/mindsetFeedback.html";
+if (!$buildFailed && $useIndicatorFeedback)
+{
+    $progressTracker->collect_indicators;
+    my $comment = $progressCommenter->comment;
+    if (defined $comment && $comment ne '')
+    {
+        open(MINDSETFEEDBACKFILE, ">$mindsetFeedbackFileName")
+            || croak "Cannot open '$mindsetFeedbackFileName' for writing: $!";
+
+        print MINDSETFEEDBACKFILE <<END_MESSAGE;
+<div class="row">
+  <div class="col-12 col-md-6 mindset maria">
+    <div class="module flex">
+      <div class="talkbubble">
+        $comment
+      </div>
+      <img class="vta sm" width="70" height="84"
+        src="\${pluginResource:JavaTddPlugin}/maria-sm.png"/>
+    </div>
+  </div>
+END_MESSAGE
+
+        $rowOpened = 2;
+    }
+
+    # Also saves progress tracker in this call:
+    $progressCommenter->save;
+}
+if (!$buildFailed && $useDailyMissions)
+{
+    if (!$useIndicatorFeedback)
+    {
+        $progressTracker->collect_indicators;
+    }
+    $cfg->setProperty('score.correctness', $runtimeScore);
+    $cfg->setProperty('score.tools',       $staticScore );
+    my $dailyMissionGenerator =
+        new Web_CAT::Indicators::DailyMissionGenerator($progressTracker);
+    # print "daily missions:\n", $dailyMissionGenerator->toString, "\n";
+
+    if (!$rowOpened)
+    {
+        open(MINDSETFEEDBACKFILE, ">$mindsetFeedbackFileName")
+            || croak "Cannot open '$mindsetFeedbackFileName' for writing: $!";
+
+#        print MINDSETFEEDBACKFILE '<div class="row">';
+        $rowOpened = 1;
+    }
+
+    my $missions = $dailyMissionGenerator->render_missions;
+    print MINDSETFEEDBACKFILE $missions;    
+#    print MINDSETFEEDBACKFILE <<END_MESSAGE;
+#  <div class="col-12 col-md-6 mindset maria">
+#    <div class="module flex">
+#      $missions
+#    </div>
+#  </div>
+#END_MESSAGE
+    $dailyMissionGenerator->save;
+}
+
+if ($rowOpened)
+{
+    if ($rowOpened > 1) { print MINDSETFEEDBACKFILE "</div>\n"; }
+    close(MINDSETFEEDBACKFILE);
+    addReportFileWithStyle($cfg, 'mindsetFeedback.html', 'text/html', 1);
 }
 
 

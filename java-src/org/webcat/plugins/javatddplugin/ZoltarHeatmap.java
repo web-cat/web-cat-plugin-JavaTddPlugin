@@ -266,7 +266,7 @@ public class ZoltarHeatmap
                     int identifiedMaxMethods = 1;
 
                     FileInputStream parserIn =
-                        new FileInputStream(gzStudentDir + filename);
+                        new FileInputStream(new File(gzStudentDir, filename));
                     CompilationUnit cu;
                     try {
                         // parse the file
@@ -291,7 +291,7 @@ public class ZoltarHeatmap
                     }
 
                     BufferedReader br = new BufferedReader(
-                        new FileReader(gzStudentDir + filename ));
+                        new FileReader(new File(gzStudentDir, filename)));
                     try
                     {
                         int linenumber = 1;

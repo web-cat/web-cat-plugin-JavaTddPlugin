@@ -124,6 +124,10 @@ sub toString
     {
         $self->triggered_indicators;
     }
+    if (defined $self->{current} && ! defined $self->{current}->{improved})
+    {
+        $self->improved_indicators;
+    }
 
     # return Data::Dumper->new([{%{ $self }}])
     return Data::Dumper->new([$self->{histories}])
@@ -178,7 +182,7 @@ sub triggered_indicators
 
 
 #========================================================================
-sub increased_indicators
+sub improved_indicators
 {
     my $self = shift;
     my @triggered = ();
@@ -189,7 +193,7 @@ sub increased_indicators
             push @triggered, $indicator;
         }
     }
-    $self->{current}->{increased} = [@triggered];
+    $self->{current}->{improved} = [@triggered];
     return @triggered;
 }
 
@@ -208,7 +212,13 @@ sub is_triggered
     }
     my @comparison_vals = $self->comparison_values($indicator, $window_size);
 
-    return (scalar @comparison_vals >= $window_size || $allow_missing)
+    my $num_vals = scalar @comparison_vals;
+    if ($allow_missing && $num_vals == 0)
+    {
+        @comparison_vals = (0);
+        $num_vals = 1;
+    }
+    return ($num_vals >= $window_size || $allow_missing)
         && $compareop{$indicator}->($current_val, @comparison_vals);
 }
 
@@ -281,41 +291,65 @@ sub mmax
 
 
 #========================================================================
+sub m_is_better
+{
+    my $indicator = shift;
+    if (scalar @_ == 1)
+    {
+        push(@_, 0); 
+    }
+    return $compareop{$indicator}->(@_);
+}
+
+
+#========================================================================
 sub encouragement_elligible
 {
     my $self = shift;
     my $indicator = shift;
     my $result = 1;
 
-    switch ($indicator)
-    {
-        case 'rse'  # removing static analysis errors
-        { $result = ($self->indicator($indicator) > 0); }
-        case 'rcc'  # reducing cyclomatic complexity
-        { $result = ($self->indicator($indicator)
-            > 2 * $self->indicator('asm')); }
-        case 'rms'  # reducing average method size
-        { $result = ($self->indicator($indicator) > 9); }
-        case 'icd'  # increasing comment density
-        { $result = ($self->indicator($indicator) < 0.5); }
-        case 'isc'  # increasing solution classes
-        # TODO: Add programmable limit for this
-        { $result = 0; }
-        case 'ict'  # increasing correctness
-        { $result = ($self->indicator($indicator) < 1); }
-        case 'atm'  # adding new test methods
-        { $result = ($self->indicator($indicator)
-            < 1.1 * $self->indicator('asm')); }
-        case 'scv'  # increasing statement coverage
-        { $result = ($self->indicator($indicator) < 1); }
-        case 'mcv'  # increasing method coverage
-        { $result = ($self->indicator($indicator) < 1); }
-        case 'ccv'  # increasing conditional coverage
-        { $result = ($self->indicator($indicator) < 1); }
-        case 'itc'  # increasing test classes
-        { $result = ($self->indicator($indicator)
-            < $self->indicator('isc')); }
-    }
+    if ($indicator eq 'rse')  # removing static analysis errors
+    { $result = (defined($self->indicator($indicator))
+        && $self->indicator($indicator) > 0); }
+    elsif ($indicator eq 'rcc')  # reducing cyclomatic complexity
+    { $result = (!defined($self->indicator($indicator))
+        || defined($self->indicator('asm'))
+        && $self->indicator($indicator)
+        > 2 * $self->indicator('asm')); }
+    elsif ($indicator eq 'rms')  # reducing average method size
+    { $result = (defined($self->indicator($indicator))
+        && $self->indicator($indicator) > 9); }
+    elsif ($indicator eq 'icd')  # increasing comment density
+    { $result = (defined($self->indicator($indicator))
+        && $self->indicator($indicator) < 0.5); }
+    elsif ($indicator eq 'isc')  # increasing solution classes
+    # TODO: Add programmable limit for this
+    { $result = 0; }
+    elsif ($indicator eq 'ict')  # increasing correctness
+    { $result = (!defined($self->indicator($indicator))
+        || $self->indicator($indicator) < 1); }
+    elsif ($indicator eq 'atm')  # adding new test methods
+    { $result = (!defined($self->indicator($indicator))
+        || defined($self->indicator('asm'))
+        && $self->indicator($indicator)
+        < 1.1 * $self->indicator('asm')); }
+    elsif ($indicator eq 'tpm')  # increasing number of tests per method
+    # suppress, since it overlaps with atm
+    { $result = 0; }
+    elsif ($indicator eq 'scv')  # increasing statement coverage
+    { $result = (defined($self->indicator($indicator))
+        && $self->indicator($indicator) < 1); }
+    elsif ($indicator eq 'mcv')  # increasing method coverage
+    { $result = (!defined($self->indicator($indicator))
+        || $self->indicator($indicator) < 1); }
+    elsif ($indicator eq 'ccv')  # increasing conditional coverage
+    { $result = (defined($self->indicator($indicator))
+        && $self->indicator($indicator) < 1); }
+    elsif ($indicator eq 'itc')  # increasing test classes
+    { $result = (defined($self->indicator($indicator))
+        && $self->indicator($indicator)
+        < $self->indicator('isc')); }
 
     return $result;
 }
@@ -497,7 +531,7 @@ sub collect_indicators
         $self->set_indicator('ias', $avg);
     }
     # itc: increasing test classes
-    $self->set_indicator('isc', $totals{'test'}->{'classes'});
+    $self->set_indicator('itc', $totals{'test'}->{'classes'});
 }
 
 

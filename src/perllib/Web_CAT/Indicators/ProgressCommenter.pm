@@ -417,23 +417,23 @@ sub new
         }
     }
     my $self = {
-		histories => (defined $initial && $initial ne '')
-	        ? eval($initial)
-	        : [],
-	    current => undef,
-	    tracker => $tracker,
-	    cfg     => $cfg,
-	};
+        histories => (defined $initial && $initial ne '')
+            ? eval($initial)
+            : [],
+        current => undef,
+        tracker => $tracker,
+        cfg     => $cfg,
+    };
 
-	bless $self, $class;
-	if (defined $self->{cfg})
-	{
-	    $self->add_submission(
-	        $self->{cfg}->getProperty('submissionNo'),
-	        $self->{cfg}->getProperty('submissionTimestamp')
-	        );
-	}
-	return $self;
+    bless $self, $class;
+    if (defined $self->{cfg})
+    {
+        $self->add_submission(
+            $self->{cfg}->getProperty('submissionNo'),
+            $self->{cfg}->getProperty('submissionTimestamp')
+            );
+    }
+    return $self;
 }
 
 
@@ -462,18 +462,41 @@ sub add_submission
         # If we actually need to generate feedback this round
         if ($self->{current}->{feedbackTime} > 0 || $num > 4)
         {
-            $self->{current}->{show} = 1;
-            $self->{current}->{type} = $self->{current}->{nextType};
-            $self->{current}->{nextType} =
-                ($self->{current}->{type} eq 'reinforce')
-                ? 'encourage'
-                : 'reinforce';
+            $self->force_show($self->{current}->{nextType});
         }
-        my $feedbackDelay = int((30 + rand(60)) * 60 * 1000);
-        $self->{current}->{feedbackDelay} = $feedbackDelay;
-        $self->{current}->{feedbackTime} = $timestamp + $feedbackDelay;
+        else
+        {
+            $self->force_new_feedback_delay;
+        }
     }
     push(@{$self->{histories}}, $self->{current});
+}
+
+
+#========================================================================
+sub force_show
+{
+    my $self = shift;
+    my $type = shift;
+
+    $self->{current}->{show} = 1;
+    $self->{current}->{type} = $type;
+    $self->{current}->{nextType} =
+        ($self->{current}->{type} eq 'reinforce')
+        ? 'encourage'
+        : 'reinforce';
+    $self->force_new_feedback_delay;
+}
+
+
+#========================================================================
+sub force_new_feedback_delay
+{
+    my $self = shift;
+    my $timestamp = $self->{current}->{timestamp};
+    my $feedbackDelay = int((30 + rand(60)) * 60 * 1000);
+    $self->{current}->{feedbackDelay} = $feedbackDelay;
+    $self->{current}->{feedbackTime} = $timestamp + $feedbackDelay;
 }
 
 
@@ -548,58 +571,72 @@ sub history
 #========================================================================
 sub comment
 {
-	my $self = shift;
-	my @triggered_indicators = @_;
+    my $self = shift;
+    my @triggered_indicators = @_;
 
     if ($#triggered_indicators < 0 && defined $self->{tracker})
     {
-        @triggered_indicators = $self->{tracker}->triggered_indicators;
+        # @triggered_indicators = $self->{tracker}->triggered_indicators;
+        @triggered_indicators = $self->{tracker}->improved_indicators;
     }
 
-	my $size = scalar @triggered_indicators;
+    my $size = scalar @triggered_indicators;
+    my $type = $self->{current}->{type} || 'reinforce';
+    $self->{current}->{triggered} = 0;
 
-	if ( $size < 4 )
-	{
-		# Get all indicators that were not triggered
-		my @difference = ();
-		my %triggered = map { $_ => 1 } @triggered_indicators;
-		foreach my $indicator (@Web_CAT::Indicators::ProgressTracker::INDICATORS)
-		{
-			if (!defined $triggered{$indicator})
-			{
-				push @difference, $indicator;
-			}
-		}
-		@triggered_indicators = @difference;
-		$size = scalar @triggered_indicators;
-		$self->{current}->{triggered} = 0;
-		$type = 'encourage';
-	}
-	else
-	{
-		$self->{current}->{triggered} = 1;
-	}
+    if ($size == 0)
+    {
+        $type = 'encourage';
+    }
+    if ($size >= 4)
+    {
+        my @hard_indicators = $self->{tracker}->triggered_indicators;
+        if (scalar @hard_indicators >= 4)
+        {
+            @triggered_indicators = @hard_indicators;
+            $self->{current}->{triggered} = 1;
+            $type = 'reinforce';
+            $self->force_show($type);
+        }
+    }
 
-	my $comment = undef;
-	if ($self->{current}->{show})
-	{
-	    my $indnum = int(rand($size));
-    	my $indicator = $triggered_indicators[$indnum];
+    if ($type eq 'encourage')
+    {
+        # Get all indicators that were not triggered
+        my @difference = ();
+        my %triggered = map { $_ => 1 } @triggered_indicators;
+        foreach my $indicator (@Web_CAT::Indicators::ProgressTracker::INDICATORS)
+        {
+            if (!defined $triggered{$indicator}
+                && $self->{tracker}->encouragement_elligible($indicator))
+            {
+                push @difference, $indicator;
+            }
+        }
+        @triggered_indicators = @difference;
+        $size = scalar @triggered_indicators;
+    }
+
+    my $comment = undef;
+    if ($self->{current}->{show})
+    {
+        my $indnum = int(rand($size));
+        my $indicator = $triggered_indicators[$indnum];
         $self->{current}->{indicator} = $indicator;
         $self->{current}->{prevIndicator} = $indicator;
         $self->{current}->{type} = $type;
-	
-	    if (scalar @{$comments{$indicator}->{$type}} > 0)
-	    {
-	        my $comment_number =
-	            int(rand(@{$comments{$indicator}->{$type}}));
-	        $self->{current}->{num} = $comment_number;
-	        $comment = $comments{$indicator}->{$type}->[$comment_number];
-	    }
-	}
+    
+        if (scalar @{$comments{$indicator}->{$type}} > 0)
+        {
+            my $comment_number =
+                int(rand(@{$comments{$indicator}->{$type}}));
+            $self->{current}->{num} = $comment_number;
+            $comment = $comments{$indicator}->{$type}->[$comment_number];
+        }
+    }
 
-	$self->{current}->{comment} = $comment;
-	return $comment;
+    $self->{current}->{comment} = $comment;
+    return $comment;
 }
 
 
