@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="GZoltarAssignment" basedir="." default="rebuild" xmlns:gzoltar="antlib:com.gzoltar.ant">
+
+  <property environment="env"/>
+
+  <!-- Student properties -->
+
+  <property name="student.project.name"       value="${env.PROJECT_NAME}"/>
+  <property name="student.project.pid"        value="${env.STUDENT_PID}"/>
+  <property name="student.project.submission" value="${env.PROJECT_SUBMISSION_ID}"/>
+
+  <property name="course.root.dir"            value="${env.COURSE_ROOT_DIR}" />
+  <property name="student.output.dir"         value="${env.STUDENT_OUTPUT_DIR}"/>
+
+
+  <property name="course.reftest.dir"         value="${course.root.dir}/${student.project.name}/Tests" />
+  <property name="course.lib.dir"            value="${course.root.dir}/${student.project.name}/lib" />
+  <property name="course.data.dir"           value="${course.root.dir}/${student.project.name}/Data" />
+
+  <property name="student.build.dir"          value="${course.root.dir}/${student.project.name}/build"/>
+  <property name="student.build.classes.dir"  value="${student.build.dir}/classes"/>
+  <property name="student.output.dir"         value="${course.root.dir}/${student.project.name}/output/${student.project.pid}/${student.project.submission}"/>
+
+
+
+  <!-- GZoltar properties -->
+
+  <property name="gzoltar.script.dir" value="${env.GZOLTAR_SCRIPT_DIR}" />
+  <property name="lib.dir"            value="${gzoltar.script.dir}/lib"/>
+  <property name="gzoltar-ant.jar"    value="${lib.dir}/gzoltarant.jar"/>
+  <property name="gzoltar.report.dir" location="${student.output.dir}/gzoltar/alltests"/> <!-- parameter, -Dgzoltar.output.dir=... -->
+  <property name="gzoltar.exec.file"  location="${gzoltar.report.dir}/gzoltar.exec"/>
+
+  <taskdef uri="antlib:com.gzoltar.ant" resource="antlib.xml">
+    <classpath path="${gzoltar-ant.jar}"/>
+  </taskdef>
+
+  <path id="classpath">
+    <fileset dir="${course.lib.dir}">
+      <include name="**/*.jar"/>
+      <include name="**/*.class"/>
+    </fileset>
+  </path>
+
+  <!--
+    Test to see if the source is in src or not. If so, copy it
+  -->
+
+  <target name="setSourcePathWithSrc" depends="-sourceDir.check" if="sourceDir.exists">
+    <echo>"[INFO] Student source code in /src subdirectory...using this."</echo>
+    <property name="student.src.dir"            value="${course.root.dir}/${student.project.name}/projects/${student.project.pid}/${student.project.submission}/src" />
+  </target>
+
+  <target name="setSourcePathWithoutSrc" depends="-sourceDir.check" unless="sourceDir.exists">
+    <echo>"[INFO] Student source code NOT in /src subdirectory...using parent dir."</echo>
+    <property name="student.src.dir"            value="${course.root.dir}/${student.project.name}/projects/${student.project.pid}/${student.project.submission}" />
+  </target>
+
+  <target name="-sourceDir.check">
+    <condition property="sourceDir.exists">
+      <available file="${course.root.dir}/${student.project.name}/projects/${student.project.pid}/${student.project.submission}/src" type="dir"/>
+    </condition>
+  </target>
+
+  <!--
+    Test to see if the course has a data directory. If so, copy it
+  -->
+
+  <target name="copyData" depends="-testDataDir.check" if="testDataDir.exists">
+    <echo>${course.data.dir} exists...copying"</echo>
+    <mkdir dir="${student.build.classes.dir}"/>
+    <copy todir="${student.build.classes.dir}" overwrite="true">
+      <fileset dir="${course.data.dir}"/>
+      <fileset dir="${student.src.dir}"/>
+      <fileset dir="${course.reftest.dir}"/>
+    </copy>
+  </target>
+
+  <target name="copyAllButData" depends="-testDataDir.check" unless="testDataDir.exists">
+    <echo>${course.data.dir} missing...skipping copy"</echo>
+    <mkdir dir="${student.build.classes.dir}"/>
+    <copy todir="${student.build.classes.dir}" overwrite="true">
+      <fileset dir="${student.src.dir}"/>
+      <fileset dir="${course.reftest.dir}"/>
+    </copy>
+  </target>
+
+  <target name="-testDataDir.check">
+    <condition property="testDataDir.exists">
+      <available file="${course.data.dir}" type="dir"/>
+    </condition>
+  </target>
+
+  <!--
+    Clean up directory
+  -->
+  <target name="clean">
+    <delete dir="${student.build.dir}"/>
+    <delete dir="${student.output.dir}"/>
+  </target>
+
+  <!--
+    Compile
+  -->
+  <target name="compile" depends="setSourcePathWithSrc, setSourcePathWithoutSrc, copyData, copyAllButData">
+    <echo message="[INFO]Project name: &quot;${student.project.name}&quot;"/>
+    <echo message="[INFO]Student PID: &quot;${student.project.pid}&quot;"/>
+    <echo message="[INFO]Submission ID: &quot;${student.project.submission}&quot;"/>
+    <echo message="[INFO]Course root dir: &quot;${course.root.dir}&quot;"/>
+    <echo message="[INFO]Student src dir: &quot;${student.src.dir}&quot;"/>
+    <echo message="[INFO]Tests dir: &quot;${course.reftest.dir}&quot;"/>
+    <echo message="[INFO]Lib dir: &quot;${course.lib.dir}&quot;"/>
+    <echo message="[INFO]Data dir: &quot;${course.data.dir}&quot;"/>
+    <echo message="[INFO]Output dir: &quot;${student.output.dir}&quot;"/>
+
+    <echo message="[INFO]GZ Ant Lib dir: &quot;${gzoltar-ant.jar}&quot;"/>
+    <echo message="[INFO]GZ Report dir: &quot;${gzoltar.report.dir}&quot;"/>
+    <echo message="[INFO]GZ Exec file: &quot;${gzoltar.exec.file}&quot;"/>
+
+    <!-- Students source code -->
+    <javac includeantruntime="false"
+           debug="true"
+           srcdir="${student.src.dir}"
+           destdir="${student.build.classes.dir}"
+           classpathref="classpath"/>
+    <!-- Reference test cases -->
+    <javac includeantruntime="false"
+           debug="true"
+           srcdir="${course.reftest.dir}"
+           destdir="${student.build.classes.dir}"
+           classpathref="classpath"/>
+    <!-- Copy external data (i.e., files loaded by the test cases) -->
+</target>
+
+<!--
+  Run students test cases (ideal to debug whether students test cases
+  are not running smoothly, i.e., no major issues)
+-->
+
+  <target name="test" depends="compile">
+    <junit printsummary="yes" haltonfailure="no" haltonerror="yes" fork="true" forkmode="once" showOutput="true">
+      <classpath>
+        <pathelement location="${student.build.classes.dir}"/>
+        <path refid="classpath"/>
+      </classpath>
+
+      <formatter type="plain" usefile="false"/>
+
+      <test name="${test.entry.class}" methods="${test.entry.method}" if="test.entry.class" />
+      <batchtest unless="test.entry.class">
+        <fileset dir="${course.reftest.dir}" includes="**/*Test.java"/>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+    Run students test cases and collect their coverage
+  -->
+  <target name="gz.coverage" depends="compile">
+    <mkdir dir="${gzoltar.report.dir}"/>
+
+    <!-- Wrap test execution with the GZoltar coverage task -->
+    <gzoltar:coverage destfile="${gzoltar.exec.file}"
+                      buildLocation="${student.build.classes.dir}"
+                      includes="*"
+                      excludes="*Test"
+                      exclClassLoader="sun.reflect.DelegatingClassLoader"
+                      inclNoLocationClasses="false"
+                      output="file">
+      <junit printsummary="no" haltonfailure="no" haltonerror="yes" fork="true" forkmode="once" showOutput="true">
+        <classpath>
+          <pathelement location="${student.build.classes.dir}"/>
+          <path refid="classpath"/>
+          <pathelement path="${gzoltar-ant.jar}"/>
+        </classpath>
+
+        <formatter classname="com.gzoltar.ant.listener.JUnitFormatter" usefile="false" />
+
+        <test name="${test.entry.class}" methods="${test.entry.method}" if="test.entry.class" />
+        <batchtest unless="test.entry.class">
+          <fileset dir="${course.reftest.dir}" includes="**/*Test.java"/>
+        </batchtest>
+      </junit>
+    </gzoltar:coverage>
+  </target>
+
+  <!--
+    Create GZoltar report
+  -->
+  <target name="gz.report" depends="gz.coverage">
+    <gzoltar:fl-report buildLocation="${student.build.classes.dir}"
+                       granularity="line"
+                       inclPublicMethods="true"
+                       inclStaticConstructors="true"
+                       inclDeprecatedMethods="true"
+                       dataFile="${gzoltar.exec.file}"
+                       outputDirectory="${gzoltar.report.dir}">
+      <flFamilies>
+        <flFamily name="sfl">
+          <formulas>
+            <formula name="ochiai"/>
+          </formulas>
+          <formatters>
+            <txt />
+          </formatters>
+        </flFamily>
+      </flFamilies>
+    </gzoltar:fl-report>
+  </target>
+
+  <target name="rebuild" depends="clean,compile,test" />
+</project>
