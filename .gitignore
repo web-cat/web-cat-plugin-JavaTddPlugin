@@ -6,3 +6,6 @@ src/jacoco/*.jar
 src/defaultJars/*.jar
 src/JavaTddPluginSupport.jar
 src/junit-4.8.2.jar
+/.idea
+/src/web-cat-plugin-JavaTddPlugin.iml
+/web-cat-plugin-JavaTddPlugin1.iml

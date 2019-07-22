@@ -1,0 +1,116 @@
+<html> 
+<head>
+<title>[title]</title>
+
+<style>
+body { background-color: white; color: black; }
+
+.heat { font-size: 8px; }
+
+.file {
+  border: 1px solid black;
+  width: 160px;
+  //overflow-x: hidden;
+  float: left;
+  background-color: white;
+  color: #c0c0c0;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+.file .heat {
+  font-size: 3px;
+  background-color: #f2f2f2;
+  padding: 4px 0;
+  margin: 0;
+  background-image: none;
+}
+.file .heat .method { background-color: #fcfce2; margin: 0 4px; }
+.file .heat .method-suspect,
+.file .heat .method.suspect {
+  background-color: #dedece;
+  margin: 0 4px;
+  border: 2px solid #dc3545;
+}
+.file .heat a:active,
+.file .heat a:focus,
+.file .heat a:hover { text-decoration: none; background-color: inherit; color: inherit; border: none; }
+.file h2 {
+  font-size: 9pt;
+  font-weight: normal;
+  text-align: center;
+  color: black;
+  background-color: white;
+  margin: 0.5em 0.25em 0.25em;
+}
+.file .uncovered { background-color: #000; }
+
+.zoom {
+  transition: transform .2s; /* Animation */
+  margin: 0 auto;
+}
+
+.zoom:hover {
+    border: 2px solid black;
+    width: 480px;
+    font-size: 8pt;
+    background-color: white;
+    position:relative;
+    z-index: 10;
+    opacity: 1;
+  /*transform: scale(2.5);*/ /* (150% zoom - Note: if the zoom is too large, it will go outside of the viewport) */
+}
+
+
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 140px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 0;
+  position: absolute;
+  z-index: 1;
+  top: 150%;
+  left: 50%;
+  margin-left: -50px;
+  font-size: 8pt;
+}
+
+.tooltip .tooltiptext::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent black transparent;
+}
+
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+}
+</style>
+<!--
+<script src="https://ajax.googleapis.com/ajax/libs/dojo/1.14.1/dojo/dojo.js"></script>
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/dojo/1.10.4/dijit/themes/claro/claro.css">
+
+<script type="text/javascript">
+
+    require(["dijit/Tooltip",  "dojo/parser", "dojo/domReady!"],
+    function(Tooltip, parser){
+        parser.parse();
+    });
+
+</script>
+-->
+</head>
+
+<body>
