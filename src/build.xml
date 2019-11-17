@@ -216,6 +216,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            debuglevel="lines,vars,source"
     	   includeAntRuntime="false"
     	   encoding="UTF-8"
+    	   compiler="modern"
       >
       <classpath refid="student.classpath"/>
       <compilerarg value="-Xlint:unchecked"/>
@@ -234,6 +235,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            debuglevel="lines,vars,source"
            casesensitive="no"
            includeAntRuntime="false"
+    	   compiler="modern"
     	>
     	<!-- Should include:, but not until we have a viable UTF-8-ifier
            encoding="UTF-8"
@@ -320,7 +322,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
                includes="*-out.txt"
                casesensitive="false"/>
     </concat>
-    <delete dir="${instr.results.dir}"/>
+    <delete failonerror="false" dir="${instr.results.dir}"/>
   </target>
 
 
@@ -393,7 +395,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
                includes="*-out.txt"
                casesensitive="false"/>
     </concat>
-    <delete dir="${student.results.dir}"/>
+    <delete  failonerror="false" dir="${student.results.dir}"/>
     <condition property="no.coverage.data">
       <not>
         <available file="${jacoco.db}"/>
@@ -646,7 +648,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <arg value="${psfile}"/>
       <arg value="${PDF.dest}"/>
     </exec>
-    <delete file="${psfile}"/>
+    <delete failonerror="false" file="${psfile}"/>
   </target>
 
 
@@ -679,18 +681,19 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
     <!-- Delete the Doxygen generated files from the working dir so they
          don't all get copied into the result dir -->
-    <delete dir="${basedir}/doxygen"/>
+    <delete failonerror="false" dir="${basedir}/doxygen"/>
   </target>
 
 
   <target name="final.clean"
           unless="doNotDelete"
           description="removes unnecessary derived files">
-    <delete includeEmptyDirs="true" quiet="true">
+    <delete failonerror="false" includeEmptyDirs="true">
       <fileset dir="${resultDir}" casesensitive="false">
         <include name="studentbin/"/>
         <include name="studentbin.raw/"/>
         <include name="instructorbin/"/>
+        <include name="instr.results/"/>
         <include name="jacoco.db"/>
       </fileset>
     </delete>

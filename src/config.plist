@@ -709,6 +709,16 @@
   chatbot.";
         },
         {
+            property    = useMariaExplanations;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use Maria Explanations (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to show \"Explain...\" links (experimental) by error messages.";
+        },
+        {
             property    = useDailyMissions;
             type        = boolean;
             advanced    = true;

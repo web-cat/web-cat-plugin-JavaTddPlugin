@@ -73,6 +73,7 @@ use Web_CAT::ErrorMapper qw(
 use Web_CAT::Indicators::ProgressTracker;
 use Web_CAT::Indicators::ProgressCommenter;
 use Web_CAT::Indicators::DailyMissionGenerator;
+use Web_CAT::Maria;
 
 
 #=============================================================================
@@ -92,6 +93,8 @@ my $useIndicatorFeedback = $cfg->getProperty('useIndicatorFeedback', 0);
 $useIndicatorFeedback = ($useIndicatorFeedback =~ m/^(true|on|yes|y|1)$/i);
 my $useMaria = $cfg->getProperty('useMaria', 0);
 $useMaria = ($useMaria =~ m/^(true|on|yes|y|1)$/i);
+my $useMariaExplanations = $cfg->getProperty('useMariaExplanations', 0);
+$useMariaExplanations = ($useMariaExplanations =~ m/^(true|on|yes|y|1)$/i);
 my $useDailyMissions = $cfg->getProperty('useDailyMissions', 0);
 $useDailyMissions = ($useDailyMissions =~ m/^(true|on|yes|y|1)$/i);
 if ($useDailyMissions) { $useIndicatorFeedback = 1; }
@@ -1982,493 +1985,6 @@ else
 }
 
 
-#=============================================================================
-# translate html
-#=============================================================================
-my %coveredClasses     = ();
-#my %classToFileNameMap = ();
-#my %classToMarkupNoMap = ();
-#my %fileToMarkupNoMap  = ();
-
-#---------------------------------------------------------------------------
-# Translate one HTML file from clover markup to what Web-CAT expects
-sub translateHTMLFile
-{
-    my $file = shift;
-    my $stripEmptyCoverage = shift;
-    my $cloverData = shift;
-    # print "translating $file\n";
-
-    # Record class name
-    my $className = $file;
-    $className =~ s/\.html$//o;
-    $className =~ s,^$resultDir/clover/(default-pkg/)?,,o;
-    my $sourceName = $className . ".java";
-    $className =~ s,/,.,go;
-#    if (defined($classToFileNameMap{$className}))
-#    {
-#        $sourceName = $classToFileNameMap{$className};
-#    }
-    # print "class name = $className\n";
-    $coveredClasses{$className} = 1;
-
-    my @comments = ();
-    if (defined $codeMessages{$sourceName})
-    {
-        foreach my $line (keys %{$codeMessages{$sourceName}})
-        {
-            if (defined $codeMessages{$sourceName}->{$line}{violations})
-            {
-                 @comments = (@comments,
-                     @{ $codeMessages{$sourceName}->{$line}{violations} });
-            }
-        }
-        @comments = sort { $b->{line}->content  <=>  $a->{line}->content }
-            @comments;
-    }
-    $messageStats->{file}->{$sourceName}->{remarks} = countRemarks(\@comments);
-#    if (defined($classToMarkupNoMap{$className}))
-#    {
-#        $cfg->setProperty('codeMarkup' . $classToMarkupNoMap{$className}
-#                           . '.remarks',
-#                $messageStats->{file}->{$sourceName}->{remarks}->content);
-#    }
-#    else
-#    {
-#       my $lcClassName = $className;
-#       $lcClassName =~ tr/A-Z/a-z/;
-#        if (defined($classToMarkupNoMap{$lcClassName}))
-#        {
-#            $cfg->setProperty('codeMarkup' . $classToMarkupNoMap{$lcClassName}
-#                               . '.remarks',
-#                    $messageStats->{file}->{$sourceName}->{remarks}->content);
-#        }
-#        else
-#        {
-#            print(STDERR "Cannot locate code markup number for $className "
-#               . "in $sourceName\n");
-#        }
-#    }
-    if ($debug > 1)
-    {
-        print "$sourceName: ", $#comments + 1, "\n";
-        foreach my $c (@comments)
-        {
-            print "\t", $c->{group}, " '", $c->{line}, "'\n";
-        }
-    }
-
-    open(HTML, $file) || die "Cannot open file for input '$file': $!";
-    my @html = <HTML>;  # Slurp in the whole file
-    close(HTML);
-    my $allHtml = join("", @html);
-
-    # Look for @author tags
-    my @partnerExcludePatterns = ();
-    my $partnerExcludePatterns_raw =
-        $cfg->getProperty('grader.partnerExcludePatterns', "");
-    if ($partnerExcludePatterns_raw ne "")
-    {
-        @partnerExcludePatterns =
-            split(/(?<!\\),/, $partnerExcludePatterns_raw);
-    }
-    my $userName = $cfg->getProperty('userName', "");
-    if ($userName ne "")
-    {
-        push(@partnerExcludePatterns, $userName);
-    }
-    my $potentialPartners = $cfg->getProperty('grader.potentialpartners', "");
-    while ($allHtml =~
-      m/<span[^<>]*class="javadoc"[^<>]*>\@author<\/span>\s*([^<>]*)<\/span>/g)
-    {
-
-        my $authors = $1;
-        $authors =~ s/\@[a-zA-Z][a-zA-Z0-9\.]+[a-zA-Z]/ /g;
-        $authors =~
-        s/your-pid [\(]?and if in lab[,]? partner[']?s pid on same line[\)]?//;
-        $authors =~ s/Partner [1-9][' ]?s name [\(]?pid[\)]?//;
-        $authors =~ s/[,;:\(\)\]\]\{\}=!\@#%^&\*<>\/\\\`'"]/ /g;
-        foreach my $pat (@partnerExcludePatterns)
-        {
-            $authors =~ s/(?<!\S)$pat(?!\S)//g;
-        }
-        $authors =~ s/^\s+//;
-        $authors =~ s/\s+$//;
-        $authors =~ s/\s\s+/ /g;
-        if ($authors ne "")
-        {
-            if ($potentialPartners ne "")
-            {
-                $potentialPartners .= " ";
-            }
-            $potentialPartners .= $authors;
-        }
-    }
-    $cfg->setProperty('grader.potentialpartners', $potentialPartners);
-
-    # count the number of assertions that were not fully covered, in order
-    # to remove them from the coverage stats
-    my $preCount = $allHtml;
-    my $conditionCount = ($preCount =~ s|(<tr>
-        <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
-        <a[^<>]*>([^<>]*)</a>
-        (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-        Hilight(">\s*)<a[^<>]*>
-        (\s*<span\s+class="keyword">assert</span>([^<>]\|<(/?)span[^<>]*>)*)
-        \s*</a>
-        |$1"line$2$3$4$5$6|ixsg);
-
-    # Now, "unhighlight" all those that were only executed true (leave those
-    # That were never executed at all marked, even though they won't be
-    # counted against the student)
-    my $executedConditionCount = ($allHtml =~ s|(<tr>
-        <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
-        <a[^<>]*>([^<>]*)</a>
-        (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-        Hilight(">\s*)<a[^<>]*title="[^<>]*true\s[1-9][0-9]*\stime(s?),
-        \sfalse\s0\stimes[^<>]*"[^<>]*>
-        (\s*<span\s+class="keyword">assert</span>([^<>]\|<(/?)span[^<>]*>)*)
-        \s*</a>
-        |$1"line$2$3$4$5$7|ixsg);
-
-    # Now, "unhighlight" all fail() method calls in test cases that weren't
-    # executed.
-    my $unexecutedFailCount = ($allHtml =~ s|(<tr>
-        <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
-        <a[^<>]*>([^<>]*)</a>
-        (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-        Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted[^<>]*"[^<>]*>
-        (\s*fail\s*\((<span [^<>]*>[^<>]*</span>)?\)\s*;)
-        \s*</a>
-        |$1"line$2$3$4$5$6|ixsg);
-
-    # Now, "unhighlight" all the preventative null checks that were only
-    # executed true
-    my $executedNullCheckCount = ($allHtml =~ s|(<tr>
-        <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage(CountHilight">\s*)
-        <a[^<>]*>([^<>]*)</a>
-        (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-        Hilight(">\s*)<a[^<>]*title="[^<>]*true\s[1-9][0-9]*\stime(s?),
-        \sfalse\s0\stimes[^<>]*"[^<>]*>
-        (((?!</a>)[^\?])*
-        ([a-zA-Z_][a-zA-Z0-9_\.]*)\s*!=\s*
-        <span\sclass="keyword">null</span>\s*\?
-#        \s*\g{-1}\.[a-zA-Z_][a-zA-Z0-9_\.]*
-        \s*[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_\.]*
-        \s*:\s*<span\sclass="keyword">null</span>
-        ((?!</a>)[^\?])*)</a>
-        |$1"line$2$3$4$5$7|ixsg);
-
-    # Now, handle simple exception handlers, if needed.
-    my $simpleCatchBlocks = 0;
-    my $noViableAltBlocks = 0;
-    if (!$requireSimpleExceptionCoverage)
-    {
-        $simpleCatchBlocks = ($allHtml =~ s|(<tr>
-            ((?!</tr>).)*<span\sclass="keyword">catch</span>((?!</tr>).)*
-            (</tr>\s*<tr>((?!</tr>).)*){((?!</tr>).)*</tr>\s*
-            (<tr>((?!</tr>).)*<td\sclass="srcCell">\s*
-                <span\s+class="srcLine">\s*
-                    (<span\s+class="comment">((?!</span>).)*</span>\s*)?
-                </span>\s*</td>\s*</tr>\s*)*
-            <tr>\s*
-            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
-            [^<>]*"[^<>]*>
-            (\s*([a-zA-Z_][a-zA-Z0-9_]*\s*.\s*printStackTrace\s*\([^<>()]*\)\|
-            <span\sclass="keyword">throw</span>\s+
-            <span\sclass="keyword">new</span>\s+
-            [A-Z][a-zA-Z0-9_]*\s*\([^<>()]*\)\|
-            <span\sclass="keyword">return</span>\s+
-            (?:[A-Za-z_][A-Za-z0-9_\.]+\|
-            <span\sclass="string">"[^"]*"</span>)
-            )\s*;)
-            \s*</a>
-            |$1"line$11$12$13$14$15|ixsg);
-
-        $noViableAltBlocks += (
-        #if (
-        $allHtml =~ s|(<tr>
-            ((?!</tr>).)*(?:<span\sclass="keyword">else</span>\s*{\|
-            <span\sclass="keyword">default</span>\s*:)((?!</tr>).)*
-            </tr>\s*<tr>\s*
-            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
-            [^<>]*"[^<>]*>
-            (\s*NoViableAltException\s+nvae\s+=)\s*</a>
-            (((?!</tr>).)*</tr>\s*<tr>\s*((?!</tr>).)*
-            <span\sclass="keyword">new</span>\s+NoViableAltException
-            \([^\)]*\)\s*;
-            ((?!</tr>).)*</tr>\s*<tr>\s*((?!</tr>).)*</tr>\s*<tr>\s*
-            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
-            [^<>]*"[^<>]*>
-            (\s*<span\sclass="keyword">throw</span>\s+nvae;)
-            \s*</a>
-            |$1"line$4$5$6$7$8$9"line$14$15$16$17$18|ixsg);
-    }
-
-    my $simpleGetters = 0;
-    my $simpleSetters = 0;
-    if (!$requireSimpleGetterSetterCoverage)
-    {
-        # First, handle 3-line getters
-        $simpleGetters = ($allHtml =~ s|(<tr>((?!</tr>).)*
-            <td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*method\snot\sentered
-            [^<>]*"[^<>]*>
-            (\s*<span\sclass="keyword">public</span>\s+
-            (<span\sclass="keyword">[a-zA-Z]+</span>\|[A-Za-z][a-zA-Z0-9_]*)
-            (?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s+
-            (get[A-Z][a-zA-Z0-9_]*)\s*\(\s*\))(?:\s*</a>
-            (((?!</tr>).)*</tr>\s*<tr>((?!</tr>).)*{)\|(\s*{)\s*</a>)
-            (((?!</tr>).)*</tr>\s*<tr>\s*
-            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
-            [^<>]*"[^<>]*>
-            (\s*<span\sclass="keyword">return</span>\s+
-            (?:[A-Za-z_][A-Za-z0-9_\.]+\|
-            <span\sclass="string">"[^"]*"</span>\|
-            <span\sclass="keyword">new</span>\s+
-            [A-Z][a-zA-Z0-9_]*Parser\s*\[\]\s*{}
-            );)\s*</a>
-            ((((?!</tr>).)*</tr>\s*(<tr>((?!</tr>).)*))?
-            })|$1"line$3$4$5$6$7$10$13$14"line$16$17$18$19$20$21|ixsg);
-
-        # Now 1-line getters
-        $simpleGetters += ($allHtml =~ s|(<tr>((?!</tr>).)*
-            <td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*method\snot\sentered
-            [^<>]*"[^<>]*>
-            (\s*<span\sclass="keyword">public</span>\s+
-            (<span\sclass="keyword">[a-zA-Z]+</span>\|[A-Za-z][a-zA-Z0-9_]*)
-            (?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s+
-            (get[A-Z][a-zA-Z0-9_]*)\s*\(\s*\)\s*{
-            \s*<span\sclass="keyword">return</span>\s+
-            (?:[A-Za-z_][A-Za-z0-9_\.]+\|
-            <span\sclass="string">"[^"]*"</span>);\s*})\s*</a>
-            |$1"line$3$4$5$6$7|ixsg);
-
-        # Now 3-line setters
-        $simpleSetters = ($allHtml =~ s|(<tr>((?!</tr>).)*
-            <td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*method\snot\sentered
-            [^<>]*"[^<>]*>
-            (\s*<span\sclass="keyword">public</span>\s+
-            <span\sclass="keyword">void</span>\s+
-            (set[A-Z][a-zA-Z0-9_]*)\s*\(\s*
-            (<span\sclass="keyword">[a-zA-Z]+</span>\|[A-Za-z][a-zA-Z0-9_]*)
-            (?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s+
-            [a-zA-Z_][a-zA-Z0-9_]*\s*\))
-            (?:\s*</a>
-            (((?!</tr>).)*</tr>\s*<tr>((?!</tr>).)*{)\|(\s*{)\s*</a>)
-            (((?!</tr>).)*</tr>\s*<tr>\s*
-            <td[^<>]*>[^<>]*</td>\s*<td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*never\sexecuted
-            [^<>]*"[^<>]*>
-            (\s*[A-Za-z_][A-Za-z0-9_\.]+\s*=\s*
-            [A-Za-z_][A-Za-z0-9_]+;)\s*</a>
-            ((((?!</tr>).)*</tr>\s*(<tr>((?!</tr>).)*))?
-            })
-            |$1"line$3$4$5$6$7$10$13$14"line$16$17$18$19$20$21|ixsg);
-
-        # Now 1-line setters
-        $simpleSetters += ($allHtml =~ s|(<tr>((?!</tr>).)*
-            <td[^<>]*\s+class=)"coverage
-            (CountHilight">\s*)
-            <a[^<>]*>([^<>]*)</a>
-            (\s*</td>\s*<td[^<>]*>\s*<span\s+class="srcLine)
-            Hilight(">\s*)<a[^<>]*title="[^<>]*method\snot\sentered
-            [^<>]*"[^<>]*>
-            (\s*<span\sclass="keyword">public</span>\s+
-            <span\sclass="keyword">void</span>\s+
-            (set[A-Z][a-zA-Z0-9_]*)\s*\(\s*
-            (<span\sclass="keyword">[a-zA-Z]+</span>\|[A-Za-z][a-zA-Z0-9_]*)
-            (?:\s*<[^<>]*>)?(?:\s*\[\s*\])*\s+
-            [a-zA-Z_][a-zA-Z0-9_]*\s*\)\s*{
-            \s*[A-Za-z_][A-Za-z0-9_\.]+\s*=\s*
-            [A-Za-z_][A-Za-z0-9_]+;\s*})\s*</a>
-            |$1"line$3$4$5$6$7|ixsg);
-    }
-
-    if ($debug)
-    {
-        print "\tFound $conditionCount uncovered assertions, with ",
-            "$executedConditionCount partially executed.\n";
-        print "\tFound $unexecutedFailCount unexecuted fail() statements.\n";
-        print "\tFound $simpleCatchBlocks simple catch blocks.\n";
-        print "\tFound $simpleGetters simple getters.\n";
-        print "\tFound $simpleSetters simple setters.\n";
-        print "\tFound $noViableAltBlocks NoViableAltException blocks.\n";
-    }
-
-    if ($conditionCount || $unexecutedFailCount || $simpleCatchBlocks
-        || $simpleGetters || $simpleSetters || $executedNullCheckCount
-        || $noViableAltBlocks)
-    {
-        if ($debug)
-        {
-            print $cloverData->data, "\n";
-        }
-        $cloverData->{coverage}{project}{metrics}{conditionals} -=
-            2 * $conditionCount;
-        $cloverData->{coverage}{project}{metrics}{coveredconditionals} -=
-            $executedConditionCount;
-        $cloverData->{coverage}{project}{metrics}{elements} -=
-            2 * $conditionCount;
-        $cloverData->{coverage}{project}{metrics}{coveredelements} -=
-            $executedConditionCount;
-
-        $cloverData->{coverage}{project}{metrics}{conditionals} -=
-            2 * $executedNullCheckCount;
-        $cloverData->{coverage}{project}{metrics}{coveredconditionals} -=
-            $executedNullCheckCount;
-        $cloverData->{coverage}{project}{metrics}{elements} -=
-            2 * $executedNullCheckCount;
-        $cloverData->{coverage}{project}{metrics}{coveredelements} -=
-            $executedNullCheckCount;
-
-        $cloverData->{coverage}{project}{metrics}{elements} -=
-            $unexecutedFailCount + 2 * $noViableAltBlocks;
-        $cloverData->{coverage}{project}{metrics}{statements} -=
-            $unexecutedFailCount + 2 * $noViableAltBlocks;
-
-        $cloverData->{coverage}{project}{metrics}{elements} -=
-            $simpleCatchBlocks;
-        $cloverData->{coverage}{project}{metrics}{statements} -=
-            $simpleCatchBlocks;
-
-        $cloverData->{coverage}{project}{metrics}{elements} -=
-            2 * ($simpleGetters + $simpleSetters);
-        $cloverData->{coverage}{project}{metrics}{methods} -=
-            $simpleGetters + $simpleSetters;
-        $cloverData->{coverage}{project}{metrics}{statements} -=
-            $simpleGetters + $simpleSetters;
-
-        foreach my $pkg (@{ $cloverData->{coverage}{project}{package} })
-        {
-            foreach my $file (@{ $pkg->{file} })
-            {
-                my $fileName = $file->{name}->content;
-                if ($debug)
-                {
-                    print "    clover patch: checking $fileName against ",
-                        "$sourceName\n";
-                }
-                $fileName =~ s,\\,/,go;
-                my $Uprojdir = $workingDir . "/";
-                $fileName =~ s/^\Q$Uprojdir\E//io;
-                print "    ... pruned file name = $fileName\n" if ($debug);
-                if ($fileName eq $sourceName)
-                {
-                    print "    ... clover element found!\n" if ($debug);
-                    $file->{metrics}{conditionals} -= 2 * $conditionCount;
-                    $file->{metrics}{coveredconditionals} -=
-                        $executedConditionCount;
-                    $file->{metrics}{elements} -= 2 * $conditionCount;
-                    $file->{metrics}{coveredelements} -=
-                        $executedConditionCount;
-
-                    $file->{metrics}{elements} -=
-                        $unexecutedFailCount + 2 * $noViableAltBlocks;
-                    $file->{metrics}{statements} -=
-                        $unexecutedFailCount + 2 * $noViableAltBlocks;
-
-                    $file->{metrics}{elements} -= $simpleCatchBlocks;
-                    $file->{metrics}{statements} -= $simpleCatchBlocks;
-
-                    $file->{metrics}{elements} -=
-                        2 * ($simpleGetters + $simpleSetters);
-                    $file->{metrics}{methods} -=
-                        $simpleGetters + $simpleSetters;
-                    $file->{metrics}{statements} -=
-                        $simpleGetters + $simpleSetters;
-                }
-            }
-        }
-        if ($debug)
-        {
-            print "\nafter correction:\n";
-            print $cloverData->data;
-            print "\n";
-        }
-    }
-
-    my $reformatter = new Web_CAT::Clover::Reformatter(
-        \@comments, $stripEmptyCoverage, $allHtml);
-    $reformatter->save($file);
-}
-
-
-#---------------------------------------------------------------------------
-# Walk a dir, deleting unneeded clover-generated files and translating others
-sub processCloverDir
-{
-    my $path = shift;
-    my $stripEmptyCoverage = shift;
-    my $cloverData = shift;
-
-    # print "processing $path, strip = $stripEmptyCoverage\n";
-
-    if (-d $path)
-    {
-        for my $file (bsd_glob("$path/*"))
-        {
-            processCloverDir($file, $stripEmptyCoverage, $cloverData);
-        }
-
-        # is the dir empty now?
-        my @files = bsd_glob("$path/*");
-        if ($#files < 0)
-        {
-            # print "deleting empty dir $path\n";
-            if (!rmdir($path))
-            {
-                adminLog("cannot delete empty directory '$path': $!");
-            }
-        }
-    }
-    elsif ($path !~ m/\.html$/io || $path =~
-    m/(^|\/)(all-classes|all-pkgs|index|pkg-classes|pkg(s?)-summary)\.html$/io)
-    {
-        # print "deleting $path\n";
-        if (unlink($path) != 1)
-        {
-            adminLog("cannot delete file '$path': $!");
-        }
-    }
-    else
-    {
-        # An HTML file to keep!
-        translateHTMLFile($path, $stripEmptyCoverage, $cloverData);
-    }
-}
-
-
 my $time5 = time;
 if ($debug)
 {
@@ -2727,66 +2243,10 @@ my $jacoco  = (-f "$resultDir/jacoco.xml")
     ? XML::Smart->new("$resultDir/jacoco.xml")
     : undef;
 
-#if (!$buildFailed) # $can_proceed)
-#{
-#    # Figure out mapping from class names to file names
-#    my $Uprojdir = $workingDir . "/";
-#    foreach my $pkg (@{ $jacoco->{report}{package} })
-#    {
-#        my $pkgName = $pkg->{name}->content;
-#        print "package: ", $pkg->{name}->content, "\n";
-#        if ($pkgName ne '')
-#        {
-#            $pkgName =~ s,\\,/,go;
-#            $pkgName .= '/';
-#        }
-#        foreach my $file (@{ $pkg->{sourcefile} })
-#        {
-#            my $fileName = $pkgName . $file->{name}->content;
-##            $classToFileNameMap{$fqClassName} = $fileName;
-#             print "\tfile: $fileName\n";
-#        }
-#    }
-#    $buildFailed = 1;
-#
-#    # Delete unneeded files from the clover/ html dir
-#    if (-d "$resultDir/clover")
-#    {
-#        processCloverDir("$resultDir/clover",
-#            !defined($status{'studentTestResults'})
-#                || !$status{'studentTestResults'}->hasResults
-#                || !$status{'studentTestResults'}->testsExecuted,
-#            $jacoco);
-#    }
-
-    # If any classes in the default package, move them to correct place
-#    my $defPkgDir = "$resultDir/clover/default-pkg";
-#    if (-d $defPkgDir)
-#    {
-#        for my $file (bsd_glob("$defPkgDir/*"))
-#        {
-#            my $newLoc = $file;
-#            if ($newLoc =~ s,/default-pkg/,/,o)
-#            {
-#                rename($file, $newLoc);
-#            }
-#        }
-#        if (!rmdir($defPkgDir))
-#        {
-#            adminLog("cannot delete empty directory '$defPkgDir': $!");
-#        }
-#    }
-#
-#    if ($debug > 1)
-#    {
-#        print "Clover'ed classes (from HTML):\n";
-#        foreach my $class (keys %coveredClasses)
-#        {
-#            print "\t$class\n";
-#        }
-#        print "\n";
-#    }
-#}
+### FIXME: BUG: %codeMarkupIds won't be populated at this point if static
+### analysis isn't being used, but the following methods assume it is.
+### Need to fix this to make sure file names are available where needed
+### in handling message extracts for testing.
 
 my $time6 = time;
 if ($debug)
@@ -2799,12 +2259,16 @@ sub computeFileNameUsingClassName
 {
     my $className = shift;
 
+    # print "computeFileNameUsingClassName($className)\n";
+
     # If the className is outer level class (fileName); it will be found in
     # the keys of codeMarkupIds.
+    # print "code markup ids = ", dump(\%codeMarkupIds), "\n";
     for my $longName (keys %codeMarkupIds)
     {
         if (index(lc($longName), lc($className . '.java')) != -1)
         {
+            # print "longName from ids = $longName\n";
             return $longName;
         }
     }
@@ -2815,6 +2279,7 @@ sub computeFileNameUsingClassName
     {
         if (checkForPatternInFile($longName, 'class' . ' ' .$className. ' '))
         {
+            # print "longName from file scan = $longName\n";
             return $longName;
         }
     }
@@ -2825,10 +2290,10 @@ sub computeFileNameUsingClassName
 # contains $filename . $lineNum as the key, these statements are displayed
 # as uncovered statements under methods uncovered, so we ignore them for
 # statements and branches uncovered
-my %fileLineNumMethodUncovered;
+my %fileLineNumMethodUncovered = ();
 
-#Contains the beginLine of each method (tests also).
-my %methodBeginLineNum;
+# Contains the beginLine of each method (tests also).
+my %methodBeginLineNum = ();
 
 
 sub addMethodBeginLineNum
@@ -2848,30 +2313,31 @@ sub addMethodBeginLineNum
 sub computeMethodsUncovered
 {
     my $class = shift;
+    # print "class = ${\( defined($class) ? $class->{name} : 'undef')}\n";
 
-    my $fileName = computeFileNameUsingClassName($class->{name}->content);
+    my $fileName = computeFileNameUsingClassName($class->{name});
+    # print "file = ${\( defined($fileName) ? $fileName : 'undef')}\n";
 
     foreach my $method (@{ $class->{method} })
     {
         my $counter = $method->{counter}('type', 'eq', 'INSTRUCTION');
 
-        # print($method->{name}->content);
-        # print "\n";
-        if ($counter->{covered}->content != 0)
+        # print("method: ", $method->{name}->content, "\n");
+        if ($counter->{covered} != 0)
         {
             next;
         }
 
         my $numLines =
-            $method->{counter}('type', 'eq', 'LINE')->{missed}->content;
+            $method->{counter}('type', 'eq', 'LINE')->{missed};
         # Add the lines in the method uncovered to the hash
         addTofileLineMethodUncoveredHash(
-            $fileName, $method->{line}->content, $numLines);
+            $fileName, $method->{line}, $numLines);
 
         # Jacoco gives the line number of the body of the method: so we
         # do "-2" to the line number
         my $methodCoverageStruct = generateCompleteErrorStruct(
-            $fileName, $method->{line}->content-2,
+            $fileName, $method->{line} - 2,
             'Method not executed',
             'This method or constructor was not executed by any of your '
             . 'software tests. Add more tests to check its behavior.');
@@ -2880,10 +2346,10 @@ sub computeMethodsUncovered
         # and methodName.
         # Count would be the number of missed instructions (later we
         # sort(desc) based on that).
-        $perFileRuleStruct{'methodsUncovered'}{'count'}{$fileName . $method->{name}->content} =
-            $counter->{missed}->content;
+        $perFileRuleStruct{'methodsUncovered'}{'count'}{$fileName . $method->{name}} =
+            $counter->{missed};
 
-        $perFileRuleStruct{'methodsUncovered'}{'data'}{$fileName . $method->{name}->content} =
+        $perFileRuleStruct{'methodsUncovered'}{'data'}{$fileName . $method->{name}} =
             $methodCoverageStruct;
     }
 }
@@ -2919,7 +2385,7 @@ sub computeBranchesUncovered
 
 # Temporary used only for Statements Coverage
 # filename----line numbers
-my %perFileStatementUncovered;
+my %perFileStatementUncovered = ();
 
 sub addTofileLineMethodUncoveredHash
 {
@@ -4686,8 +4152,11 @@ sub computeTestingErrorFailureStructs
     }
 }
 
-#We use this to ensure that duplicate messages (which imply the same) aren't displayed in
-#the feedback. This is used for Signature Errors and Behavior Failures.
+# We use this to ensure that duplicate messages (which imply the same) aren't
+# displayed in the feedback. This is used for Signature Errors, Behavior Errors
+# and Behavior Failures. For Signature Errors and Behavior Failures we store
+# the message as the key. For Behavior Errors, we store message (which
+# contains exception name and message from inc file) and line num as the key.
 my %signatureErrorFailureMessages;
 
 # Suites from instr.inc
@@ -4832,6 +4301,29 @@ sub computeBehaviorSectionSignatureStructs
 
         ($fileName, $lineNum) =
             extractFileNameFromStackTrace($suite->{'trace'}, 1);
+
+        if (!defined $lineNum)
+        {
+            if (defined $signatureErrorFailureMessages{$message})
+            {
+                next;
+            }
+            else
+            {
+                $signatureErrorFailureMessages{$message} = 1;
+            }
+        }
+        else
+        {
+            if (defined $signatureErrorFailureMessages{$message.$lineNum})
+            {
+                next;
+            }
+            else
+            {
+                $signatureErrorFailureMessages{$message.$lineNum} = 1;
+            }
+        }
 
         if (!defined $fileName || !defined $lineNum)
         {
@@ -5056,7 +4548,7 @@ sub extractFileNameFromStackTrace
                 $lineNum = $tempLineNum;
                 if ($topFileName == 1)
                 {
-                    last;
+                    return ($fileName, $lineNum);
                 }
             }
         }
@@ -5358,7 +4850,7 @@ To help you debug,
 this heat map highlights code
 used in instructor reference tests that failed.
 <em>This analysis <strong>cannot pinpoint the exact location
-of any bug</strong> because we do not know exactly where the defect is.</em> 
+of any bug</strong> because we do not know exactly where the defect is.</em>
 </p><p>
 Colored lines indicate code <strong>executed during a failing
 instructor reference test</strong>, with more red/darker lines indicating
@@ -5392,12 +4884,12 @@ EOF
 #<em>This feedback can’t pinpoint the exact location of the bug, nor do we
 #know exactly where the bug exists in your code that caused the test(s) to
 #fail</em>, but using this map will allow you to focus your attention on parts
-#of your code that were definitely involved in failed tests.  
+#of your code that were definitely involved in failed tests.
 #</p>
 #<p>
 #Hover your mouse over colored lines to see line numbers.
 #Methods that are circled are the methods that Web-CAT considers the most
-#suspicious. 
+#suspicious.
 #</p><p>
 #<a href="https://canvas.vt.edu/courses/91356/wiki" target="_blank">This
 #Canvas site</a> has more information on how the heat maps work.
@@ -5535,13 +5027,7 @@ if (!$buildFailed && $useIndicatorFeedback)
         print MINDSETFEEDBACKFILE <<END_MESSAGE;
 <div class="row">
   <div class="col-12 col-md-6 mindset maria">
-    <div class="module flex">
-      <div class="talkbubble">
-        $comment
-      </div>
-      <img class="vta sm" width="70" height="84"
-        src="\${pluginResource:JavaTddPlugin}/maria-sm.png"/>
-    </div>
+    ${\(Web_CAT::Maria::talkBubble($comment))}
   </div>
 END_MESSAGE
 
@@ -5573,7 +5059,7 @@ if (!$buildFailed && $useDailyMissions)
     }
 
     my $missions = $dailyMissionGenerator->render_missions;
-    print MINDSETFEEDBACKFILE $missions;    
+    print MINDSETFEEDBACKFILE $missions;
 #    print MINDSETFEEDBACKFILE <<END_MESSAGE;
 #  <div class="col-12 col-md-6 mindset maria">
 #    <div class="module flex">
@@ -5740,16 +5226,21 @@ my $improvedFeedbackFileName = "$resultDir/improvedFeedback.html";
 open(IMPROVEDFEEDBACKFILE, ">$improvedFeedbackFileName")
     || croak "Cannot open '$improvedFeedbackFileName' for writing: $!";
 
-
-# UserName
-print IMPROVEDFEEDBACKFILE
-    '<input type="hidden" id="userName" name="userName" value="' . $pid . '">';
+# Maria
+if ($useMaria || $useMariaExplanations)
+{
+    print IMPROVEDFEEDBACKFILE Web_CAT::Maria::dialog();
+}
+if ($useMaria)
+{
+    print IMPROVEDFEEDBACKFILE Web_CAT::Maria::chatbox();
+}
 
 # Coding Section
 my $incomplete = ($expandSectionId == 1) ? ' incomplete' : '';
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
 <div class="row">
-  <div class="col-12 col-md-6 panel$incomplete" id="codingPanel">
+  <div class="col-12 col-md-6 coding panel$incomplete" id="codingPanel">
     <div class="module">
       <div dojoType="webcat.TitlePane" title="Coding">
     <style>
@@ -5795,9 +5286,9 @@ if ($codingSectionStatus{'compilerErrors'} == 0
     || $codingSectionStatus{'codingFlaws'} == 0
     || $codingSectionStatus{'junitTests'} == 0)
 {
-    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><a ',
-        'class="seeMoreLink btn btn-sm btn-primary" ',
-        'href="#codingPanel">More...</a></span>';
+    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><button ',
+        'class="btn btn-sm btn-primary more" data-section="coding">',
+        'More...</button>';
 }
 
 
@@ -5805,8 +5296,8 @@ if ($codingSectionStatus{'compilerErrors'} == 0
 my $isVisible = ($expandSectionId == 1) ? ' visible' : '';
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
       </div>
-      <div class="arrow borderArrow codingarrow$isVisible"></div>
-      <div class="arrow codingarrow$isVisible"></div>
+      <div class="arrow borderArrow coding detail$isVisible"></div>
+      <div class="arrow coding detail$isVisible"></div>
     </div>
   </div>
 END_MESSAGE
@@ -5817,12 +5308,13 @@ if ($codingSectionStatus{'compilerErrors'} == 0
     || $codingSectionStatus{'junitTests'} == 0)
 {
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
-<div class="col-12 more-info$isVisible" id="coding-moreInfo">
+<div class="col-12 coding detail more-info$isVisible" id="coding-moreInfo">
   <div class="module">
 END_MESSAGE
 
 for my $element (@codingSectionOrder)
 {
+    # print "checking coding section $element\n";
     if (!defined $codingSectionExpanded{$element}
         || !@{$codingSectionExpanded{$element}})
     {
@@ -5836,20 +5328,23 @@ for my $element (@codingSectionOrder)
     {
         print IMPROVEDFEEDBACKFILE
             '<h2>', $errorStruct->entityName, '</h2><p class="errorType">',
-            htmlEscape($errorStruct->errorMessage), '</p>';
+            htmlEscape($errorStruct->errorMessage), ' ';
 
-        if (index(lc($element), lc('compilerErrors')) != -1)
+        my $msg = '';
+
+        if ($element eq 'compilerErrors')
         {
-            print IMPROVEDFEEDBACKFILE '<input type="hidden" ',
-                'name="compilerErrorId" value="',
-                compilerErrorHintKey($errorStruct->errorMessage), '"/>';
+            $msg = Web_CAT::Maria::explainButton(
+                compilerErrorHintKey($errorStruct->errorMessage),
+                $useMariaExplanations);
         }
-        elsif (index(lc($element), lc('signatureErrors')) != -1)
+        elsif ($element eq 'signatureErrors')
         {
-            print IMPROVEDFEEDBACKFILE
-                '<input type="hidden" name="runtimeErrorId" value="',
-                runtimeErrorHintKey($errorStruct->errorMessage), '"/>';
+            $msg = Web_CAT::Maria::explainButton(
+                runtimeErrorHintKey($errorStruct->errorMessage),
+                $useMariaExplanations);
         }
+        print IMPROVEDFEEDBACKFILE $msg, '</p>';
 
         my @linesOfCode = split /\n/, $errorStruct->linesOfCode;
 
@@ -5904,7 +5399,7 @@ if ($status{'studentTestResults'}->testsExecuted == 0)
 }
 $incomplete = ($expandSectionId == 2) ? ' incomplete' : '';
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
-  <div class="col-12 col-md-6 panel$incomplete" id="testingPanel">
+  <div class="col-12 col-md-6 testing panel$incomplete" id="testingPanel">
     <div class="module">
       <div dojoType="webcat.TitlePane" title="Your Testing">
 END_MESSAGE
@@ -5965,9 +5460,9 @@ if ($testingSectionStatus{'errors'} == 0
     || $testingSectionStatus{'statementsUncovered'} == 0
     || $testingSectionStatus{'conditionsUncovered'} == 0 )
 {
-    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><a ',
-        'class="seeMoreLink btn btn-sm btn-primary" ',
-        'href="#testingPanel">More...</a></span>';
+    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><button ',
+        'class="btn btn-sm btn-primary more" data-section="testing">',
+        'More...</button>';
 }
 
 
@@ -5975,8 +5470,8 @@ if ($testingSectionStatus{'errors'} == 0
 $isVisible = ($expandSectionId == 2) ? ' visible' : '';
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
       $testingMsg</div>
-      <div class="arrow borderArrow testingarrow$isVisible"></div>
-      <div class="arrow testingarrow$isVisible"></div>
+      <div class="arrow borderArrow testing detail$isVisible"></div>
+      <div class="arrow testing detail$isVisible"></div>
     </div>
   </div>
 END_MESSAGE
@@ -5988,7 +5483,7 @@ if ($codingSectionStatus{'compilerErrors'} == 1 && $studentsMustSubmitTests &&
     || $testingSectionStatus{'conditionsUncovered'} == 0 ))
 {
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
-<div class="col-12 more-info$isVisible" id="testing-moreInfo">
+<div class="col-12 testing detail more-info$isVisible" id="testing-moreInfo">
   <div class="module">
 END_MESSAGE
 
@@ -6007,14 +5502,19 @@ for my $element (@testingSectionOrder)
     {
         print IMPROVEDFEEDBACKFILE '<h2>', $errorStruct->entityName, '</h2>',
             '<p class="errorType">', htmlEscape($errorStruct->errorMessage),
-            '</p>';
+            ' ';
+
+        my $msg = '';
 
         if (index(lc($element), lc("errors")) != -1)
         {
-            print IMPROVEDFEEDBACKFILE
-                '<input type="hidden" name="runtimeErrorId" value="',
-                runtimeErrorHintKey($errorStruct->errorMessage), '"/>';
+            $msg = Web_CAT::Maria::explainButton(
+                runtimeErrorHintKey($errorStruct->errorMessage),
+                $useMariaExplanations);
         }
+
+        print IMPROVEDFEEDBACKFILE $msg, '</p>';
+
 
         my @linesOfCode = split /\n/, $errorStruct->linesOfCode;
 
@@ -6109,7 +5609,7 @@ if ($studentsMustSubmitTests)
 $incomplete = ($expandSectionId == 3) ? ' incomplete' : '';
 if (!$showBehavior) { $incomplete = ''; }
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
-  <div class="col-12 col-md-6 panel$incomplete" id="behaviorPanel">
+  <div class="col-12 col-md-6 behavior panel$incomplete" id="behaviorPanel">
     <div class="module">
       <div dojoType="webcat.TitlePane" title="Behavior">
 END_MESSAGE
@@ -6172,9 +5672,9 @@ if ($showBehavior
     || $behaviorSectionStatus{'failures'} == 0
     || $behaviorSectionStatus{'outOfMemoryErrors'} == 0))
 {
-    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><a ',
-        'class="seeMoreLink btn btn-sm btn-primary" ',
-        'href="#behaviorPanel">More...</a></span>';
+    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><button ',
+        'class="btn btn-sm btn-primary more" data-section="behavior">',
+        'More...</button>';
 }
 
 
@@ -6182,8 +5682,8 @@ if ($showBehavior
 $isVisible = ($expandSectionId == 3) ? ' visible' : '';
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
       $behaviorMsg</div>
-      <div class="arrow borderArrow behaviorarrow$isVisible"></div>
-      <div class="arrow behaviorarrow$isVisible"></div>
+      <div class="arrow borderArrow behavior detail$isVisible"></div>
+      <div class="arrow behavior detail$isVisible"></div>
     </div>
   </div>
 END_MESSAGE
@@ -6195,7 +5695,7 @@ if ($showBehavior
     || $behaviorSectionStatus{'outOfMemoryErrors'} == 0))
 {
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
-<div class="col-12 more-info$isVisible" id="behavior-moreInfo">
+<div class="col-12 behavior detail more-info$isVisible" id="behavior-moreInfo">
   <div class="module">
 END_MESSAGE
 
@@ -6228,9 +5728,11 @@ for my $element (@behaviorSectionOrder)
     foreach my $errorStruct (@{$behaviorSectionExpanded{$element}})
     {
         print IMPROVEDFEEDBACKFILE '<h2>', $errorStruct->entityName, '</h2>',
-            '<p class="errorType">', htmlEscape($errorStruct->errorMessage),
-            '</p><input type="hidden" name="runtimeErrorId" value="',
-            runtimeErrorHintKey($errorStruct->errorMessage), '"/>';
+            '<p class="errorType">', htmlEscape($errorStruct->errorMessage), ' ';
+        my $msg = Web_CAT::Maria::explainButton(
+            runtimeErrorHintKey($errorStruct->errorMessage),
+            $useMariaExplanations);
+        print IMPROVEDFEEDBACKFILE $msg, '</p>';
 
         my @linesOfCode = split /\n/, $errorStruct->linesOfCode;
         if (@linesOfCode)
@@ -6273,7 +5775,7 @@ END_MESSAGE
 #Style Section
 $incomplete = ($expandSectionId == 4) ? ' incomplete' : '';
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
-  <div class="col-12 col-md-6 panel$incomplete" id="stylePanel">
+  <div class="col-12 col-md-6 style panel$incomplete" id="stylePanel">
     <div class="module">
       <div dojoType="webcat.TitlePane" title="Style">
     <style>
@@ -6328,9 +5830,9 @@ if ($styleSectionStatus{'javadoc'} == 0
     || $styleSectionStatus{'lineLength'} == 0
     || $styleSectionStatus{'other'} == 0)
 {
-    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><a ',
-        'class="seeMoreLink btn btn-sm btn-primary" ',
-        'href="#stylePanel">More...</a></span>';
+    print IMPROVEDFEEDBACKFILE '<span class="seeMoreButton"><button ',
+        'class="btn btn-sm btn-primary more" data-section="style">',
+        'More...</button>';
 }
 
 
@@ -6338,8 +5840,8 @@ if ($styleSectionStatus{'javadoc'} == 0
 $isVisible = ($expandSectionId == 4) ? ' visible' : '';
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
       </div>
-      <div class="arrow borderArrow stylearrow$isVisible"></div>
-      <div class="arrow stylearrow$isVisible"></div>
+      <div class="arrow borderArrow style detail$isVisible"></div>
+      <div class="arrow style detail$isVisible"></div>
     </div>
   </div>
 END_MESSAGE
@@ -6350,7 +5852,7 @@ if ($styleSectionStatus{'javadoc'} == 0
     || $styleSectionStatus{'other'} == 0)
 {
 print IMPROVEDFEEDBACKFILE <<END_MESSAGE;
-<div class="col-12 more-info$isVisible" id="style-moreInfo">
+<div class="col-12 style detail more-info$isVisible" id="style-moreInfo">
   <div class="module">
 END_MESSAGE
 

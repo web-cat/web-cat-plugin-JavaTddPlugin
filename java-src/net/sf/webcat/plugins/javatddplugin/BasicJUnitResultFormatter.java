@@ -173,11 +173,18 @@ public class BasicJUnitResultFormatter
             }
             for (String message : messages)
             {
-                result = result.replaceFirst(
-                    "(Testcase:.*(?:\r\n|\n|\r)"
-                    + "\t(?:FAILED|Caused an ERROR)(?:\r\n|\n|\r))\\Q"
-                    + message
-                    + "\\E(?:\r\n|\n|\r)", "$1");
+                try
+                {
+                    result = result.replaceFirst(
+                        "(Testcase:.*(?:\r\n|\n|\r)"
+                        + "\t(?:FAILED|Caused an ERROR)(?:\r\n|\n|\r))\\Q"
+                        + message
+                        + "\\E(?:\r\n|\n|\r)", "$1");
+                }
+                catch (java.util.regex.PatternSyntaxException e)
+                {
+                    // ignore problems with message including illegal chars
+                }
             }
             messages.clear();
             result += "--------------------\n"

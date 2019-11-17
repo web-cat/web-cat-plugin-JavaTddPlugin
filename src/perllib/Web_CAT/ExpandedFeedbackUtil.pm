@@ -149,7 +149,8 @@ sub checkForPatternInFile
 	if (!open(FILECONTENT, $fileName))
 	{
         # cluck, but on stdout
-        print longmess("cannot open $fileName");
+        # print longmess("cannot open $fileName");
+        # disabled output, since this is used on files that might be missing
 	    return 0;
 	}
 
