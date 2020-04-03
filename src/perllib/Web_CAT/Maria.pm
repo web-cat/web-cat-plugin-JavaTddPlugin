@@ -110,13 +110,9 @@ sub chatbox
         </div>
         <ul id="choices"></ul>
       </div>
-      <form action="#" method="post" id="chatForm">
-        <fieldset>
           <input type="text" name="input-chatbox" id="chatbox-input"
             placeholder="Type your message" autocomplete="off" autofocus/>
           <input type="hidden"/>
-        </fieldset>
-      </form>
     </div>
   </div>
 </div>

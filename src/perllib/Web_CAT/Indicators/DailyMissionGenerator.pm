@@ -255,7 +255,7 @@ sub generate_new_missions
             push @candidates, $indicator;
         }
     }
-    print "candidates for missions: ", join(', ', @candidates), "\n";
+    # print "candidates for missions: ", join(', ', @candidates), "\n";
     my %candidate_map = map {$_ => 1} @candidates;
     my $size = scalar @candidates;
     if (defined $self->{current}->{missions})
@@ -357,7 +357,7 @@ sub generate_new_missions
         delete $candidate_map{'ict'};
     }
     @candidates = keys %candidate_map;
-    print "filtered candidates for missions: ", join(', ', @candidates), "\n";
+    # print "filtered candidates for missions: ", join(', ', @candidates), "\n";
     $size = scalar @candidates;
     for (; $missionCount < 5 && $size > 0; $missionCount++)
     {

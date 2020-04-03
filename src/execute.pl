@@ -8,6 +8,7 @@
 
 use Class::Struct;
 use strict;
+no warnings 'utf8';
 use Carp qw(carp croak);
 use Config::Properties::Simple;
 use File::Basename;
@@ -811,6 +812,7 @@ my $time1        = time;
 
 if ($callAnt)
 {
+    $ANT .= " -listener net.sf.antcontrib.perf.AntPerformanceListener";
     if ($debug > 2)
     {
         $ANT .= " -d -v";
