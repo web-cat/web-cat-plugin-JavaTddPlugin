@@ -2,8 +2,8 @@
     name             = "JavaTddPlugin";
     version.major    = 4;
     version.minor    = 1;
-    version.revision = 2;
-    version.date     = 20190420;
+    version.revision = 3;
+    version.date     = 20210612;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -12,7 +12,7 @@
     license          = "GNU Affero General Public License v.3";
     license.url      = "http://www.gnu.org/licenses/agpl.html";
     copyright        =
-        "(c) 2006-2018 Virginia Tech Department of Computer Science";
+        "(c) 2006-2022 Virginia Tech Department of Computer Science";
     info.url         = "http://wiki.web-cat.org/WCWiki/JavaTddPlugin";
     history.url      =
         "http://wiki.web-cat.org/WCWiki/JavaTddPlugin/ChangeHistory";
@@ -740,6 +740,33 @@
   instead of limited hints. Students still need to meet the coverage
   requirements and other requirements to see test outcomes, but will see
   the full table of tests instead of limited hints.";
+        },
+        {
+            property    = useFindBugs;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use FindBugs (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to add FindBugs analysis to the static analysis scoring of
+  the assignment. This will cause FindBugs to be run on student submissions,
+  and the results will be used to give feedback to students. Not all FindBugs
+  warnings/errors will be shown--the specific list used is research-driven.
+  There currently are no controls for changing the scoring scheme or enabling
+  or disabling specific FindBugs checks.";
+        },
+        {
+            property    = usePit;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use PIT Mutation Analysis (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to turn on mutation analysis for evaluating student-written
+  test suites. This is highly experimental and not advised for production
+  use except in research settings.";
         }
     );
     globalOptions = (
