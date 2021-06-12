@@ -6,8 +6,6 @@ jacocoant.jar
 
 Use the latest version from:
 
-http://www.eclemma.org/jacoco/index.html
+https://www.jacoco.org/jacoco/
 
-The current official build of this plug-in uses:
-
-http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.7.2.201409121644/jacoco-0.7.2.201409121644.zip
+The current official build of this plug-in uses v 0.8.5.

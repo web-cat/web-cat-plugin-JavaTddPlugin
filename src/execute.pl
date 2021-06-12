@@ -812,7 +812,7 @@ my $time1        = time;
 
 if ($callAnt)
 {
-    $ANT .= " -listener net.sf.antcontrib.perf.AntPerformanceListener";
+    # $ANT .= " -listener net.sf.antcontrib.perf.AntPerformanceListener";
     if ($debug > 2)
     {
         $ANT .= " -d -v";
@@ -4389,7 +4389,8 @@ sub generateStackOverflowErrorStruct
     {
         # Lines which contain this substring(example: (abc.java:102)) are
         # our required ones.
-        if (index($line,"(") == -1 || index($line,")") == -1)
+        if ($line !~ m/^\s*at\s+/o ||
+            index($line,"(") == -1 || index($line,")") == -1)
         {
             next;
         }
@@ -4524,7 +4525,8 @@ sub extractFileNameFromStackTrace
     {
         # Lines which contain this substring(example: (abc.java:102)) are
         # our required ones.
-        if (index($line,"(") == -1 || index($line,")") == -1)
+        if ($line !~ m/^\s*at\s+/o ||
+            index($line,"(") == -1 || index($line,")") == -1)
         {
             next;
         }

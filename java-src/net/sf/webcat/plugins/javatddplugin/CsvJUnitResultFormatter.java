@@ -53,7 +53,8 @@ public class CsvJUnitResultFormatter
     private  String csvEscape(String string)
     {
         String result = string;
-        if (result.contains("\"") || result.contains(","))
+        if (result != null
+            && (result.contains("\"") || result.contains(",")))
         {
             result = '"' + result.replaceAll("\"", "\"\"") + '"';
         }
