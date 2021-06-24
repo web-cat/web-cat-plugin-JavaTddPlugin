@@ -6,3 +6,10 @@ src/jacoco/*.jar
 src/defaultJars/*.jar
 src/JavaTddPluginSupport.jar
 src/junit-4.8.2.jar
+src/findbugs/README.txt
+src/findbugs/bin/
+src/findbugs/doc/
+src/findbugs/lib/
+src/findbugs/optionalPlugin/
+src/findbugs/plugin/
+src/findbugs/src/
