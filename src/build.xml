@@ -48,6 +48,11 @@
   <property name="staticAnalysisSrcPattern"          value="**/*.java"/>
   <property name="staticAnalysisSrcExclusionPattern" value="none"/>
   <property name="instrumentExclusionPattern"        value="none"/>
+  <!--
+  <property name="pmd.lib" value="${pluginHome}/pmd"/>
+  <property name="checkstyle.jar"
+	value="${pluginHome}/checkstyle/checkstyle-8.35-all.jar"/>
+  -->
 
   <condition property="isDebugging">
     <matches string="${debug}" pattern="[3-9]"/>
@@ -140,6 +145,14 @@
       <include name="**/*.jar"/>
     </fileset>
     <pathelement location="${basedir}"/>
+  </path>
+
+  <property name="findbugs.home" value="${pluginHome}/findbugs"/>
+  <property name="findbugs.lib" value="${findbugs.home}/lib"/>
+  <path id="findbugs.classpath">
+    <fileset dir="${findbugs.lib}">
+      <include name="*.jar"/>
+    </fileset>
   </path>
 
 
@@ -534,6 +547,29 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
+  <target name="findbugs"
+    if="enableFindBugs">
+    <taskdef name="findbugs"
+      classname="edu.umd.cs.findbugs.anttask.FindBugsTask">
+      <classpath refid="findbugs.classpath"/>
+    </taskdef>
+    <!-- output="xml:withMessages" -->
+    <!-- effort="max" -->
+    <findbugs home="${findbugs.home}"
+      output="xml:withMessages"
+      omitVisitors="AtomicityProblem,CrossSiteScripting,DefaultEncodingDetector,DoInsideDoPrivileged,DontIgnoreResultOfPutIfAbsent,FindDoubleCheck,FindEmptySynchronizedBlock,FindInconsistentSync2,FindJSR166LockMonitorenter,FindMismatchedWaitOrNotify,FindNakedNotify,FindReturnRef,FindRunInvocations,FindSleepWithLockHeld,FindSpinLoop,FindSqlInjection,FindTwoLockWait,FindUncalledPrivateMethods,FindUnconditionalWait,FindUnreleasedLock,FindUnsatisfiedObligation,FindUnsyncGet,HugeSharedStringConstants,InefficientIndexOf,InefficientInitializationInsideLoop,InefficientMemberAccess,InefficientToArray,LazyInit,LostLoggerDueToWeakReference,MutableLock,MutableStaticFields,Noise,NoiseNullDeref,NumberConstructor,StartInConstructor,StaticCalendarDetector,StringConcatenation,SynchronizationOnSharedBuiltinConstant,SynchronizeAndNullCheckField,SynchronizeOnClassLiteralNotGetClass,SynchronizingOnContentsOfFieldToProtectField,TestASM,TestingGround,TestingGround2,UnnecessaryMath,URLProblems,VolatileUsage,WaitInLoop,WrongMapIterator"
+      outputFile="${resultDir}/findbugs.xml"
+      excludeFilter="${findbugs.home}/filter.xml">
+      <auxClasspath refid="student.classpath" />
+      <fileset dir="${basedir}"
+        casesensitive="false"
+        includes="${staticAnalysisSrcPattern}"
+        excludes="${staticAnalysisSrcExclusionPattern}"/>
+      <class location="${studentBuild}.raw" />
+    </findbugs>
+  </target>
+
+
   <taskdef name="httpmpost"
     classname="net.sf.fikin.ant.httpclientanttask.AntMultipartPostMethod">
     <classpath>
@@ -713,6 +749,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
     <antcall target="test.bundle"/>
     <antcall target="checkstyle.bundle"/>
     <antcall target="pmd"/>
+    <antcall target="findbugs"/>
   </target>
 
   <target name="parallel.middle" depends="compile" if="run.parallel">
@@ -726,6 +763,9 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       </sequential>
       <sequential>
         <antcall target="pmd"/>
+      </sequential>
+      <sequential>
+        <antcall target="findbugs"/>
       </sequential>
     </parallel>
   </target>

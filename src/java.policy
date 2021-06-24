@@ -1,5 +1,13 @@
 // Standard extensions get all permissions by default
 
+grant codeBase "file:${java.home}/-" {
+    permission java.security.AllPermission;
+};
+
+grant codeBase "file:/Web-CAT/Plugins/JavaTddPlugin/src/-" {
+    permission java.security.AllPermission;
+};
+
 grant codeBase "file:${java.home}/lib/ext/*" {
     permission java.security.AllPermission;
 };
@@ -26,6 +34,9 @@ grant {
 
     // for JES
     permission java.io.FilePermission "${user.home}${/}JESConfig.txt", "read";
+
+    // for jacoco
+    permission java.net.SocketPermission "*", "resolve";
 };
 
 // default permissions granted to all domains
@@ -58,7 +69,7 @@ grant {
     permission java.net.SocketPermission "google.com", "connect";
     permission java.net.SocketPermission "www.google.com", "connect";
 
-    // "standard" properies that can be read by anyone
+    // "standard" properties that can be read by anyone
 
     permission java.util.PropertyPermission "java.version", "read";
     permission java.util.PropertyPermission "java.vendor", "read";

@@ -20,11 +20,7 @@
     interpreter.prefix = "${PerlForPlugins.perl.exe}";
     author     = "Stephen Edwards (edwards@cs.vt.edu)";
     authorUid  = edwards;
-    languages  = ( { name = Java; version = 1.4; },
-                   { name = Java; version = 1.5; },
-                   { name = Java; version = 1.6; },
-                   { name = Java; version = 1.7; },
-                   { name = Java; version = 1.8; } );
+    languages  = ( { name = Java; version = 1.14; } );
     description = "This \"all-in-one\" plug-in is designed to provide full
         processing and feedback generation for Java assignments where
         students write their own JUnit test cases.

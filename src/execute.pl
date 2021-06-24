@@ -52,6 +52,7 @@ use Web_CAT::Utilities qw(
     filePattern
     copyHere
     htmlEscape
+    smartHtmlEscape
     addReportFile
     scanTo
     scanThrough
@@ -70,6 +71,7 @@ use Web_CAT::ErrorMapper qw(
     compilerErrorEnhancedMessage
     setResultDir
     codingStyleMessageValue
+    findBugsMessage
     );
 use Web_CAT::Indicators::ProgressTracker;
 use Web_CAT::Indicators::ProgressCommenter;
@@ -101,6 +103,12 @@ $useDailyMissions = ($useDailyMissions =~ m/^(true|on|yes|y|1)$/i);
 if ($useDailyMissions) { $useIndicatorFeedback = 1; }
 my $showAllTestOutcomes = $cfg->getProperty('showAllTestOutcomes', 0);
 $showAllTestOutcomes = ($showAllTestOutcomes =~ m/^(true|on|yes|y|1)$/i);
+my $useFindBugs = $cfg->getProperty('useFindBugs', 0);
+$useFindBugs = ($useFindBugs =~ m/^(true|on|yes|y|1)$/i);
+if ($useFindBugs) { $cfg->setProperty('enableFindBugs', 'true'); }
+my $usePit = $cfg->getProperty('usePit', 0);
+$usePit = ($usePit =~ m/^(true|on|yes|y|1)$/i);
+if ($usePit) { $cfg->setProperty('enablePit', 'true'); }
 my $allTestOutcomeResults = '';
 my $allTestOutcomesLeader = '';
 my $progressTracker = new Web_CAT::Indicators::ProgressTracker($cfg);
@@ -1281,7 +1289,7 @@ if ($debug)
 
 
 #=============================================================================
-# Load checkstyle and PMD reports into internal data structures
+# Load checkstyle, PMD, and FindBugs reports into internal data structures
 #=============================================================================
 
 # The configuration file for scoring tool messages
@@ -1616,6 +1624,16 @@ sub trackMessageInstance
         * $toolDeductionScaleFactor;
     my $overLimit = 0;
 
+    if ($debug > 2)
+    {
+       print "trackMessageInstance($rule, $fileName, ...)\n";
+        my $msg = $violation->data_pointer(noheader  => 1, nometagen => 1);
+        if (defined $msg)
+        {
+            print $msg;
+        }
+    }
+
     if (!$violation->{line}->content
       && $violation->{endline}->content)
     {
@@ -1891,8 +1909,118 @@ if (!$buildFailed) # $can_proceed)
         }
     }
 
+    my $findBugsLog = "$resultDir/findbugs.xml";
+    if (-f $findBugsLog)
+    {
+        my $fb = XML::Smart->new($findBugsLog);
+#        print "parsed findbugs =\n", $fb->data(noheader => 1, nometagen => 1), "\n";
+        # First, pull long error details
+        my %msgs = ();
+        foreach my $pat (@{ $fb->{BugCollection}{BugPattern} })
+        {
+            my $detail = $pat->{Details}->content;
+            $detail =~ s/^\s+|\s+$//gso;
+            $msgs{$pat->{type}->content} = $detail;
+        }
+        foreach my $bug (@{ $fb->{BugCollection}{BugInstance} })
+        {
+            $bug->{FindBugsCategory} = $bug->{category};
+            $bug->{tool} = 'FindBugs';
+            my $type = $bug->{type}->content;
+            my $msg = '';
+            if (!$bug->{LongMessage}->null)
+            {
+                $msg = $bug->{LongMessage}->content . '.';
+            }
+            elsif (!$bug->{ShortMessage}->null)
+            {
+                $msg = $bug->{ShortMessage}->content . '.';
+            }
+
+            # highlight variable name, if there is one            
+            my $v = $bug->{LocalVariable}{Message};
+            if (!$v->null)
+            {
+                $v = $v->content;
+                if ($v =~ m/^\s*Did/so)
+                {
+                    $v =~ s/variable\s+(\S+)\?\s*$/variable <code>$1<\/code>?/;
+                    $msg .= ' ' . $v;
+                }
+                elsif ($v =~ m/named\s+(\S+)\s*$/o)
+                {
+                    $v = $1;
+                    $msg =~ s/\Q$v\E/<code>$v<\/code>/g;
+                }
+            }
+
+            # highlight method name, if there is one            
+            my $method = $bug->{Method}{Message};
+            if (!$method->null)
+            {
+                $method = $method->content;
+                if ($method =~ m/[Mm]ethod\s+(\S+)\s*$/o)
+                {
+                    $method = $1;
+                    $msg =~ s/\Q$method\E/<code>$method<\/code>/g;
+                }
+            }
+
+            # Add field message, if there is one
+            my $field = $bug->{Field}{Message};
+            if (!$field->null)
+            {
+                my $fmsg = $field->content;
+                if ($fmsg =~ m/^\s*Did/so)
+                {
+                    $fmsg =~ s/field\s+(\S+)\?\s*$/field <code>$1<\/code>?/;
+                    $msg .= ' ' . $fmsg;
+                }
+                elsif ($fmsg =~ m/[Ff]ield\s+(\S+)\s*$/o)
+                {
+                    $fmsg = $1;
+                    $msg =~ s/\Q$fmsg\E/<code>$fmsg<\/code>/g;
+                }
+            }
+
+            my $fileName = '';
+            my $line = $bug->{SourceLine};
+            if (!$line->null)
+            {
+                $bug->{beginline} = $line->{start}->content;
+                $bug->{endline} = $line->{end}->content;
+                $fileName = $line->{sourcepath}->content;
+            }
+            else
+            {
+                print "Unable to locate BugInstance->SourceLine in:\n";
+                print $bug->data_pointer(noheader => 1, nometagen => 1), "\n";
+            }
+            if ($msg ne '') { $msg = '<p>' . $msg . '</p>'; }
+            my $detail = findBugsMessage($type);
+            if ($detail eq '' && defined $msgs{$type})
+            {
+                $detail = $msgs{$type};
+            }
+            $msg .= $detail;
+            if ($msg ne '')
+            {
+                $msg =~ s/&nbsp;/ /go;
+                $bug->{message} = $msg;
+            }
+            print "parsed rule $type in $fileName:\n";
+            print $bug->data_pointer(noheader => 1, nometagen => 1), "\n";
+            if ($fileName ne '')
+            {
+                trackMessageInstance($type, $fileName, $bug);
+            }
+        }
+    }
+
     if ($debug > 1)
     {
+       # dump message stats
+       print "==========\ndumping message stats structure\n==========\n";
         my $msg = $messageStats->data(noheader  => 1, nometagen => 1);
         if (defined $msg)
         {
@@ -5086,6 +5214,19 @@ if ($rowOpened)
 # Update and rewrite properties to reflect status
 #=============================================================================
 
+sub smartHtmlEscapeAndPeel
+{
+    my $msg = smartHtmlEscape(shift);
+
+    if (defined $msg)
+    {
+        $msg =~ s/^\s*<[Pp](\s+[^>]*)?>//o;
+        $msg =~ s/\s*<\/[Pp]>\s*$//o;
+    }
+
+    return $msg;
+}
+
 # Student feedback
 # -----------
 {
@@ -5332,7 +5473,7 @@ for my $element (@codingSectionOrder)
     {
         print IMPROVEDFEEDBACKFILE
             '<h2>', $errorStruct->entityName, '</h2><p class="errorType">',
-            htmlEscape($errorStruct->errorMessage), ' ';
+            smartHtmlEscapeAndPeel($errorStruct->errorMessage), ' ';
 
         my $msg = '';
 
@@ -5376,7 +5517,8 @@ for my $element (@codingSectionOrder)
         if ($errorStruct->enhancedMessage)
         {
             print IMPROVEDFEEDBACKFILE '<p><span>',
-                htmlEscape($errorStruct->enhancedMessage), '</span></p>';
+                smartHtmlEscapeAndPeel($errorStruct->enhancedMessage),
+                '</span></p>';
         }
     }
 }
@@ -5505,7 +5647,8 @@ for my $element (@testingSectionOrder)
     foreach my $errorStruct (@{$testingSectionExpanded{$element}})
     {
         print IMPROVEDFEEDBACKFILE '<h2>', $errorStruct->entityName, '</h2>',
-            '<p class="errorType">', htmlEscape($errorStruct->errorMessage),
+            '<p class="errorType">',
+            smartHtmlEscapeAndPeel($errorStruct->errorMessage),
             ' ';
 
         my $msg = '';
@@ -5563,7 +5706,8 @@ for my $element (@testingSectionOrder)
         if ($errorStruct->enhancedMessage)
         {
             print IMPROVEDFEEDBACKFILE '<p><span>',
-                htmlEscape($errorStruct->enhancedMessage), '</span></p>';
+                smartHtmlEscapeAndPeel($errorStruct->enhancedMessage),
+                '</span></p>';
         }
     }
 }
@@ -5732,7 +5876,8 @@ for my $element (@behaviorSectionOrder)
     foreach my $errorStruct (@{$behaviorSectionExpanded{$element}})
     {
         print IMPROVEDFEEDBACKFILE '<h2>', $errorStruct->entityName, '</h2>',
-            '<p class="errorType">', htmlEscape($errorStruct->errorMessage), ' ';
+            '<p class="errorType">',
+            smartHtmlEscapeAndPeel($errorStruct->errorMessage), ' ';
         my $msg = Web_CAT::Maria::explainButton(
             runtimeErrorHintKey($errorStruct->errorMessage),
             $useMariaExplanations);
@@ -5763,7 +5908,8 @@ for my $element (@behaviorSectionOrder)
         if ($errorStruct->enhancedMessage)
         {
             print IMPROVEDFEEDBACKFILE '<p><span>',
-                htmlEscape($errorStruct->enhancedMessage), '</span></p>';
+                smartHtmlEscapeAndPeel($errorStruct->enhancedMessage),
+                '</span></p>';
         }
     }
     }
@@ -5874,7 +6020,8 @@ for my $element (@styleSectionOrder)
     foreach my $errorStruct (@{$styleSectionExpanded{$element}})
     {
         print IMPROVEDFEEDBACKFILE '<h2>', $errorStruct->entityName, '</h2>',
-            '<p class="errorType">', htmlEscape($errorStruct->errorMessage),
+            '<p class="errorType">',
+            smartHtmlEscapeAndPeel($errorStruct->errorMessage),
             "</p>\n";
 
         my @linesOfCode = split /\n/, $errorStruct->linesOfCode;
@@ -5903,7 +6050,8 @@ for my $element (@styleSectionOrder)
         if ($errorStruct->enhancedMessage)
         {
             print IMPROVEDFEEDBACKFILE '<p><span>',
-                htmlEscape($errorStruct->enhancedMessage), '</span></p>';
+                smartHtmlEscapeAndPeel($errorStruct->enhancedMessage),
+                '</span></p>';
         }
     }
 }

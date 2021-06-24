@@ -19,6 +19,8 @@ use Exporter qw(import);
     compilerErrorEnhancedMessage
     setResultDir
     codingStyleMessageValue
+    findBugsMessage
+    enhancedFindBugsMessage
     );
 
 # Compiler Errors: "Error Message" is the key and the anchor tag from below url
@@ -410,11 +412,55 @@ my @regularExpressionErrorMessages = (
 # Short Error Messages for Errors from Static Analysis Tools.
 # Key is the Checkstyle or pmd error Id.
 my %codingStyleShortMessages  = (
-    'JUnit3TestsHaveAssertions' => "Test method contains no assertions",
-    'JUnit4TestsHaveAssertions' => "Test method contains no assertions",
+    'JUnit3TestsHaveAssertions' => "JUnit test methods must call at least one assertion method.",
+    'JUnit4TestsHaveAssertions' => "JUnit test methods must call at least one assertion method.",
     'JavadocMethod' => 'Javadoc issue'
     );
 
+my %findbugsMessages = (
+    'UC_USELESS_CONDITION' => "This condition always gives the same result. The value of the variable may have been narrowed to always match the condition in a previous statement or you may be using the = operator instead of == by mistake. Update the condition or remove it, as it is not necessary.",
+    'ES_COMPARING_STRINGS_WITH_EQ' => "<p>The == operator compares the memory addresses of two <code>String</code>s. Use <code>equals()</code> instead.</p>",
+    'DLS_DEAD_LOCAL_STORE' => "This local variable has a value, but the value was never used. Make sure the value is used where intended, or remove it if it is not needed.",
+    'ICAST_IDIV_CAST_TO_DOUBLE' => "When using integers in a division statement, Java will automatically use integer division. This results in truncating the result where the decimal part is removed. Instead of using, for example, 2, use 2.0 on the bottom of the division.",
+    'RV_RETURN_VALUE_IGNORED' => "Immutable objects like Strings are not updated when a method is called on them. If you want the updated value, you will have to assign the result of the method to a variable.",
+    'RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT' => "Immutable objects like Strings are not updated when a method is called on them. If you want the updated value, you will have to assign the result of the method to a variable.",
+    'SA_LOCAL_SELF_ASSIGNMENT' => "This variable has been assigned to itself with no modification to its value. Unless the value of a variable needs to be changed, it does not need to be reassigned.",
+    'IP_PARAMETER_IS_DEAD_BUT_OVERWRITTEN' => "A parameter of this method was overwritten without using its value in the method. Create a new variable instead of assigning over the parameter value.", 
+    'QBA_QUESTIONABLE_BOOLEAN_ASSIGNMENT' => "A single = means assignment, and a double == means comparison. It appears that the wrong one is used as a condition.",
+    'ES_COMPARING_PARAMETER_STRING_WITH_EQ' => "The == compares the memory addresses of two Strings. Consider using equals() instead. One of the String being compared is a parameter.",
+    'GC_UNRELATED_TYPES' => "A collection has a specific type of objects it contains. Make sure the item you are trying to add to the collection has the same type as the rest of the collection.",
+    'DLS_DEAD_LOCAL_STORE_IN_RETURN' => "Placing a = operator in a return statement has no effect. Place any assignments before the return. If you want a boolean comparison in the return instead, use ==.",
+    'RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE' => "This variable has already been dereferenced somewhere in the code. If the code got to this point, it means the value was non-null at the time and cannot be null here unless it was modified. Make sure the earlier dereference was appropriate or remove this null check.",
+    'UC_USELESS_OBJECT' => "This object is created using the new operator and possibly modified, but it does not do anything in this method or in a different method. Make sure this object is used; otherwise, it can be removed.",
+    'IL_INFINITE_LOOP' => "This loop does not have a way to terminate. Check the condition in while(...) to make sure the code will ever not match the condition.",
+    'EC_NULL_ARG' => "Comparing any Object to null will always return false. This comparison is not necessary. Make sure you have initialized all your Objects.",
+    'UCF_USELESS_CONTROL_FLOW' => "This control flow statement (if, else if, else) does not affect the flow of the program. The same thing will happen whether the statement is executed or not. Remove the statement if it is not needed or add additional logic within the body of the statement.",
+    'IL_INFINITE_RECURSIVE_LOOP' => "This recursive loop does not terminate. Check that a base case is included and that the recursion will eventually reach that base case.",
+    'RANGE_STRING_INDEX' => "String method is called and specified string index is out of bounds. This will result in a StringIndexOutOfBoundsException at runtime.",
+    'RpC_REPEATED_CONDITIONAL_TEST' => "The same conditional statement is used twice. Remove the repeated condition or update it to reflect actual intent.",
+    'NP_ALWAYS_NULL' => "A null pointer is dereferenced here.  This will lead to a NullPointerException when the code is executed. Check that all Objects are initialized correctly.",
+    'DB_DUPLICATE_BRANCHES' => "This method uses the same code to implement two branches of a conditional statement. Only one branch should be used. Check to ensure that this isn't a coding mistake.",
+    'EC_BAD_ARRAY_COMPARE' => "The equals() method compares the memory addresses of arrays instead of the contents of the arrays. Consider using Arrays.equals() or write your own loop comparison.",
+    'EC_UNRELATED_TYPES' => "This equals() comparison is comparing Objects of two different class types. Double check the arguments to equals().",
+    'QF_QUESTIONABLE_FOR_LOOP' => "Make sure this loop is checking against the variable that you are incrementing.",
+    'UCF_USELESS_CONTROL_FLOW_NEXT_LINE' => "This control flow statement (if, else if, else) does not affect the flow of the program. The same thing will happen whether the statement is executed or not. Be sure that a control statement has brackets after {} instead of a semicolon.",
+    'DLS_DEAD_LOCAL_INCREMENT_IN_RETURN' => "The ++ operator happens after the method has already returned. When returning, be sure to increment before returning the value.",
+    'SA_LOCAL_SELF_COMPARISON' => "This method compares a local variable with itself, and may indicate a typo or a logic error. Make sure that you are comparing the right things.",
+    'ICAST_INT_CAST_TO_FLOAT_PASSED_TO_ROUND' => "An integer value is being passed to Math.round(). It does not make sense to round an integer because it is already a whole number. Check to see if a double or float was intended.",
+    'RANGE_ARRAY_INDEX' => "An array operation is performed, but the array index is out of bounds, which will result in ArrayIndexOutOfBoundsException at runtime.",
+    'NP_NULL_ON_SOME_PATH' => "There is a branch of statement that, if executed, guarantees that a null value will be dereferenced, which would generate a NullPointerException when the code is executed.",
+    'DLS_OVERWRITTEN_INCREMENT' => "The ++ operator happens after assignment if used after a variable. Be sure to increment before assigning a variable to itself.",
+    'SA_LOCAL_DOUBLE_ASSIGNMENT' => "The = operator only needs to be used once per statement. You likely have a typo if it is included more than once.",
+    'NS_NON_SHORT_CIRCUIT' => "In Java, && and || are the short-circuit operators for logic. You want to use these instead of & and | because they will stop checking statements once one of them is false.",
+    'DMI_INVOKING_TOSTRING_ON_ARRAY' => "Using toString() on an array prints out its memory location, not its contents. Try using Arrays.toString().",
+    'ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD' => "An object typically represents an instance of a class. For example, a Car can have more than one Tire. If you write to a static field from one of the Tires, it will update the value for all of them. When you have multiples of an object, avoid updating static fields.",
+    'DMI_COLLECTIONS_SHOULD_NOT_CONTAIN_THEMSELVES' => "A collection cannot contain itself. Double check you are adding the right thing to your collection.",
+    'INT_BAD_REM_BY_1' => "Modular arithmetic (%) gives the remainder of a division operation. Anything divided by 1 has a remainder of 0, so x % 1 == 0.",
+    'NS_DANGEROUS_NON_SHORT_CIRCUIT' => "Using only one | or & means that conditional statements will not short circuit. Even if the first condition fails, the second will be evaluated. The second condition may cause an exception or other side effects.",
+    'EC_UNRELATED_CLASS_AND_INTERFACE' => "An interface cannot be compared to an object that does not implement that interface. Make sure the right two objects are being compared and that they are of the same class.",
+    'VA_FORMAT_STRING_EXTRA_ARGUMENTS_PASSED' => "A format-string method with a variable number of arguments is called, but more arguments are passed than are actually used by the format string. This won't cause a runtime exception, but the code may be silently omitting information that was intended to be included in the formatted string.",
+    'SA_LOCAL_SELF_COMPUTATION' => "This method performs a nonsensical computation of a local variable with another reference to the same variable (e.g., x&x or x-x). Because of the nature of the computation, this operation doesn't seem to make sense, and may indicate a typo or a logic error. Double check the computation.",
+);
 
 my $resultDir;
 
@@ -428,6 +474,42 @@ sub codingStyleMessageValue
     {
         return $codingStyleShortMessages{$rule};
     }
+
+    return '';
+}
+
+
+sub findBugsMessage
+{
+    my $rule = shift;
+    my $msg = '';
+
+    if (defined $findbugsMessages{$rule})
+    {
+        $msg = $findbugsMessages{$rule};
+        if ($msg !~ m/^\s*<[a-zA-Z][^>]*>/so)
+        {
+            $msg = '<p>' . htmlEscape($msg) . '</p>';
+        }
+    }
+
+    return $msg;
+}
+
+
+sub enhancedFindBugsMessage
+{
+    my $rule = shift;
+    my $msg = shift;
+
+#    if (defined $findbugsMessages{$rule})
+#    {
+#        my $enhanced = $findbugsMessages{$rule};
+#        if ()
+#        {
+#            $enhanced = '<p>'
+#        }
+#    }
 
     return '';
 }
