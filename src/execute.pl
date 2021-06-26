@@ -1611,6 +1611,7 @@ sub markStyleSection
 #     violation: the XML::Smart structure referring to the violation
 #                (used for error message printing only)
 #
+my $debugTracking = 0;
 sub trackMessageInstance
 {
     croak 'usage: recordPMDMessageStats(rule, fileName, violation)'
@@ -1624,7 +1625,7 @@ sub trackMessageInstance
         * $toolDeductionScaleFactor;
     my $overLimit = 0;
 
-    if ($debug > 2)
+    if ($debug > 2 || $debugTracking)
     {
        print "trackMessageInstance($rule, $fileName, ...)\n";
         my $msg = $violation->data_pointer(noheader  => 1, nometagen => 1);
@@ -1984,17 +1985,26 @@ if (!$buildFailed) # $can_proceed)
             }
 
             my $fileName = '';
-            my $line = $bug->{SourceLine};
-            if (!$line->null)
+            $bug->{beginline} = 
+                $bug->{SourceLine}{start}->content
+                || $bug->{Method}{SourceLine}{start}->content
+                || $bug->{Field}{SourceLine}{start}->content
+                || $bug->{Class}{SourceLine}{start}->content
+                || 1;
+            $bug->{endline} = 
+                $bug->{SourceLine}{end}->content
+                || $bug->{Method}{SourceLine}{end}->content
+                || $bug->{Field}{SourceLine}{end}->content
+                || $bug->{Class}{SourceLine}{end}->content
+                || $bug->{beginline}->content;
+            $fileName =
+                $bug->{SourceLine}{sourcepath}->content
+                || $bug->{Method}{SourceLine}{sourcepath}->content
+                || $bug->{Field}{SourceLine}{sourcepath}->content
+                || $bug->{Class}{SourceLine}{sourcepath}->content;
+            if ($fileName ne '' && ! -f $fileName && -f 'src/' . $fileName)
             {
-                $bug->{beginline} = $line->{start}->content;
-                $bug->{endline} = $line->{end}->content;
-                $fileName = $line->{sourcepath}->content;
-            }
-            else
-            {
-                print "Unable to locate BugInstance->SourceLine in:\n";
-                print $bug->data_pointer(noheader => 1, nometagen => 1), "\n";
+                $fileName = 'src/' . $fileName;
             }
             if ($msg ne '') { $msg = '<p>' . $msg . '</p>'; }
             my $detail = findBugsMessage($type);
@@ -2008,8 +2018,8 @@ if (!$buildFailed) # $can_proceed)
                 $msg =~ s/&nbsp;/ /go;
                 $bug->{message} = $msg;
             }
-            print "parsed rule $type in $fileName:\n";
-            print $bug->data_pointer(noheader => 1, nometagen => 1), "\n";
+            # print "parsed rule $type in $fileName:\n";
+            # print $bug->data_pointer(noheader => 1, nometagen => 1), "\n";
             if ($fileName ne '')
             {
                 trackMessageInstance($type, $fileName, $bug);
@@ -3955,6 +3965,9 @@ sub generateCompleteErrorStruct
     my $errorMessage = shift;
     my $enhancedMessage = shift || '';
 
+    carp "no line number provided"
+        if !defined($lineNum) || $lineNum eq '';
+
     my $codeLines = extractAboveBelowLinesOfCode($fileName, $lineNum);
 
     my $errorStruct = expandedMessage->new(
@@ -3998,7 +4011,10 @@ foreach my $ff (keys %codeMessages)
                      #print $c->{rule}->content;
                      #print("\n");
 
-                 my $lineNum = $c->{line}->content;
+                 my $lineNum =
+                     $c->{line}->null
+                     ? $c->{beginline}->content
+                     : $c->{line}->content;
 
                  # This is the case of "TestsHaveAssertions" rule from pmd
                  # where beginline is the one which contains the declaration
@@ -4008,6 +4024,12 @@ foreach my $ff (keys %codeMessages)
                      && $c->{beginline}->content)
                  {
                      $lineNum = $c->{beginline}->content;
+                 }
+                 
+                 if (!defined($lineNum) || $lineNum eq '' )
+                 {
+                      print "no line number found in:\n",
+                          $c->data_pointer(noheader => 1, nometagen => 1), "\n";
                  }
 
                  my $codingStyleStruct = generateCompleteErrorStruct(

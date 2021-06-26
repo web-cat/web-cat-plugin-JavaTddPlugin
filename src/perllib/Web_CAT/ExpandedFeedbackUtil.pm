@@ -38,6 +38,10 @@ sub extractAboveBelowLinesOfCode
 	my $filePath = shift;
 	my $errorLineNum = shift;
 
+    carp "no error line provided"
+        if !defined($errorLineNum) || $errorLineNum eq '';
+
+
     if (!defined $filePath)
     {
         # cluck, but on stdout
