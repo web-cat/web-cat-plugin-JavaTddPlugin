@@ -1929,10 +1929,12 @@ if (!$buildFailed) # $can_proceed)
         {
             my $detail = $pat->{Details}->content;
             $detail =~ s/^\s+|\s+$//gso;
+            $detail =~ s/^<p>\s*|\s*<\/p>$//gso;
             $detail =~ s/ < / &lt; /go;
             $detail =~ s/ <= / &lt;= /go;
             $detail =~ s/ > / &gt; /go;
             $detail =~ s/ >= / &gt;= /go;
+            $detail = '<p>' . $detail . '</p>';
             $msgs{$pat->{type}->content} = $detail;
         }
         foreach my $bug (@{ $fb->{BugCollection}{BugInstance} })
