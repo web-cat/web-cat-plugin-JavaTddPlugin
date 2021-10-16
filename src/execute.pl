@@ -394,11 +394,19 @@ my $allStudentTestsMustPass =
     $cfg->getProperty('allStudentTestsMustPass', 0);
 $allStudentTestsMustPass =
     ($allStudentTestsMustPass =~ m/^(true|on|yes|y|1)$/i);
+my $includeStudentTestsInGrading =
+    $cfg->getProperty('includeStudentTestsInGrading', 0);
+$includeStudentTestsInGrading =
+    ($includeStudentTestsInGrading =~ m/^(true|on|yes|y|1)$/i);
 my $studentsMustSubmitTests =
     $cfg->getProperty('studentsMustSubmitTests', 0);
 $studentsMustSubmitTests =
     ($studentsMustSubmitTests =~ m/^(true|on|yes|y|1)$/i);
-if (!$studentsMustSubmitTests) { $allStudentTestsMustPass = 0; }
+if (!$studentsMustSubmitTests)
+{
+    $allStudentTestsMustPass = 0;
+    $includeStudentTestsInGrading = 0;
+}
 my $includeTestSuitesInCoverage =
     $cfg->getProperty('includeTestSuitesInCoverage', 0);
 $includeTestSuitesInCoverage =
@@ -916,7 +924,7 @@ sub generateCompilerErrorWarningStruct
     $fileName =~ s,\\,/,go;
     my $lineNum = $fileDetails[1];
     my $codeLines = extractAboveBelowLinesOfCode($fileName, $lineNum);
-    $fileName =~ s,^\Q$workingDir/\E,,i;
+    $fileName =~ s,^.*\Q$workingDir/\E,,i;
 
     # For compiler warning we dont have enhanced messages
     # For "cannot find symbol" errors, "addCannotFindSymbolStruct" computes
@@ -1863,7 +1871,7 @@ if (!$buildFailed) # $can_proceed)
             next if ($file->{name}->null);
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
-            $fileName =~ s,^\Q$workingDir/\E,,i;
+            $fileName =~ s,^.*\Q$workingDir/\E,,i;
             if (!defined $codeMarkupIds{$fileName})
             {
                 $codeMarkupIds{$fileName} = ++$numCodeMarkups;
@@ -1894,7 +1902,7 @@ if (!$buildFailed) # $can_proceed)
             next if ($file->{name}->null);
             my $fileName = $file->{name}->content;
             $fileName =~ s,\\,/,go;
-            $fileName =~ s,^\Q$workingDir/\E,,i;
+            $fileName =~ s,^.*\Q$workingDir/\E,,i;
             if (!defined $codeMarkupIds{$fileName})
             {
                 $codeMarkupIds{$fileName} = ++$numCodeMarkups;
@@ -1921,6 +1929,10 @@ if (!$buildFailed) # $can_proceed)
         {
             my $detail = $pat->{Details}->content;
             $detail =~ s/^\s+|\s+$//gso;
+            $detail =~ s/ < / &lt; /go;
+            $detail =~ s/ <= / &lt;= /go;
+            $detail =~ s/ > / &gt; /go;
+            $detail =~ s/ >= / &gt;= /go;
             $msgs{$pat->{type}->content} = $detail;
         }
         foreach my $bug (@{ $fb->{BugCollection}{BugInstance} })
@@ -1937,12 +1949,13 @@ if (!$buildFailed) # $can_proceed)
             {
                 $msg = $bug->{ShortMessage}->content . '.';
             }
+            $msg = htmlEscape($msg);
 
             # highlight variable name, if there is one            
             my $v = $bug->{LocalVariable}{Message};
             if (!$v->null)
             {
-                $v = $v->content;
+                $v = htmlEscape($v->content);
                 if ($v =~ m/^\s*Did/so)
                 {
                     $v =~ s/variable\s+(\S+)\?\s*$/variable <code>$1<\/code>?/;
@@ -1959,7 +1972,7 @@ if (!$buildFailed) # $can_proceed)
             my $method = $bug->{Method}{Message};
             if (!$method->null)
             {
-                $method = $method->content;
+                $method = htmlEscape($method->content);
                 if ($method =~ m/[Mm]ethod\s+(\S+)\s*$/o)
                 {
                     $method = $1;
@@ -1971,7 +1984,7 @@ if (!$buildFailed) # $can_proceed)
             my $field = $bug->{Field}{Message};
             if (!$field->null)
             {
-                my $fmsg = $field->content;
+                my $fmsg = htmlEscape($field->content);
                 if ($fmsg =~ m/^\s*Did/so)
                 {
                     $fmsg =~ s/field\s+(\S+)\?\s*$/field <code>$1<\/code>?/;
@@ -2002,6 +2015,8 @@ if (!$buildFailed) # $can_proceed)
                 || $bug->{Method}{SourceLine}{sourcepath}->content
                 || $bug->{Field}{SourceLine}{sourcepath}->content
                 || $bug->{Class}{SourceLine}{sourcepath}->content;
+            $fileName =~ s,\\,/,go;
+            $fileName =~ s,^.*\Q$workingDir/\E,,i;
             if ($fileName ne '' && ! -f $fileName && -f 'src/' . $fileName)
             {
                 $fileName = 'src/' . $fileName;
@@ -2163,7 +2178,7 @@ if (defined $status{'studentTestResults'}
         {
             $runtimeScoreWithoutCoverage = 0;
         }
-        else
+        elsif ($includeStudentTestsInGrading)
         {
             $runtimeScoreWithoutCoverage *=
                 $status{'studentTestResults'}->testPassRate;
@@ -5081,8 +5096,13 @@ if ($can_proceed && $studentsMustSubmitTests)
 <tr><td><b>Estimate of problem coverage:</b></td>
 <td class="n">$instructorCasesPercent%</td></tr>
 <tr><td colspan="2">score =
-$studentCasesPercent%
-* $codeCoveragePercent%
+EOF
+    if ($includeStudentTestsInGrading)
+    {
+        $status{'feedback'}->print(" $studentCasesPercent% * ");
+    }
+    $status{'feedback'}->print(<<EOF);
+$codeCoveragePercent%
 * $instructorCasesPercent%
 * $maxCorrectnessScore
 points possible = $scoreToTenths</p>
@@ -5305,7 +5325,8 @@ sub computeExpandSectionId
     }
 
     if ($testingSectionStatus{'errors'} == 0 ||
-        $testingSectionStatus{'failures'} == 0 ||
+        ($includeStudentTestsInGrading &&
+         $testingSectionStatus{'failures'} == 0) ||
         $testingSectionStatus{'methodsUncovered'} == 0 ||
         $testingSectionStatus{'statementsUncovered'} == 0 ||
         $testingSectionStatus{'conditionsUncovered'} == 0)

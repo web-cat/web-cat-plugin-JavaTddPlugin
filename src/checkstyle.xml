@@ -28,7 +28,8 @@
       <!-- <property name="allowMissingParamTags" value="true"/> -->
       <property name="allowMissingThrowsTags" value="true"/>
       <!-- <property name="allowMissingReturnTag" value="true"/> -->
-      <property name="scope" value="package"/>
+      <!-- <property name="scope" value="package"/> -->
+      <property name="accessModifiers" value="public, protected, package"/>
       <message key="javadoc.duplicateTag"
         value="This {0} tag already appears elsewhere in this Javadoc comment, but it should only appear once (@param tags should only appear once per distinct parameter name).  Remove the repeated occurrences."/>
       <message key="javadoc.missing"
@@ -48,7 +49,8 @@
       <property name="allowMissingParamTags" value="true"/>
       <property name="allowMissingThrowsTags" value="true"/>
       <property name="allowMissingReturnTag" value="true"/>
-      <property name="excludeScope" value="package"/>
+      <!-- <property name="excludeScope" value="package"/> -->
+      <property name="accessModifiers" value="private"/>
       <message key="javadoc.missing"
         value="The Javadoc for this method or constructor is missing. All private methods and constructors must include a description of their purpose."/>
       <message key="javadoc.duplicateTag"
@@ -90,7 +92,7 @@
     <!-- Checks for Naming Conventions.                  -->
     <!-- See http://checkstyle.sf.net/config_naming.html -->
     <module name="ConstantName">
-      <property name="format" value="^([A-Z][A-Z0-9]*(_[A-Z0-9]+)*|log)$"/>
+      <property name="format" value="^([A-Z][A-Z0-9]*(_[A-Z0-9]+)*|log|question[0-9]+)$"/>
       <message key="name.invalidPattern"
         value="Constants (fields declared to be final) should be named in all capital letters with _ between words. Rename the constant ''{0}''."/>
     </module>

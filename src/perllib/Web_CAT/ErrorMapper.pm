@@ -459,7 +459,7 @@ my %findbugsMessages = (
     'NS_DANGEROUS_NON_SHORT_CIRCUIT' => "Using only one | or & means that conditional statements will not short circuit. Even if the first condition fails, the second will be evaluated. The second condition may cause an exception or other side effects.",
     'EC_UNRELATED_CLASS_AND_INTERFACE' => "An interface cannot be compared to an object that does not implement that interface. Make sure the right two objects are being compared and that they are of the same class.",
     'VA_FORMAT_STRING_EXTRA_ARGUMENTS_PASSED' => "A format-string method with a variable number of arguments is called, but more arguments are passed than are actually used by the format string. This won't cause a runtime exception, but the code may be silently omitting information that was intended to be included in the formatted string.",
-    'SA_LOCAL_SELF_COMPUTATION' => "This method performs a nonsensical computation of a local variable with another reference to the same variable (e.g., x&x or x-x). Because of the nature of the computation, this operation doesn't seem to make sense, and may indicate a typo or a logic error. Double check the computation.",
+    'SA_LOCAL_SELF_COMPUTATION' => "This method performs a nonsensical computation of a local variable with another reference to the same variable (e.g., x & x or x - x). Because of the nature of the computation, this operation doesn't seem to make sense, and may indicate a typo or a logic error. Double check the computation.",
 );
 
 my $resultDir;

@@ -3,7 +3,7 @@
     version.major    = 4;
     version.minor    = 1;
     version.revision = 3;
-    version.date     = 20210612;
+    version.date     = 20210917;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -220,6 +220,17 @@
   student-written test cases, and <b>only</b> the reference test pass rate
   will be used for scoring (i.e., student code coverage and student test pass
   rate will not be included in scoring).";
+        },
+        {
+            property    = includeStudentTestsInGrading;
+            type        = boolean;
+            default     = true;
+            name        = "Include Student Test Results in Grading";
+            category    = "Basic Settings";
+            description =
+  "When set, if students are required to submit tests, they are also included
+  in the scoring formula. When false, student test pass/fail ressults are
+  not included in the score calculation.";
         },
         {
             property    = coverageMetric;
