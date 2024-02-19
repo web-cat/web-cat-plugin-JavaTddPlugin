@@ -13,3 +13,7 @@ src/findbugs/lib/
 src/findbugs/optionalPlugin/
 src/findbugs/plugin/
 src/findbugs/src/
+src/pmd/*.jar
+src/pmd/LICENSE
+src/checkstyle/*.jar
+src/pit/*.jar
