@@ -109,6 +109,10 @@ if ($useFindBugs) { $cfg->setProperty('enableFindBugs', 'true'); }
 my $usePit = $cfg->getProperty('usePit', 0);
 $usePit = ($usePit =~ m/^(true|on|yes|y|1)$/i);
 if ($usePit) { $cfg->setProperty('enablePit', 'true'); }
+my $useEMRN = $cfg->getProperty('useEMRN', 0);
+$useEMRN = ($useEMRN =~ m/^(true|on|yes|y|1)$/i);
+my $useJdk11 = $cfg->getProperty('useJdk11', 0);
+$useJdk11 = ($useJdk11 =~ m/^(true|on|yes|y|1)$/i);
 my $allTestOutcomeResults = '';
 my $allTestOutcomesLeader = '';
 my $progressTracker = new Web_CAT::Indicators::ProgressTracker($cfg);
@@ -332,6 +336,10 @@ my %perFileRuleStruct = (
 #-------------------------------------------------------
 # In addition, some local definitions within this script
 #-------------------------------------------------------
+if ($useJdk11)
+{
+    $ENV{JAVA_HOME} = '/usr/java/jdk-11';
+}
 Web_CAT::Utilities::initFromConfig($cfg);
 if (defined($ENV{JAVA_HOME}))
 {
@@ -340,6 +348,10 @@ if (defined($ENV{JAVA_HOME}))
         "$ENV{JAVA_HOME}" . $Web_CAT::Utilities::FILE_SEPARATOR . "bin"
         . $Web_CAT::Utilities::PATH_SEPARATOR . $ENV{PATH};
 }
+
+# overide TMPDIR to keep temp files local
+$ENV{TMPDIR} = "${workingDir}/local_tmp";
+if (! -d "$ENV{TMPDIR}") { mkdir("$ENV{TMPDIR}"); }
 
 die "ANT_HOME environment variable is not set! (Should come from ANTForPlugins)"
     if !defined($ENV{ANT_HOME});
@@ -381,6 +393,7 @@ my $minCoverageLevel =
 my $coverageGoal =
     $cfg->getProperty('coverageGoal', 100.0);
 if ($coverageGoal <= 0) { $coverageGoal = 100; }
+my $printableCoverageGoal = $coverageGoal;
 if ($coverageGoal >= 1) { $coverageGoal /= 100.0; }
 
 my $useXvfb =
@@ -1934,6 +1947,7 @@ if (!$buildFailed) # $can_proceed)
             $detail =~ s/ <= / &lt;= /go;
             $detail =~ s/ > / &gt; /go;
             $detail =~ s/ >= / &gt;= /go;
+            $detail =~ s/x&x/x&amp;x/go;
             $detail = '<p>' . $detail . '</p>';
             $msgs{$pat->{type}->content} = $detail;
         }
@@ -2396,7 +2410,7 @@ sub extractExemptLines
 #=============================================================================
 # post-process generated HTML files
 #=============================================================================
-my $jacoco  = (-f "$resultDir/jacoco.xml")
+my $jacoco  = (!$usePit && -f "$resultDir/jacoco.xml")
     ? XML::Smart->new("$resultDir/jacoco.xml")
     : undef;
 
@@ -2713,6 +2727,124 @@ sub processStatementsUncovered
 }
 
 if (!$buildFailed) # $can_proceed)
+{
+if ($usePit)
+{
+  $gradedElements = 0;
+  $gradedElementsCovered = 0;
+  my $pit  = (-f "$resultDir/mutations.xml")
+    ? XML::Smart->new("$resultDir/mutations.xml")
+    : undef;
+  my %coveredByFile = ();
+  if (defined $pit)
+  {
+    for my $m (@{$pit->{mutations}{mutation}})
+    {
+      my $fileName = $m->{sourceFile};
+      if (! -f $fileName && -f 'src/' . $fileName)
+      {
+        $fileName = 'src/' . $fileName;
+      }
+      $gradedElements++;
+      if (defined $coveredByFile{$fileName})
+      {
+        $coveredByFile{$fileName}{elements}++;
+      }
+      else
+      {
+        $coveredByFile{$fileName} = { elements => 1, elementsCovered => 0 };
+      }
+      if ($m->{detected}->content eq 'true')
+      {
+        $gradedElementsCovered++;
+        $coveredByFile{$fileName}{elementsCovered}++;
+      }
+      else
+      {
+        my $className = $m->{mutatedClass};
+        my $num = $m->{lineNumber};
+        my $desc = $m->{description}->content;
+
+        my $codeMarkupNo;
+        if (defined $codeMarkupIds{$fileName})
+        {
+          $codeMarkupNo = $codeMarkupIds{$fileName};
+        }
+        else
+        {
+          $codeMarkupNo = ++$numCodeMarkups;
+          $codeMarkupIds{$fileName} = $codeMarkupNo;
+        }
+        if (!defined $codeMessages{$fileName})
+        {
+          $codeMessages{$fileName} = {};
+        }
+        my $msgs = $codeMessages{$fileName};
+        if (!defined $msgs->{$num})
+        {
+          $msgs->{$num} = {};
+        }
+        $msgs->{$num}{category} = 'coverage';
+        $msgs->{$num}{coverage} = 'e';
+        if (defined $msgs->{$num}->{message})
+        {
+          $msgs->{$num}->{message} .= '; ' . $desc;
+        }
+        else
+        {
+          $msgs->{$num}->{message} = 'Uncovered mutation(s): ' . $desc;
+        }
+
+      }
+    }
+  }
+  else
+  {
+    $gradedElements = 1;
+  }
+  if ($gradedElements == 0)
+  {
+    # No mutants?
+    $gradedElements = 1;
+    $gradedElementsCovered = 1;
+  }
+  
+  # set code markup properties
+  $cfg->setProperty("statElementsLabel", "Mutants Detected");
+  my %fileDeductionProperties = ();
+  my $ptsPerUncovered = 0.0;
+  if ($studentsMustSubmitTests)
+  {
+    if ($gradedElements > 0
+      && $runtimeScoreWithoutCoverage > 0
+      && ($gradedElementsCovered * 1.0 / $gradedElements)
+      < $coverageGoal)
+    {
+      $ptsPerUncovered = -1.0 /
+        $gradedElements
+        * $runtimeScoreWithoutCoverage
+        * $coverageGoal;
+    }
+  }
+  for my $fileName (keys %coveredByFile)
+  {
+    my $codeMarkupNo = $codeMarkupIds{$fileName};
+    my $myElements = $coveredByFile{$fileName}{elements};
+    my $myElementsCovered = $coveredByFile{$fileName}{elementsCovered};
+    $cfg->setProperty("codeMarkup${codeMarkupNo}.elements",
+      $myElements);
+    $cfg->setProperty("codeMarkup${codeMarkupNo}.elementsCovered",
+      $myElementsCovered);
+    $cfg->setProperty("codeMarkup${codeMarkupNo}.sourceFileName",
+      $fileName);
+    $cfg->setProperty("codeMarkup${codeMarkupNo}.deductions",
+     ($myElements - $myElementsCovered) * $ptsPerUncovered +
+      0 - $messageStats->{file}->{$fileName}->{pts}->content);
+    $cfg->setProperty("codeMarkup${codeMarkupNo}.remarks",
+      (0 + $messageStats->{file}->{$fileName}->{remarks}->content));
+  }
+}
+else
 {
     if (defined $jacoco)
     {
@@ -3237,7 +3369,7 @@ if (!$buildFailed) # $can_proceed)
         processStatementsUncovered();
     }
 
-
+}
 }
 $cfg->setProperty('numCodeMarkups', $numCodeMarkups);
 
@@ -3262,7 +3394,14 @@ if ($status{'studentHasSrcs'}
         # Only generate this section if compilation was successful
     if (!defined $status{'studentTestResults'})
     {
+        if ($studentsMustSubmitTests)
+        {
         $sectionTitle .= "<b class=\"warn\">(No Test Results!)</b>";
+        }
+        else
+        {
+        $sectionTitle .= "(No Test Results!)";
+        }
 
         # Mark results in testingSectionStatus as well so that we can fill
         # the radial bar.
@@ -3270,7 +3409,14 @@ if ($status{'studentHasSrcs'}
     }
     elsif ($status{'studentTestResults'}->testsExecuted == 0)
     {
+        if ($studentsMustSubmitTests)
+        {
         $sectionTitle .= "<b class=\"warn\">(No Tests Submitted!)</b>";
+        }
+        else
+        {
+        $sectionTitle .= "(No Tests Submitted!)";
+        }
         $testingSectionStatus{'resultsPercent'} = 0;
     }
     elsif ($status{'studentTestResults'}->allTestsPass)
@@ -3280,7 +3426,14 @@ if ($status{'studentHasSrcs'}
     }
     else
     {
+        if ($studentsMustSubmitTests)
+        {
         $sectionTitle .= "<b class=\"warn\">($studentCasesPercent%)</b>";
+        }
+        else
+        {
+        $sectionTitle .= "($studentCasesPercent%)";
+        }
         $testingSectionStatus{'resultsPercent'} = $studentCasesPercent;
     }
 
@@ -3289,7 +3442,8 @@ if ($status{'studentHasSrcs'}
         ++$expSectionId,
         $status{'studentTestResults'}->allTestsPass);
 
-    if ($allStudentTestsMustPass
+    if ($studentsMustSubmitTests
+        && $allStudentTestsMustPass
         && $status{'studentTestResults'}->testsFailed > 0)
     {
         $status{'feedback'}->print(
@@ -3341,16 +3495,17 @@ EOF
     $status{'feedback'}->endFeedbackSection;
     }
 
-    if ($gradedElements > 0
-        || (defined $status{'studentTestResults'}
-            && $status{'studentTestResults'}->testsExecuted > 0))
+    if ($gradedElements > 0)
+#        || (defined $status{'studentTestResults'}
+#            && $status{'studentTestResults'}->testsExecuted > 0))
     {
         $codeCoveragePercent = 0;
         if ($gradedElements > 0)
         {
             $codeCoveragePercent =
                 int(($gradedElementsCovered * 1.0 / $gradedElements)
-                / $coverageGoal * 100.0 + 0.5);
+                # / $coverageGoal
+                * 100.0 + 0.5);
             if ($codeCoveragePercent > 100) { $codeCoveragePercent = 100; }
             if (($gradedElementsCovered * 1.0 / $gradedElements) < $coverageGoal
                 && $codeCoveragePercent == 100)
@@ -3365,16 +3520,17 @@ EOF
 
         if (!$useEnhancedFeedback)
         {
-        $sectionTitle = "Code Coverage from Your Tests ";
+        $sectionTitle = ($usePit ? "Mutants Detected by" : "Code Coverage from")
+            . " Your Tests ";
         if ($gradedElements == 0)
         {
             $sectionTitle .= "<b class=\"warn\">(No Coverage!)</b>";
         }
-        elsif (($gradedElementsCovered * 1.0 / $gradedElements)
-            >= $coverageGoal)
-        {
-            $sectionTitle .= "(100%)";
-        }
+#         elsif (($gradedElementsCovered * 1.0 / $gradedElements)
+#             >= $coverageGoal)
+#         {
+#             $sectionTitle .= "(100%)";
+#         }
         else
         {
             $sectionTitle .= "<b class=\"warn\">($codeCoveragePercent%)</b>";
@@ -3383,7 +3539,8 @@ EOF
         $status{'feedback'}->startFeedbackSection(
             $sectionTitle, ++$expSectionId, 1);
 
-        $status{'feedback'}->print("<p><b>Code Coverage: ");
+        $status{'feedback'}->print("<p><b>" .
+          ($usePit ? "Mutants Detected" : "Code Coverage") .": ");
         if ($codeCoveragePercent < 100)
         {
             $status{'feedback'}->print(
@@ -3396,9 +3553,10 @@ EOF
 
         my $descr = $cfg->getProperty("statElementsLabel", "Methods Executed");
         $descr =~ tr/A-Z/a-z/;
-        $descr =~ s/\s*executed\s*$//;
+        $descr =~ s/\s*Detected\s*$/ detected/;
+        $descr =~ s/\s*executed\s*$/ exercised/;
         $status{'feedback'}->print(<<EOF);
-</b> (percentage of $descr exercised by your tests)</p>
+</b> (percentage of $descr by your tests)</p>
 <p>You can improve your testing by looking for any
 <span style="background-color:#F0C8C8">lines highlighted in this color</span>
 in your code listings above.  Such lines have not been sufficiently
@@ -5080,7 +5238,7 @@ EOF
 #=============================================================================
 # generate score explanation for student
 #=============================================================================
-if ($can_proceed && $studentsMustSubmitTests)
+if ($can_proceed && $studentsMustSubmitTests && !$useEMRN)
 {
     my $scoreToTenths = int($runtimeScore * 10 + 0.5) / 10;
     my $possible = int($maxCorrectnessScore * 10 + 0.5) / 10;
@@ -5089,12 +5247,22 @@ if ($can_proceed && $studentsMustSubmitTests)
         . "($scoreToTenths/$possible)",
         ++$expSectionId,
         1);
+    my $covLabel = ($usePit ? "Mutants detected by" : "Code coverage from");
     $status{'feedback'}->print(<<EOF);
 <table style="border:none">
 <tr><td><b>Results from running your tests:</b></td>
 <td class="n">$studentCasesPercent%</td></tr>
-<tr><td><b>Code coverage from your tests:</b></td>
+<tr><td><b>$covLabel your tests:</b></td>
 <td class="n">$codeCoveragePercent%</td></tr>
+EOF
+    if ($coverageGoal < 1)
+    {
+    $status{'feedback'}->print(<<EOF);
+<tr><td><b>Coverage goal for full credit:</b></td>
+<td class="n">$printableCoverageGoal%</td></tr>
+EOF
+    }
+    $status{'feedback'}->print(<<EOF);
 <tr><td><b>Estimate of problem coverage:</b></td>
 <td class="n">$instructorCasesPercent%</td></tr>
 <tr><td colspan="2">score =
@@ -5103,8 +5271,12 @@ EOF
     {
         $status{'feedback'}->print(" $studentCasesPercent% * ");
     }
+    $status{'feedback'}->print("$codeCoveragePercent% ");
+    if ($coverageGoal < 1)
+    {
+        $status{'feedback'}->print("/ $printableCoverageGoal% ");
+    }
     $status{'feedback'}->print(<<EOF);
-$codeCoveragePercent%
 * $instructorCasesPercent%
 * $maxCorrectnessScore
 points possible = $scoreToTenths</p>
@@ -5580,7 +5752,8 @@ if ($codingSectionStatus{'compilerErrors'} == 1 && $studentsMustSubmitTests)
 # Testing Section
 my $showTesting = 1;
 my $testingMsg = '';
-if ($status{'studentTestResults'}->testsExecuted == 0)
+if (!defined($status{'studentTestResults'}) || 
+    $status{'studentTestResults'}->testsExecuted == 0)
 {
     $showTesting = 0;
     $expandSectionId = 2;
@@ -5775,7 +5948,8 @@ if ($studentsMustSubmitTests)
         $behaviorMsg = '<p>Fix <b class="warn">Unit Test Coding Problems</b> '
             . '(see above) for behavioral analysis.</p>';
     }
-    elsif ($status{'studentTestResults'}->testsExecuted == 0)
+    elsif (!defined $status{'studentTestResults'}
+            || $status{'studentTestResults'}->testsExecuted == 0)
     {
         $showBehavior = 0;
         $behaviorMsg = '<p>Your own software tests must be included for '
@@ -6133,6 +6307,75 @@ if (-f $scriptLog && stat($scriptLog)->size > 0)
 {
     addReportFileWithStyle($cfg, $scriptLogRelative, "text/plain", 0, "admin");
     addReportFileWithStyle($cfg, $antLogRelative,    "text/plain", 0, "admin");
+}
+
+if ($useEMRN)
+{
+  my $maxPossible = $maxCorrectnessScore + $maxToolScore;
+  my $rawScore = $runtimeScore + $staticScore;
+  my $rawPct = $rawScore / $maxPossible;
+  my $subTime = $cfg->getProperty('submissionTimestamp', 0);
+  my $dueTime = $cfg->getProperty('dueDateTimestamp', $subTime);
+  
+  # Meets expectations
+  if ($maxPossible >= 100
+    && $rawPct >= 0.95
+    && $runtimeScore / $maxCorrectnessScore >= 0.95
+    && $staticScore / $maxToolScore >= 0.95
+    && $subTime <= $dueTime)
+  {
+    $staticScore = $maxToolScore;
+    $runtimeScore = $maxCorrectnessScore;
+    $cfg->setProperty('score.category', 'Excellent');
+  }
+  elsif ($rawPct >= 0.85
+    && $runtimeScore / $maxCorrectnessScore >= 0.85
+    && $staticScore / $maxToolScore >= 0.90)
+  {
+    if ($maxPossible < 100)
+    {
+      $staticScore = $maxToolScore;
+      $runtimeScore = $maxCorrectnessScore;
+    }
+    elsif ($staticScore == $maxToolScore)
+    {
+      $runtimeScore = $maxPossible * 0.8 - $staticScore;
+    }
+    elsif ($runtimeScore == $maxCorrectnessScore)
+    {
+      $staticScore = $maxPossible * 0.8 - $runtimeScore;
+    }
+    else
+    {
+      $staticScore = 0.8 * $maxToolScore;
+      $runtimeScore = 0.8 * $maxCorrectnessScore;
+    }
+    $cfg->setProperty('score.category', 'Meets Expectations');
+  }
+  elsif ($rawPct > 0)
+  {
+    my $target = 50; # Should be programmable
+    if ($staticScore == $maxToolScore)
+    {
+      $runtimeScore = $target - $staticScore;
+    }
+    elsif ($runtimeScore == $maxCorrectnessScore)
+    {
+      $staticScore = $target - $runtimeScore;
+    }
+    else
+    {
+      $staticScore = $target / 2;
+      $runtimeScore = $target / 2;
+    }
+    $cfg->setProperty('score.category', 'Revision Needed');
+  }
+  else
+  {
+    $runtimeScore = 0;
+    $staticScore = 0;
+    $cfg->setProperty('score.category', 'Not Assessable');
+  }
 }
 
 $cfg->setProperty('score.correctness', $runtimeScore);

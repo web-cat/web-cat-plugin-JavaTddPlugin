@@ -28,8 +28,7 @@
       <!-- <property name="allowMissingParamTags" value="true"/> -->
       <property name="allowMissingThrowsTags" value="true"/>
       <!-- <property name="allowMissingReturnTag" value="true"/> -->
-      <!-- <property name="scope" value="package"/> -->
-      <property name="accessModifiers" value="public, protected, package"/>
+      <property name="scope" value="package"/>
       <message key="javadoc.duplicateTag"
         value="This {0} tag already appears elsewhere in this Javadoc comment, but it should only appear once (@param tags should only appear once per distinct parameter name).  Remove the repeated occurrences."/>
       <message key="javadoc.missing"
@@ -43,14 +42,13 @@
       <message key="javadoc.unusedTag"
         value="This tag does not seem to be needed for this method or constructor (i.e. a @return tag for a method with a return type of void or a @param tag for a parameter that does not exist). Check for spelling mistakes or remove the tag if it is not needed."/>
     </module>
-    <module name="JavadocMethod">
+    <!-- <module name="JavadocMethod">
       <property name="allowUndeclaredRTE" value="true"/>
       <property name="allowThrowsTagsForSubclasses" value="true"/>
       <property name="allowMissingParamTags" value="true"/>
       <property name="allowMissingThrowsTags" value="true"/>
       <property name="allowMissingReturnTag" value="true"/>
-      <!-- <property name="excludeScope" value="package"/> -->
-      <property name="accessModifiers" value="private"/>
+      <property name="excludeScope" value="package"/>
       <message key="javadoc.missing"
         value="The Javadoc for this method or constructor is missing. All private methods and constructors must include a description of their purpose."/>
       <message key="javadoc.duplicateTag"
@@ -59,7 +57,7 @@
         value="This tag does not seem to be needed for this method or constructor (i.e. a @return tag for a method with a return type of void or a @param tag for a parameter that does not exist). Check for spelling mistakes or remove the tag if it is not needed."/>
       <message key="javadoc.unusedTag"
         value="This tag does not seem to be needed for this method or constructor (i.e. a @return tag for a method with a return type of void or a @param tag for a parameter that does not exist). Check for spelling mistakes or remove the tag if it is not needed."/>
-    </module>
+    </module> -->
     <module name="JavadocType">
       <property name="authorFormat" value="\S"/>
       <property name="versionFormat" value="\S"/>
@@ -411,6 +409,7 @@
     <!-- <module name="HideUtilityClassConstructor"/> -->
     <!-- <module name="InterfaceIsType"/> -->
     <module name="VisibilityModifier">
+      <property name="protectedAllowed" value="true"/>
       <message key="variable.notPrivate"
         value="The field ''{0}'' should be declared private.  Only constants (static final fields) are allowed to be public.  If this field is intended to represent a constant value, declare it to be static and final."/>
     </module>

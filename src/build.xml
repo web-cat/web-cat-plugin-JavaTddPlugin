@@ -6,6 +6,7 @@
 
   <property environment="env"/>
 
+  <property name="tempdir" value="local_tmp"/>
   <property name="assignmentClassDir"   value="${pluginHome}/empty"/>
   <property name="assignmentClassFiles" value="${pluginHome}/empty"/>
   <property name="checkstyleConfigFile"
@@ -147,6 +148,12 @@
     <pathelement location="${basedir}"/>
   </path>
 
+  <path id="pit.classpath">
+    <fileset dir="${pluginHome}/pit" casesensitive="false">
+      <include name="**/*.jar"/>
+    </fileset>
+  </path>
+
   <property name="findbugs.home" value="${pluginHome}/findbugs"/>
   <property name="findbugs.lib" value="${findbugs.home}/lib"/>
   <path id="findbugs.classpath">
@@ -210,6 +217,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   <target name="compile"
           description="compiles all the student code using javac">
     <mkdir dir="${studentBuild}.raw"/>
+    <mkdir dir="${tempdir}"/>
     <apply executable="${PerlForPlugins.perl.exe}"
       failonerror="true"
       parallel="true"
@@ -238,6 +246,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
 
   <target name="compile.instructor.tests"
+  	      depends="compile"
           description="compile all of the instructor-provided unit tests">
     <mkdir dir="${instructorBuild}"/>
   	<!-- TODO: need to handle non-UTF-8 reference tests here -->
@@ -277,6 +286,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            timeout="${exec.timeout}">
       <classpath refid="instructor.classpath"/>
       <jvmarg value="${enableAssertions}"/>
+      <jvmarg value="-Djava.io.tmpdir=${tempdir}"/>
       <jvmarg value="-D${security.manager}"/>
       <!--jvmarg value="-Dabbot.robot.verify=false"/-->
       <jvmarg value="-Dabbot.robot.mode=awt"/>
@@ -351,6 +361,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
            timeout="${exec.timeout}">
       <classpath refid="student.instrumented.classpath"/>
       <jvmarg value="${enableAssertions}"/>
+      <jvmarg value="-Djava.io.tmpdir=${tempdir}"/>
       <jvmarg value="-D${security.manager}"/>
         <!--jvmarg value="-Dabbot.robot.verify=false"/-->
         <jvmarg value="-Dabbot.robot.mode=awt"/>
@@ -418,6 +429,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
 
 
   <target name="instrument.code"
+  	      depends="compile"
           description="add JaCoCo instrumentation to student code">
     <mkdir dir="${studentBuild}"/>
     <copy todir="${studentBuild}">
@@ -456,7 +468,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
   </target>
 
 
-  <target name="zoltar" if="generateHeatmaps">
+  <target name="zoltar" depends="compile" if="generateHeatmaps">
     <!--
     <fileset
       dir="${studentBuild}.raw"
@@ -475,6 +487,8 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <classpath refid="zoltar.classpath"/>
       <jvmarg value="-Xms128m"/>
       <jvmarg value="-Xmx512m"/>
+
+      <sysproperty key="java.io.tmpdir" value="${tempdir}"/>
 
       <sysproperty key="student.testingsupport.junit4.AdaptiveTimeout.ceiling"
         value="${student.testingsupport.junit4.AdaptiveTimeout.ceiling}"/>
@@ -505,6 +519,69 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
       <sysproperty key="gzoltar.html.output" value="${resultDir}/gzoltar.html"/>
       <sysproperty key="gzoltar.source.dir" value="${basedir}"/>
     </java>
+  </target>
+
+
+  <target name="pit"
+  	depends="compile"
+  	if="enablePit"
+  	>
+  	<taskdef name="pitest"
+  		classname="org.pitest.ant.PitestTask"
+  		classpathref="pit.classpath" />
+    <fileset dir="${studentBuild}.raw"
+             casesensitive="false"
+             id="pit.target.class.set"
+    	     excludes="${studentTestClassPattern} ${instrumentExclusionPattern}">
+      <include name="**/*.class"/>
+    </fileset>
+    <pathconvert pathsep=","
+      property="pit.target.classes" refid="pit.target.class.set">
+      <filtermapper>
+      	<replacestring from="${studentBuild}.raw/" to=""/>
+        <replacestring from=".class" to=""/>
+        <replaceregex pattern="/" replace="" flags="g"/>
+      </filtermapper>
+    </pathconvert>
+  	<echo message="target classes=${pit.target.classes}"/>
+    <fileset dir="${studentBuild}.raw"
+             casesensitive="false"
+             includes="${studentTestClassPattern}"
+             excludes="${studentTestClassExclusionPattern}"
+             id="pit.target.test.set"
+    />
+    <pathconvert pathsep=","
+      property="pit.target.tests" refid="pit.target.test.set">
+      <filtermapper>
+        <replacestring from="${studentBuild}.raw/" to=""/>
+        <replacestring from=".class" to=""/>
+        <replaceregex pattern="/" replace="" flags="g"/>
+      </filtermapper>
+    </pathconvert>
+    <echo message="target tests=${pit.target.tests}"/>
+    <condition property="pit.src.dir" value="src" else=".">
+      <available file="src" type="dir"/>
+    </condition>
+    <pitest
+      pitClasspath="pit.classpath"
+      classPath="student.classpath"
+      targetClasses="${pit.target.classes}"
+      targetTests="${pit.target.tests}"
+      reportDir="${resultDir}/pit"
+      sourceDir="${pit.src.dir}"
+      fullMutationMatrix="true"
+      outputFormats="CSV,XML"
+      threads="4"
+      failonerror="false"
+      jvmArgs="-Djava.io.tmpdir=${tempdir} -Xmx1024m"
+    />
+  	<move todir="${resultDir}" flatten="true">
+  	  <fileset dir="${resultDir}/pit">
+  	  	<include name="**/*.csv"/>
+        <include name="**/*.xml"/>
+  	  </fileset>
+  	</move>
+  	<delete dir="${resultDir}/pit" />
   </target>
 
 
@@ -740,7 +817,7 @@ staticAnalysisSrcExclusionPattern = ${staticAnalysisSrcExclusionPattern}
        The main target
        ============================================================ -->
 
-  <target name="test.bundle" depends="instructor.test, jacoco.report, zoltar"/>
+  <target name="test.bundle" depends="instructor.test, jacoco.report, zoltar, pit"/>
   <target name="checkstyle.bundle"
     depends="checkstyle, run.comtor, remote.post, generate.pdf, generate.diagrams"/>
 

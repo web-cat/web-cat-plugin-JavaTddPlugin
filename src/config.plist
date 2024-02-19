@@ -3,7 +3,7 @@
     version.major    = 4;
     version.minor    = 1;
     version.revision = 3;
-    version.date     = 20210917;
+    version.date     = 20220206;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins,
                          PMDForPlugins, CheckstyleForPlugins );
@@ -765,7 +765,7 @@
         },
         {
             property    = usePit;
-            type        = boolean;
+            type        = antBoolean;
             advanced    = true;
             default     = false;
             name        = "Use PIT Mutation Analysis (Experimental)";
@@ -774,6 +774,26 @@
   "Set to true to turn on mutation analysis for evaluating student-written
   test suites. This is highly experimental and not advised for production
   use except in research settings.";
+        },
+        {
+            property    = useEMRN;
+            type        = antBoolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use EMRN Grading (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to turn on EMRN grading scale support instead of points.";
+        },
+        {
+            property    = useJdk11;
+            type        = boolean;
+            advanced    = true;
+            default     = false;
+            name        = "Use Java 11 (Experimental)";
+            category    = "Developer Settings";
+            description =
+  "Set to true to switch to Java 11.";
         }
     );
     globalOptions = (

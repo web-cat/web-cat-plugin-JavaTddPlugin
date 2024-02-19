@@ -8,4 +8,4 @@ Use the latest version from:
 
 https://www.jacoco.org/jacoco/
 
-The current official build of this plug-in uses v 0.8.5.
+The current official build of this plug-in uses v 0.8.6.

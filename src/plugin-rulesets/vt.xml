@@ -218,6 +218,44 @@
       </example>
     </rule>
 
+    <rule name="AssertJAssertion"
+          language="java"
+          message="This assertThat() is missing a chained method defining
+          the expectation, so
+          it cannot test any useful behavior exhibited by your code at
+          run-time."
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+      externalInfoURL="http://web-cat.cs.vt.edu/WCWiki/PmdRules/VtRules#AssertJAssertion">
+      <description>
+      All assertThat() assertions in JUnit test methods
+      should contain one or more chained method calls defining the
+      expected behavior, such as .isEqualTo(), .isTrue(), isFalse(), etc.
+      </description>
+        <properties>
+        <property name="xpath">
+            <value>
+                <![CDATA[
+//StatementExpression/PrimaryExpression[
+  PrimaryPrefix/Name/@Image='assertThat']
+  [not(PrimarySuffix[not(Arguments)])]
+                ]]>
+            </value>
+        </property>
+        </properties>
+        <priority>2</priority>
+
+      <example>
+  <![CDATA[
+  import junit.framework.*;
+  public class Foo extends TestCase {
+   public void test1() {
+       assertThat( "any value" );    // oops, does not test anything useful!
+   }
+  }
+  ]]>
+      </example>
+      </rule>
+
     <rule name="FormalParametersNeedMeaningfulNames"
           language="java"
           message="A formal parameter has been left with its auto-generated
