@@ -1,45 +1,40 @@
 <?xml version="1.0"?>
 <ruleset name="JUnit Rules (JavaTddPlugin version)"
-    xmlns="http://pmd.sf.net/ruleset/2.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
+         xmlns="http://pmd.sf.net/ruleset/2.0.0"
+>
 
-  <description>
-    These rules deal with different problems that can occur with JUnit
-    tests.  This version of the ruleset includes alternate messages
-    from the main PMD rulesets/java/design.xml ruleset.
-  </description>
+    <description>
+        These rules deal with different problems that can occur with JUnit
+        tests. This version of the ruleset includes alternate messages
+        from the main PMD rulesets/java/design.xml ruleset.
+    </description>
 
-  <rule ref="rulesets/java/junit.xml/JUnitStaticSuite"/>
-  <rule ref="rulesets/java/junit.xml/JUnitSpelling"
-    message="You may have misspelled a JUnit framework method (setUp() or
-    tearDown()).  Double-check your capitalization."/>
+    <!--    Use custom rules instead of the built-in ones since we use a custom student.TestCase class. The built-in rules look for a TestCase class with a different FQN-->
 
-  <!-- rule
-  ref="rulesets/java/junit.xml/JUnitAssertionsShouldIncludeMessage"
-    not included, since students usually don't use messages when
-    writing test cases "in the small", and that is basically OK. -->
-  <!-- rule name="JUnitTestsShouldIncludeAssert"
-    use VT rule instead, until we can check out the differences -->
-  <!-- rule name="TestClassWithoutTestCases"
-    use VT rule instead, until we can check out the differences -->
-  <!-- rule name="UnnecessaryBooleanAssertion"
-    use VT rule instead, since it catches all compile-time constants -->
-
-  <!-- UseAssertEqualsInsteadOfAssertTrue" -->
-  <rule ref="rulesets/java/junit.xml/UseAssertSameInsteadOfAssertTrue"
-    message="Use assertEquals() to compare two values for equality instead
-	of using assertTrue().  If you intend to compare object references, use
-	assertSame() instead of assertTrue(), or assertNotSame() instead of
-	assertFalse()."/>
-  <rule ref="rulesets/java/junit.xml/UseAssertNullInsteadOfAssertTrue"
-    message="Use assertNull(x) instead of assertTrue(x == null), or
-    assertNotNull(x) instead of assertFalse(x == null)."/>
-  <rule ref="rulesets/java/junit.xml/SimplifyBooleanAssertion"
-    message="Avoid negation in an assertTrue() or assertFalse() test. For
-    example, rephrase: assertTrue(!expr); as: assertFalse(expr);."/>
-
-  <!-- JUnitTestContainsTooManyAsserts -->
-  <!-- UseAssertTrueInsteadOfAssertEquals -->
+    <rule name="JUnitStaticSuite"
+          language="java"
+          class="edu.vt.cs.webcat.rules.JUnitStaticSuiteRule"
+          message="You have a suite() method that is not both public and static, so JUnit won't call it to get your TestSuite. Is that what you wanted to do?"
+    />
+    <rule name="JUnitSpelling"
+          language="java"
+          class="edu.vt.cs.webcat.rules.JUnitSpellingRule"
+          message="You may have misspelled a JUnit framework method (setUp() or
+    tearDown()). Double-check your capitalization."
+    />
+    <rule name="UnitTestShouldIncludeAssert"
+          language="java"
+          class="edu.vt.cs.webcat.rules.UnitTestShouldIncludeAssertRule"
+          message="This unit test should include assert() or fail()"
+    />
+    <rule name="TestClassWithoutTestCases"
+          language="java"
+          class="edu.vt.cs.webcat.rules.TestClassWithoutTestCasesRule"
+          message="The class ''{0}'' might be a test class, but it contains no test cases."
+    />
+    <rule name="SimplifiableTestAssertion"
+          language="java"
+          class="edu.vt.cs.webcat.rules.SimplifiableTestAssertionRule"
+          message="Assertion may be simplified using {0}"/>
 
 </ruleset>

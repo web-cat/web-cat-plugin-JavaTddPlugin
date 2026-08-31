@@ -1,0 +1,409 @@
+<?xml version="1.0"?>
+<ruleset name="Migrated ruleset"
+         xmlns="http://pmd.sf.net/ruleset/2.0.0"
+>
+
+    <description>
+        This Ruleset contains rules that were previously
+        handled by CheckStyle, but have since been migrated to PMD.
+    </description>
+
+    <rule name="LineLength"
+          language="java"
+          class="edu.vt.cs.webcat.rules.LineLengthRule">
+
+        <description>
+            Prevent unnecessarily long lines in source code.
+        </description>
+
+        <properties>
+            <property name="maxLength" value="80"/>
+            <property name="filePattern" value=".*Test"/>
+            <property name="filePatternMaxLength" value="0"/> <!-- no limit in test files -->
+            <property name="ignorePattern" value="^ *\* *[^ ]+$"/>
+            <property name="message"
+                      value="This line is longer than {0} characters. Break it into multiple lines so that it is easier to read."/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/codestyle.xml/FieldNamingConventions"
+          message="Constants should be names in ALL_CAPITALS, with words separated by underscores. Non-constant fields should be named in camelCase, starting with a lowercase letter."
+    >
+        <properties>
+            <property name="publicConstantPattern" value="^([A-Z][A-Z0-9]*(_[A-Z0-9]+)*|log|question[0-9]+)$"/>
+            <property name="constantPattern" value="^([A-Z][A-Z0-9]*(_[A-Z0-9]+)*|log|question[0-9]+)$"/>
+            <property name="enumConstantPattern" value=".*"/>
+            <property name="finalFieldPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="staticFieldPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="defaultFieldPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="exclusions" value="serialVersionUID,serialPersistentFields"/>
+        </properties>
+    </rule>
+
+
+    <rule ref="category/java/codestyle.xml/MethodNamingConventions"
+          message="Method names should be in camelCase, starting with a lowercase letter."
+    >
+        <properties>
+            <property name="methodPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="staticPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="nativePattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="junit3TestPattern" value="test[A-Z0-9][a-zA-Z0-9]*"/>
+            <property name="junit4TestPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="junit5TestPattern" value="[a-z][a-zA-Z0-9]*"/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/codestyle.xml/FormalParameterNamingConventions"
+          message="Method parameter names should be in camelCase, starting with a lowercase letter."
+    >
+        <properties>
+            <property name="methodParameterPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="finalMethodParameterPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="lambdaParameterPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="explicitLambdaParameterPattern" value="[a-z][a-zA-Z0-9]*"/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/codestyle.xml/LocalVariableNamingConventions"
+          message="Local variable names should be in camelCase, starting with a lowercase letter."
+    >
+        <properties>
+            <property name="localVarPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="finalVarPattern" value="[a-z][a-zA-Z0-9]*"/>
+            <property name="catchParameterPattern" value="[a-z][a-zA-Z0-9]*"/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/codestyle.xml/ClassNamingConventions"
+          message="Class, interface, enum, and annotation names should be in PascalCase, starting with an uppercase letter."
+    >
+        <properties>
+            <property name="classPattern" value="[A-Z][a-zA-Z0-9]*"/>
+            <property name="abstractClassPattern" value="[A-Z][a-zA-Z0-9]*"/>
+            <property name="interfacePattern" value="[A-Z][a-zA-Z0-9]*"/>
+            <property name="enumPattern" value="[A-Z][a-zA-Z0-9]*"/>
+            <property name="annotationPattern" value="[A-Z][a-zA-Z0-9]*"/>
+            <property name="utilityClassPattern" value="[A-Z][a-zA-Z0-9]*"/>
+            <!--            <property name="testClassPattern" value="^(Test|IT).*$|^[A-Z][a-zA-Z0-9]*(Test|Tests|TestCase|IT|ITCase)$" />-->
+            <property name="testClassPattern" value="[A-Z][a-zA-Z0-9]*"/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/codestyle.xml/TypeParameterNamingConventions"
+          message="Type parameter names should be in PascalCase, starting with an uppercase letter. By convention, single-letter type parameters are often used, but they should still be uppercase."
+    >
+        <properties>
+            <property name="typeParameterNamePattern" value="[A-Z][a-zA-Z0-9]*"/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/codestyle.xml/UnnecessarySemicolon"
+          message="This statement is just a '';'' and, therefore, does nothing.  You may have added a '';'' in an inappropriate location (like after an if or a for loop). See if you are missing code or just delete the extra '';''."
+    />
+
+    <rule ref="category/java/errorprone.xml/UseEqualsToCompareStrings"
+          message="Strings should be compared using equals(). The == and != operators compare the references of objects, not their values. Using the equals() (or equalsIgnoreCase()) method will compare the values of the Strings instead."
+    />
+
+    <rule name="UpperEll"
+          language="java"
+          class="edu.vt.cs.webcat.rules.UppercaseLongLiteralRule">
+
+        <description>
+            Prevent long literals that end with a lowercase 'l', which can be easily confused with the digit '1'.
+        </description>
+
+        <properties>
+            <property name="message"
+                      value="When declaring a literal long value, use an uppercase ''L'' instead of a lowercase ''l''. This avoids the confusion between the lowercase ''l'' (ell) and the number ''1''."/>
+        </properties>
+    </rule>
+
+    <rule name="StrictJavadoc"
+          language="java"
+          class="edu.vt.cs.webcat.rules.StrictJavadocRule"
+          message="Javadoc contract violation.">
+        <description>
+            Enforces required Javadocs on package-private-or-more-visible types,
+            methods, constructors, and non-private fields, and validates required
+            Javadoc tags.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="missingJavadocMessage"
+                      value="{0} ''{1}'' is missing a Javadoc comment."/>
+            <property name="malformedParamMessage"
+                      value="Javadoc for {0} ''{1}'' has a malformed @param tag with no parameter name."/>
+            <property name="duplicateParamMessage"
+                      value="Javadoc for {0} ''{1}'' has duplicate @param for parameter ''{2}''."/>
+            <property name="unknownParamMessage"
+                      value="Javadoc for {0} ''{1}'' has @param for unknown parameter ''{2}''."/>
+            <property name="duplicateTypeParamMessage"
+                      value="Javadoc for {0} ''{1}'' has duplicate @param for type parameter ''{2}''."/>
+            <property name="unknownTypeParamMessage"
+                      value="Javadoc for {0} ''{1}'' has @param for unknown type parameter ''{2}''."/>
+            <property name="missingParamMessage"
+                      value="Javadoc for {0} ''{1}'' is missing @param for ''{2}''."/>
+            <property name="missingTypeParamMessage"
+                      value="Javadoc for {0} ''{1}'' is missing @param for type parameter ''{2}''."/>
+            <property name="duplicateReturnMessage"
+                      value="Javadoc for {0} ''{1}'' has duplicate @return tags."/>
+            <property name="missingReturnMessage"
+                      value="Javadoc for non-void method ''{0}'' must declare @return."/>
+            <property name="forbiddenReturnMessage"
+                      value="Javadoc for {0} ''{1}'' must not declare @return."/>
+            <property name="malformedTypeParamMessage"
+                      value="Javadoc for {0} ''{1}'' has a malformed @param tag with no target."/>
+            <property name="invalidTypeParamTargetMessage"
+                      value="Javadoc for {0} ''{1}'' has invalid @param target ''{2}''."/>
+            <property name="unusedTagOnTypeMessage"
+                      value="Javadoc for {0} ''{1}'' contains unused @{2} tag."/>
+            <property name="missingAuthorMessage"
+                      value="Javadoc for {0} ''{1}'' must declare @author."/>
+            <property name="duplicateAuthorMessage"
+                      value="Javadoc for {0} ''{1}'' has duplicate @author tags."/>
+            <property name="emptyAuthorMessage"
+                      value="Javadoc for {0} ''{1}'' has an empty @author tag."/>
+            <property name="missingVersionMessage"
+                      value="Javadoc for {0} ''{1}'' must declare @version."/>
+            <property name="duplicateVersionMessage"
+                      value="Javadoc for {0} ''{1}'' has duplicate @version tags."/>
+            <property name="emptyVersionMessage"
+                      value="Javadoc for {0} ''{1}'' has an empty @version tag."/>
+            <property name="missingFieldJavadocMessage"
+                      value="Non-private field(s) ''{0}'' must have Javadoc."/>
+            <property name="allowedDuplicateTags" value="author"/>
+        </properties>
+    </rule>
+
+    <rule name="IndentationRule"
+          language="java"
+          class="edu.vt.cs.webcat.rules.DynamicIndentationRule"
+          message="Indentation violation.">
+        <description>
+            Enforces consistent indentation using spaces. Tab characters are not
+            allowed in indentation, and the number of leading spaces on each line must be a multiple of the indent size.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="banTabs" value="true"/>
+            <property name="tabViolationMessage"
+                      value="Line {0} contains a tab character. Use spaces for indentation."/>
+            <property name="indentViolationMessage"
+                      value="Line {0} is indented incorrectly. Expected {1} spaces but found {2}."/>
+            <property name="inconsistentFileMessage"
+                      value="This file does not follow a consistent indentation style. Each line must be indented with a number of spaces that is a multiple of the indent size of your choosing. I.e. 2 or 4 spaces per level."/>
+        </properties>
+    </rule>
+
+    <rule name="WhitespaceAndPadding"
+          language="java"
+          class="edu.vt.cs.webcat.rules.WhitespaceAndPaddingRule"
+          message="Whitespace/padding violation">
+        <description>
+            Enforces consistent whitespace around operators, keywords, braces,
+            delimiters, generic type angle brackets, method/constructor parentheses,
+            prefix/postfix unary operators, and dot access.
+        </description>
+        <priority>3</priority>
+    </rule>
+
+    <rule name="LineLayout"
+          language="java"
+          class="edu.vt.cs.webcat.rules.LineLayoutRule"
+          message="Line layout violation">
+        <description>
+            Enforces that a right curly brace is alone on its physical line
+            and that each physical line contains at most one statement.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="checkRCurly" value="true"/>
+            <property name="rcurlyMessage"
+                      value="Right curly brace '}' must be alone on its line."/>
+            <property name="oneStatementMessage"
+                      value="Only one statement is allowed per line."/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/documentation.xml/CommentContent"
+          message="Comments should not contain TODO or FIX ME (FIXME) tags. This indicates unfinished code that should probably be addressed.">
+        >
+        <properties>
+            <property name="forbiddenRegex" value="(?i)\b(?:TODO|FIXME|FIX ME)\b"/>
+        </properties>
+    </rule>
+
+    <rule name="RegexWriteHerePreventer"
+          language="java"
+          class="edu.vt.cs.webcat.rules.RegexRule">
+
+        <description>
+            Prevent "Write a description here"
+        </description>
+
+        <properties>
+            <property name="pattern" value="^\s*\*\s*(Write|Place) a.*here\.\s*$"/>
+            <property name="shouldMatch" value="false"/>
+            <property name="multiline" value="true"/>
+            <property name="dotall" value="true"/>
+            <property name="message" value="This is a placeholder and should be replaced."/>
+        </properties>
+    </rule>
+
+    <rule name="RegexReplaceThisPreventer"
+          language="java"
+          class="edu.vt.cs.webcat.rules.RegexRule">
+
+        <description>
+            Prevent "Replace this comment with your own"
+        </description>
+
+        <properties>
+            <property name="pattern" value="^\s*\*\s*Replace this.*with your own\.\s*$"/>
+            <property name="shouldMatch" value="false"/>
+            <property name="multiline" value="true"/>
+            <property name="dotall" value="true"/>
+            <property name="message" value="This is a placeholder and should be replaced."/>
+        </properties>
+    </rule>
+
+    <rule name="RegexAuthorPartnerPreventer"
+          language="java"
+          class="edu.vt.cs.webcat.rules.RegexRule">
+
+        <description>
+            Prevent "@author Partner's name"
+        </description>
+
+        <properties>
+            <property name="pattern" value="^\s*\*\s*@author\s+Partner( [1-9])?'s\s+name"/>
+            <property name="shouldMatch" value="false"/>
+            <property name="multiline" value="true"/>
+            <property name="dotall" value="true"/>
+            <property name="message" value="This is a placeholder and should be replaced."/>
+        </properties>
+    </rule>
+
+    <rule name="RegexAuthorYourUsernamePreventer"
+          language="java"
+          class="edu.vt.cs.webcat.rules.RegexRule">
+
+        <description>
+            Prevent "@author your username"
+        </description>
+
+        <properties>
+            <property name="pattern" value="^\s*\*\s*@author\s+.*\byour(-|\s+)(name|pid|username)"/>
+            <property name="shouldMatch" value="false"/>
+            <property name="multiline" value="true"/>
+            <property name="dotall" value="true"/>
+            <property name="message" value="This is a placeholder and should be replaced."/>
+        </properties>
+    </rule>
+
+
+    <rule name="RegexVersionPlaceholderPreventer"
+          language="java"
+          class="edu.vt.cs.webcat.rules.RegexRule">
+
+        <description>
+            Prevent "@version place the date here"
+        </description>
+
+        <properties>
+            <property name="pattern" value="^\s*\*\s*@version.*place the date here\b"/>
+            <property name="shouldMatch" value="false"/>
+            <property name="multiline" value="true"/>
+            <property name="dotall" value="true"/>
+            <property name="message" value="This is a placeholder and should be replaced."/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/bestpractices.xml/DefaultLabelNotLastInSwitch"/>
+
+    <rule name="JavaStyleArrayDeclarationRule"
+          language="java"
+          class="edu.vt.cs.webcat.rules.JavaStyleArrayDeclarationRule">
+
+        <description>
+            Enforce Java-style array declarations (e.g. int[] x; instead of int x[];).
+        </description>
+
+        <properties>
+            <property name="variableMessage"
+                      value="Array brackets should be on the type, not the variable: {0}. For example, use ''int[] x'' instead of ''int x[]''."/>
+            <property name="methodMessage"
+                      value="Array brackets should be on the return type, not after the parameter list: {0}. For example, use ''int[] foo()'' instead of ''int foo()[]''."/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/AssignmentInOperand"
+          message="Avoid assigning values to variables as part of a larger expression. It is difficult to read correctly and may cause confusion. Make each assignment a separate statement."/>
+    />
+
+    <rule ref="category/java/bestpractices.xml/OneDeclarationPerLine"
+          message="To make the code more readable, place each variable or field in its own declaration on a separate line."
+    >
+        <properties>
+            <property name="strictMode" value="true"/>
+        </properties>
+    </rule>
+
+    <rule name="HiddenFieldRule"
+          language="java"
+          class="edu.vt.cs.webcat.rules.HiddenFieldRule">
+
+        <description>
+            Prevent method parameters and local variables from having the same name as a field in the same class.
+        </description>
+
+        <properties>
+            <property name="checkConstructors" value="false"/>
+            <property name="checkSetters" value="false"/>
+            <property name="checkAbstractMethods" value="false"/>
+            <property name="parameterMessage"
+                      value="''{0}'' has the same name as one of the class's fields. This is generally confusing and should be avoided. Rename the parameter or local variable so that there is no conflict."/>
+            <property name="localVariableMessage"
+                      value="''{0}'' has the same name as one of the class's fields. This is generally confusing and should be avoided. Rename the parameter or local variable so that there is no conflict."/>
+        </properties>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml/ImplicitSwitchFallThrough"
+          message="The case above will fall through and run the code in this case too. This may be an indication that a break statement is missing at the end of the previous case. If this is the intended functionality, add a comment on the last line of the previous case with the phrase ''fallthrough'' to indicate that."
+    />
+
+    <rule name="FieldVisibilityRule"
+          language="java"
+          class="edu.vt.cs.webcat.rules.FieldVisibilityRule">
+
+        <description>
+            Enforce that fields have appropriate visibility modifiers.
+        </description>
+
+        <properties>
+            <property name="allowProtected" value="true"/>
+            <property name="missingModifierMessage" value="Field ''{0}'' is missing a visibility modifier."/>
+            <property name="publicFieldMessage"
+                      value="The field ''{0}'' should be declared private. Only constants (static final fields) are allowed to be public. If this field is intended to represent a constant value, declare it to be static and final."/>
+            <property name="protectedFieldMessage"
+                      value="Field ''{0}'' should be private instead of protected."/>
+        </properties>
+    </rule>
+
+    <rule name="CovariantEqualsRule"
+          language="java"
+          class="edu.vt.cs.webcat.rules.CovariantEqualsRule">
+
+        <description>
+            Enforce that fields have appropriate visibility modifiers.
+        </description>
+
+        <properties>
+            <property name="violationMessage"
+                      value="This class defines a ''covariant'' equals() method (i.e., where the argument is the same type as this class), but it does not override the method equals(Object). Mistakenly defining equals() with the wrong parameter type is an error that can produce unexpected run-time behavior. Add a meaningful definition for equals(Object), or correct your existing equals() method."/>
+        </properties>
+    </rule>
+
+</ruleset>

@@ -531,7 +531,7 @@ sub collect_indicators
         $self->set_indicator('ias', $avg);
     }
     # itc: increasing test classes
-    $self->set_indicator('itc', $totals{'test'}->{'classes'});
+    $self->set_indicator('isc', $totals{'test'}->{'classes'});
 }
 
 

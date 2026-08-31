@@ -10,24 +10,8 @@
     PMD rulesets/java/braces.xml ruleset.
   </description>
 
-  <rule ref="rulesets/java/braces.xml/IfStmtsMustUseBraces"
-    message="It is a good idea to always enclose the code in the body
-    of an if statement in braces. It helps to reduce the likelihood of
-    errors."/>
+  <rule ref="category/java/codestyle.xml/ControlStatementBraces"
+        message="It is a good idea to always enclose control statement bodies in braces. It helps reduce the likelihood of errors."/>
 
-  <rule ref="rulesets/java/braces.xml/WhileLoopsMustUseBraces"
-    message="It is a good idea to always enclose the code in the body
-    of a while loop in braces. It helps to reduce the likelihood of
-    errors."/>
-
-  <rule ref="rulesets/java/braces.xml/IfElseStmtsMustUseBraces"
-    message="It is a good idea to always enclose the code in the body
-    of both the if and the else clauses in braces. It helps to reduce
-    the likelihood of errors."/>
-
-  <rule ref="rulesets/java/braces.xml/ForLoopsMustUseBraces"
-    message="It is a good idea to always enclose the code in the body
-    of a for loop in braces. It helps to reduce the likelihood of
-    errors."/>
 
 </ruleset>

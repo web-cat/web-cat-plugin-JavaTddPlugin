@@ -17,10 +17,11 @@
     class should define at least one constructor."/>
    -->
 
-  <rule ref="rulesets/java/controversial.xml/UnnecessaryParentheses"
+  <rule ref="category/java/codestyle.xml/UselessParentheses"
     message="The parentheses around your return value are not
     necessary. You should probably remove them to avoid confusion."/>
 
-  <rule ref="rulesets/java/controversial.xml/SuspiciousOctalEscape"/>
+  <rule ref="category/java/errorprone.xml/SuspiciousOctalEscape"/>
+  <rule ref="category/java/errorprone.xml/AvoidAccessibilityAlteration" />
 
 </ruleset>
