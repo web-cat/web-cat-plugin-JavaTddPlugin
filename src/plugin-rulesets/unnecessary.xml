@@ -10,19 +10,16 @@
     rulesets/java/unnecessary.xml ruleset.
   </description>
 
-  <rule ref="rulesets/java/unnecessary.xml/UnnecessaryConversionTemporary"
+  <rule ref="category/java/errorprone.xml/UnnecessaryConversionTemporary"
     message="Do not allocate a new object to convert a primitive
     value to a string.  For example, use Integer.toString(x) instead
     of new Integer(x).toString()."/>
 
-  <rule ref="rulesets/java/unnecessary.xml/UnnecessaryReturn"
+  <rule ref="category/java/codestyle.xml/UnnecessaryReturn"
     message="Including a return statement at the end of a method with
     a void return type is unnecessary."/>
 
-  <rule ref="rulesets/java/unnecessary.xml/UnnecessaryFinalModifier"
-    message="When a class has the final modifier, all the methods are
-    automatically final, so the final modifier on this method is
-    redundant."/>
+  <rule ref="category/java/codestyle.xml/UnnecessaryModifier" />
 
   <!-- rule ref="rulesets/java/unnecessary.xml/UselessOverridingMethod"
     message="The body of this overriding method does not add any
@@ -30,9 +27,8 @@
     method to behave differently than in the parent class, change the
     body.  Otherwise, remove it from the subclass."/ -->
 
-  <rule ref="rulesets/java/unnecessary.xml/UselessOperationOnImmutable"
-    message="An operation on an immutable object (a String, BigDecimal or
-    BigInteger object) will not change the object itself, and so it will
+  <rule ref="category/java/errorprone.xml/UselessPureMethodCall"
+    message="This operation will not change the object itself, and so it will
     have no effect as a statement by itself (and it probably a bug)."/>
 
   <!--  currently, broken in PMD XPath validation, so skipping

@@ -36,13 +36,13 @@
 
   <!-- AvoidDollarSigns -->
 
-  <rule ref="rulesets/java/naming.xml/MethodWithSameNameAsEnclosingClass"
+  <rule ref="category/java/errorprone.xml/MethodWithSameNameAsEnclosingClass"
     message="This method has the same name as the class that contains
     it.  Did you intend this method to be a constructor? If so,
     remember constructors do not have a return type. If not, you
     should pick a new name for this method."/>
 
-  <rule ref="rulesets/java/naming.xml/SuspiciousHashcodeMethodName"
+  <rule ref="category/java/errorprone.xml/SuspiciousHashcodeMethodName"
     message="This method looks like it is intended to override the
     hashCode() method, but it does not.  If you intend to override
     hashCode(), fix the method declaration.  Otherwise, change the
@@ -52,7 +52,7 @@
 
   <!-- SuspiciousEqualsMethodName -->
 
-  <rule ref="rulesets/java/naming.xml/AvoidFieldNameMatchingTypeName"
+  <rule ref="category/java/errorprone.xml/AvoidFieldNameMatchingTypeName"
     message="This field has the same name as the class that contains
     it. This is not illegal but it can be very confusing and is best
     avoided. You should pick a new name for this field."/>

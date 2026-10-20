@@ -10,24 +10,7 @@
     alternate messages from the main PMD rulesets/java/imports.xml ruleset.
   </description>
 
-  <rule ref="rulesets/java/imports.xml/DuplicateImports"
-    message="This import statement duplicates the import performed by
-    an earlier statement. It is best to avoid importing the same
-    library class more than once."/>
-
-  <rule ref="rulesets/java/imports.xml/DontImportJavaLang"
-    message="The entire java.lang package is automatically imported
-    into every program. It is unnecessary to import it explicitly. You
-    should remove this import statement."/>
-
-  <rule ref="rulesets/java/imports.xml/UnusedImports"
-    message="The package or class imported by this statement is never
-    used. If you are not going to use the package or class you should
-    remove the import statement."/>
-
-  <rule ref="rulesets/java/imports.xml/ImportFromSamePackage"
-    message="This class (or interface) is already declared inside the
-    specified package, so this import is redundant and should be removed."/>
+  <rule ref="category/java/codestyle.xml/UnnecessaryImport"/>
 
   <!-- TooManyStaticImports -->
 

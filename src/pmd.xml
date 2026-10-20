@@ -24,11 +24,9 @@ rules.
   <rule ref="plugin-rulesets/braces.xml"/>
   <!-- clone.xml -->
   <rule ref="plugin-rulesets/codesize.xml"/>
-  <!--
+
   <rule ref="plugin-rulesets/controversial.xml"/>
-  -->
-  <rule ref="rulesets/java/controversial.xml/SuspiciousOctalEscape"/>
-  <rule ref="rulesets/java/controversial.xml/AvoidAccessibilityAlteration"/>
+
   <!-- coupling.xml -->
   <rule ref="plugin-rulesets/design.xml"/>
   <rule ref="plugin-rulesets/empty.xml"/>
@@ -57,5 +55,6 @@ rules.
   <!-- basic-jsp.xml -->
   <!-- basic-jsf.xml -->
   <rule ref="plugin-rulesets/vt.xml"/>
+  <rule ref="plugin-rulesets/migrated.xml"/>
 
 </ruleset>

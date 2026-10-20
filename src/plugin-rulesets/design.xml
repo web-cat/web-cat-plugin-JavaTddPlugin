@@ -23,15 +23,15 @@
     (i.e. return !okay;)."/>
   -->
 
-  <rule ref="rulesets/java/design.xml/SimplifyBooleanExpressions"
+  <rule ref="category/java/design.xml/SimplifyBooleanExpressions"
     message="This boolean expression can be rewritten more simply.
     Hint: x == true is the same as x.  Also, x == false is the same as
     !x."/>
 
-  <rule ref="rulesets/java/design.xml/SimplifyBooleanReturns"
+  <rule ref="category/java/design.xml/SimplifyBooleanReturns"
     message="This if statement can be removed.  If you are returning true when the if statement's Boolean condition is true, and false when the statement's condition is false, then you can simply return the condition instead (i.e. return x &lt; 5;).  If you are returning false when the if statment's condition is true and returning true in the else branch, you can just return the NOT (!) of the condition instead (i.e. return !okay;)."/>"/>
 
-  <rule ref="rulesets/java/design.xml/SwitchStmtsShouldHaveDefault"
+  <rule ref="category/java/bestpractices.xml/NonExhaustiveSwitch"
     message="This switch statement does not have a default case, which can
     lead to errors.  Add a default case (with an explicit comment, if no
     action is intended when no other case applies)."/>
@@ -60,7 +60,7 @@
 
   <!-- DefaultLabelNotLastInSwitchStmt -->
 
-  <rule ref="rulesets/java/design.xml/NonCaseLabelInSwitchStatement"
+  <rule ref="category/java/errorprone.xml/NonCaseLabelInSwitch"
     message="This label is not a case label.  Such labels decrease readability
     and cause confusion in a case statement.  Remove it, or refactor your
     code."/>
@@ -76,12 +76,12 @@
 
   <!-- ConfusingTernary -->
 
-  <rule ref="rulesets/java/design.xml/InstantiationToGetClass"
+  <rule ref="category/java/errorprone.xml/InstantiationToGetClass"
     message="Avoid instantiating an object just to call getClass() on it.
     Use the .class public member instead (i.e., use ''SomeClassName.class''
     instead of ''new SomeClassName().getClass()'')."/>
 
-  <rule ref="rulesets/java/design.xml/IdempotentOperations"
+  <rule ref="category/java/errorprone.xml/IdempotentOperations"
     message="This operation has no effect.  Examine it to make sure it is
     not a bug, then remove it."/>
 
@@ -96,7 +96,7 @@
   <!--  AssignmentToNonFinalStatic -->
 
   <rule
-    ref="rulesets/java/design.xml/MissingStaticMethodInNonInstantiatableClass"
+    ref="category/java/errorprone.xml/MissingStaticMethodInNonInstantiatableClass"
     message="This class cannot be instantiated, since it has only private
     constructor(s). But this class has no static methods or fields.  A class
     that has private constructors and does not have any static methods or
@@ -112,7 +112,7 @@
 
   <!-- AbstractClassWithoutAbstractMethod -->
 
-  <rule ref="rulesets/java/design.xml/SimplifyConditional"
+  <rule ref="category/java/design.xml/SimplifyConditional"
     message="It is unnecessary to check for null before instanceof.  The
     instanceof keyword returns false when given a null argument."/>
 
@@ -126,12 +126,12 @@
 
   <!-- NonThreadSafeSingleton -->
 
-  <rule ref="rulesets/java/design.xml/UncommentedEmptyMethodBody"
+  <rule ref="category/java/documentation.xml/UncommentedEmptyMethodBody"
     message="This method does not contain any code. Should it be doing
     something? Or can it be removed?  If you need to keep it, add a
     comment to the body explaining why it is empty."/>
 
-  <rule ref="rulesets/java/design.xml/UncommentedEmptyConstructor"
+  <rule ref="category/java/documentation.xml/UncommentedEmptyConstructor"
     message="This constructor does not contain any code. Should it be
     doing something?  Add a comment to the body explaining why it is empty."/>
 
@@ -150,7 +150,7 @@
   <!-- Sometimes this isn't really an error, but far too often for students
        it really is, so a diagnostic is more valuable that the (rare)
        false positives. -->
-  <rule ref="rulesets/java/design.xml/SingularField"
+  <rule ref="category/java/design.xml/SingularField"
     message="This field is only used in one method (or constructor) in this
     class. Make it a local variable within the method instead."/>
 
@@ -158,14 +158,14 @@
 
   <!-- AbstractClassWithoutAnyMethod -->
 
-  <rule ref="rulesets/java/design.xml/TooFewBranchesForASwitchStatement"
+  <rule ref="category/java/performance.xml/TooFewBranchesForSwitch"
     message="This switch statement has too few branches--rewrite it as an
     if statement instead.  Switch statements are intended for more complex
     multi-way branching behavior. Using a switch for only a few cases is not
     advised, since switches are not as easy to understand as if-then
     statements."/>
 
-  <rule ref="rulesets/java/design.xml/LogicInversion"
+  <rule ref="category/java/design.xml/LogicInversion"
     message="Instead of using unary not (!) around the whole expression, use
     the opposite comparison operation instead (e.g., use != instead of ==, or
     &gt;= instead of &lt;, etc.)"/>
